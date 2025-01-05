@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Starmap Visualization</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Loader -->
+  <div id="loader" class="active">Loading Stars...</div>
+
+  <!-- Header -->
+  <header>
+    <h1>Starmap Visualization</h1>
+  </header>
+
+  <!-- Main Container -->
+  <div class="main-container">
+    <!-- Sidebar for Filters -->
+    <aside class="sidebar">
+      <h2>Filters</h2>
+      <form id="filters-form">
+        <!-- Stellar Class Parent Category -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Stellar Class</legend>
+          <div class="filter-content">
+            <!-- Dynamically populated in filters.js -->
+            <div id="stellar-class-container"></div>
+          </div>
+        </fieldset>
+
+        <!-- Size Filter -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Size</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <input
+                type="radio"
+                id="size-stellar-class"
+                name="size"
+                value="stellar-class"
+                checked
+              />
+              <label for="size-stellar-class">Stellar Class-Based</label>
+            </div>
+            <div class="filter-item">
+              <input
+                type="radio"
+                id="size-distance"
+                name="size"
+                value="distance"
+              />
+              <label for="size-distance">Distance-Based</label>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Color Filter -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Color</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <input
+                type="radio"
+                id="color-stellar-class"
+                name="color"
+                value="stellar-class"
+                checked
+              />
+              <label for="color-stellar-class">Stellar Class-Based</label>
+            </div>
+            <div class="filter-item">
+              <input
+                type="radio"
+                id="color-constellation"
+                name="color"
+                value="constellation"
+              />
+              <label for="color-constellation">Constellation</label>
+            </div>
+            <div class="filter-item">
+              <input
+                type="radio"
+                id="color-galactic-plane"
+                name="color"
+                value="galactic-plane"
+              />
+              <label for="color-galactic-plane">Galactic Plane</label>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Opacity Filter -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Opacity</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <input
+                type="radio"
+                id="opacity-absolute-mag"
+                name="opacity"
+                value="absolute-magnitude"
+                checked
+              />
+              <label for="opacity-absolute-mag">Absolute Magnitude-Based</label>
+            </div>
+            <div class="filter-item">
+              <input
+                type="radio"
+                id="opacity-75"
+                name="opacity"
+                value="75"
+              />
+              <label for="opacity-75">75% Opacity</label>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Stars Shown Filter -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Stars Shown</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <input
+                type="radio"
+                id="stars-shown-all"
+                name="stars-shown"
+                value="all"
+                checked
+              />
+              <label for="stars-shown-all">All Stars</label>
+            </div>
+            <div class="filter-item">
+              <input
+                type="radio"
+                id="stars-shown-visible"
+                name="stars-shown"
+                value="visible"
+              />
+              <label for="stars-shown-visible">Visible Stars (Magnitude ≤ 6)</label>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Connections Filter -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Connections (LY)</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <input
+                type="range"
+                id="connection-slider"
+                name="connections"
+                min="1"
+                max="50"
+                value="7"
+              />
+              <span id="connection-value">7</span> Light Years
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Density Mapping Filter -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Density Mapping</legend>
+          <div class="filter-content">
+            <!-- Isolation Distance Slider -->
+            <div class="filter-item">
+              <label>Isolation Distance (LY): <span id="density-value">7</span> LY</label>
+              <input
+                type="range"
+                id="density-slider"
+                name="density"
+                min="1"
+                max="20"
+                value="7"
+              />
+            </div>
+
+            <!-- Tolerance Slider -->
+            <div class="filter-item">
+              <label>Ignore this many closest stars: <span id="tolerance-value">0</span></label>
+              <input
+                type="range"
+                id="tolerance-slider"
+                name="tolerance"
+                min="0"
+                max="10"
+                value="0"
+              />
+            </div>
+          </div>
+        </fieldset>
+      </form>
+    </aside>
+
+    <!-- Maps Section -->
+    <section class="maps-section">
+      <!-- True Coordinates Map -->
+      <div class="map-container">
+        <h2>True Coordinates Map</h2>
+        <canvas id="map3D"></canvas>
+      </div>
+
+      <!-- Globe Map -->
+      <div class="map-container">
+        <h2>Globe Map</h2>
+        <canvas id="sphereMap"></canvas>
+      </div>
+    </section>
+  </div>
+
+  <!-- Tooltip -->
+  <div id="tooltip" class="hidden">
+    <div id="tooltip-starName"></div>
+    <div id="tooltip-systemName"></div>
+    <div id="tooltip-distance"></div>
+    <div id="tooltip-stellarClass"></div>
+    <div id="tooltip-mass"></div>
+    <div id="tooltip-apparentMag"></div>
+    <div id="tooltip-absoluteMag"></div>
+  </div>
+
+  <!-- Labels Container -->
+  <div class="label-container"></div>
+
+  <!-- Scripts -->
+  <script type="module" src="script.js"></script>
+</body>
+</html>
