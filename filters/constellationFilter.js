@@ -196,13 +196,7 @@ function makeTextSprite(txt, opts) {
 
   const tex = new THREE.Texture(canvas);
   tex.needsUpdate = true;
-  // Updated: enable depth testing so that constellation labels are hidden by foreground objects.
-  const mat = new THREE.SpriteMaterial({
-    map: tex,
-    transparent: true,
-    depthWrite: true,
-    depthTest: true
-  });
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false });
   const sprite = new THREE.Sprite(mat);
 
   // Smaller scale
