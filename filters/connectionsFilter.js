@@ -115,6 +115,10 @@ export function createConnectionLines(stars, pairs, mapType) {
       linewidth: lineThickness,
     });
     const line = new THREE.Line(geometry, material);
+    // Ensure connection lines on the Globe are rendered above the globe surface.
+    if (mapType === 'Globe') {
+      line.renderOrder = 1;
+    }
     return line;
   });
 
@@ -122,7 +126,7 @@ export function createConnectionLines(stars, pairs, mapType) {
 }
 
 /**
- * Returns an array of points along the great-circle path between two points on a sphere.
+ * Returns an array of points along the great-circle path between two points on the sphere.
  */
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
