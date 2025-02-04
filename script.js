@@ -67,15 +67,25 @@ class MapManager {
     // Create a THREE scene
     this.scene = new THREE.Scene();
 
-    // Use the new label manager that places 3D sprite labels in the scene
+    // Use the new label manager that places 3D label meshes in the scene
     this.labelManager = new LabelManager(mapType, this.scene);
 
     // Setup camera
     if (mapType === 'TrueCoordinates') {
-      this.camera = new THREE.PerspectiveCamera(75, this.canvas.clientWidth / this.canvas.clientHeight, 0.1, 10000);
+      this.camera = new THREE.PerspectiveCamera(
+        75,
+        this.canvas.clientWidth / this.canvas.clientHeight,
+        0.1,
+        10000
+      );
       this.camera.position.set(0, 0, 70);
     } else {
-      this.camera = new THREE.PerspectiveCamera(75, this.canvas.clientWidth / this.canvas.clientHeight, 0.1, 10000);
+      this.camera = new THREE.PerspectiveCamera(
+        75,
+        this.canvas.clientWidth / this.canvas.clientHeight,
+        0.1,
+        10000
+      );
       this.camera.position.set(0, 0, 200);
     }
 
@@ -106,27 +116,40 @@ class MapManager {
       const color = new THREE.Color(star.displayColor || '#ffffff');
       const opacity = star.displayOpacity ?? 1.0;
 
-      // Create star sphere
-      const geom = new THREE.SphereGeometry(adjustedSize, 16, 16);
-      const mat = new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity });
-      const mesh = new THREE.Mesh(geom, mat);
-
+      let mesh;
       if (this.mapType === 'TrueCoordinates') {
+        // Use sphere for true coordinates
+        const geom = new THREE.SphereGeometry(adjustedSize, 16, 16);
+        const mat = new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity });
+        mesh = new THREE.Mesh(geom, mat);
         mesh.position.set(star.x_coordinate, star.y_coordinate, star.z_coordinate);
       } else {
-        // Globe: compute sphere position
+        // Globe map: compute sphere position and create a flat disk
         const theta = star.RA_in_radian;
         const phi = (Math.PI / 2) - star.DEC_in_radian;
         const R = 100;
         const x = R * Math.sin(phi) * Math.cos(theta);
         const y = R * Math.cos(phi);
         const z = R * Math.sin(phi) * Math.sin(theta);
-        mesh.position.set(x, y, z);
         star.spherePosition = { x, y, z };
-        // Ensure stars on the Globe are rendered above the globe surface.
+
+        // Create a circle (disk) geometry
+        const geom = new THREE.CircleGeometry(adjustedSize, 16);
+        const mat = new THREE.MeshBasicMaterial({
+          color,
+          transparent: opacity < 1,
+          opacity,
+          side: THREE.DoubleSide,
+        });
+        mesh = new THREE.Mesh(geom, mat);
+        mesh.position.set(x, y, z);
+        // Orient the disk so that it is tangent to the sphere (its normal becomes the radial direction)
+        const normal = new THREE.Vector3(x, y, z).normalize();
+        const defaultNormal = new THREE.Vector3(0, 0, 1); // CircleGeometry default normal
+        const quat = new THREE.Quaternion().setFromUnitVectors(defaultNormal, normal);
+        mesh.quaternion.copy(quat);
         mesh.renderOrder = 1;
       }
-
       this.scene.add(mesh);
       this.starObjects.push({ mesh, data: star });
     });
@@ -170,7 +193,7 @@ class MapManager {
     requestAnimationFrame(() => this.animate());
     this.renderer.render(this.scene, this.camera);
 
-    // For labeling, pass the appropriate star list
+    // For labeling, we pass the appropriate star list to the label manager
     let starList = (this.mapType === 'TrueCoordinates') ? currentFilteredStars : currentGlobeFilteredStars;
     this.labelManager.updateLabels(starList);
   }
@@ -229,7 +252,7 @@ window.onload = async () => {
     }
 
     maxDistanceFromCenter = Math.max(
-      ...cachedStars.map(s => Math.sqrt(s.x_coordinate**2 + s.y_coordinate**2 + s.z_coordinate**2))
+      ...cachedStars.map(s => Math.sqrt(s.x_coordinate ** 2 + s.y_coordinate ** 2 + s.z_coordinate ** 2))
     );
 
     trueCoordinatesMap = new MapManager({
