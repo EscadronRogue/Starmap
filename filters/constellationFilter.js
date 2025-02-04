@@ -115,7 +115,9 @@ export function createConstellationBoundariesForGlobe() {
 }
 
 /**
- * Build label sprites for each constellation center
+ * Build constellation label meshes for the Globe.
+ * The labels are flat (2D) and follow the globe curvature; they are rotated so that
+ * their local “up” aligns with the global up (0,1,0), so you always read them upright.
  */
 export function createConstellationLabelsForGlobe() {
   const labels = [];
@@ -123,9 +125,34 @@ export function createConstellationLabelsForGlobe() {
 
   centerData.forEach(c => {
     const p = radToSphere(c.ra, c.dec, R);
-    const spr = makeTextSprite(c.name, { fontSize: 100, color: '#888888' });
-    spr.position.copy(p);
-    labels.push(spr);
+    const fontSize = 100;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.font = `${fontSize}px Arial`;
+    const textWidth = ctx.measureText(c.name).width;
+    canvas.width = textWidth + 20; // add horizontal padding
+    canvas.height = fontSize * 1.2; // vertical padding
+    ctx.font = `${fontSize}px Arial`;
+    ctx.fillStyle = '#888888';
+    ctx.fillText(c.name, 10, fontSize);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    const planeGeom = new THREE.PlaneGeometry((canvas.width / 100), (canvas.height / 100));
+    const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: true, depthTest: true });
+    const label = new THREE.Mesh(planeGeom, mat);
+    label.position.copy(p);
+    // First, align the label's face so its default normal (0,0,1) matches the radial direction.
+    const normal = p.clone().normalize();
+    const defaultNormal = new THREE.Vector3(0, 0, 1);
+    const quat = new THREE.Quaternion().setFromUnitVectors(defaultNormal, normal);
+    label.quaternion.copy(quat);
+    // Then, adjust rotation about the normal so that the label's local up (0,1,0) aligns with global up.
+    const globalUp = new THREE.Vector3(0, 1, 0);
+    const localGlobalUp = globalUp.clone().applyQuaternion(label.quaternion.clone().invert());
+    const angle = Math.atan2(localGlobalUp.x, localGlobalUp.y);
+    label.rotateOnAxis(normal, -angle);
+    label.renderOrder = 1;
+    labels.push(label);
   });
 
   return labels;
@@ -162,7 +189,7 @@ function radToSphere(ra, dec, R) {
 }
 
 /**
- * Generates points along the great-circle path between two points on the sphere
+ * Generates points along the great-circle path between two points on the sphere.
  */
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
@@ -179,6 +206,9 @@ function getGreatCirclePoints(p1, p2, R, segments) {
   return points;
 }
 
+/**
+ * (Legacy) Makes a text sprite.
+ */
 function makeTextSprite(txt, opts) {
   const fontSize = opts.fontSize || 100;
   const color = opts.color || '#888888';
@@ -196,8 +226,7 @@ function makeTextSprite(txt, opts) {
 
   const tex = new THREE.Texture(canvas);
   tex.needsUpdate = true;
-  // UPDATED: Enable depthTest and depthWrite so that constellation labels are occluded by obstacles
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: true, depthTest: true });
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false });
   const sprite = new THREE.Sprite(mat);
 
   // Smaller scale
