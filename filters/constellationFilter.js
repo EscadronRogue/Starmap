@@ -152,7 +152,7 @@ function degToRad(d) {
 }
 
 function radToSphere(ra, dec, R) {
-  // x=R sin(phi) cos(theta), y=R cos(phi), z=R sin(phi) sin(theta)
+  // x = R sin(phi) cos(theta), y = R cos(phi), z = R sin(phi) sin(theta)
   const phi = (Math.PI / 2) - dec;
   const theta = ra;
   const x = R * Math.sin(phi) * Math.cos(theta);
@@ -196,7 +196,8 @@ function makeTextSprite(txt, opts) {
 
   const tex = new THREE.Texture(canvas);
   tex.needsUpdate = true;
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false });
+  // UPDATED: Enable depthTest and depthWrite so that constellation labels are occluded by obstacles
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: true, depthTest: true });
   const sprite = new THREE.Sprite(mat);
 
   // Smaller scale
