@@ -13,7 +13,7 @@ import {
 } from './filters/constellationFilter.js';
 import { globeSurfaceOpaque } from './filters/globeSurfaceFilter.js';
 
-import { ThreeDControls } from './cameraControls.js'; // No changes here
+import { ThreeDControls } from './cameraControls.js';
 import { LabelManager } from './labelManager.js';
 
 // We'll store global references
@@ -52,9 +52,8 @@ async function loadStarData() {
 
 /**
  * MapManager class
- * Creates two 3D scenes: one for TrueCoordinates, one for Globe
- * For labeling, we now pass the entire scene to the LabelManager
- * so it can create 3D sprite labels in the scene.
+ * Creates two 3D scenes: one for TrueCoordinates, one for Globe.
+ * For labeling, we now pass the entire scene to the LabelManager.
  */
 class MapManager {
   constructor({ canvasId, mapType, projectFunction }) {
@@ -68,7 +67,7 @@ class MapManager {
     // Create a THREE scene
     this.scene = new THREE.Scene();
 
-    // Use the new label manager that places 3D sprites in the scene
+    // Use the new label manager that places 3D sprite labels in the scene
     this.labelManager = new LabelManager(mapType, this.scene);
 
     // Setup camera
@@ -115,7 +114,7 @@ class MapManager {
       if (this.mapType === 'TrueCoordinates') {
         mesh.position.set(star.x_coordinate, star.y_coordinate, star.z_coordinate);
       } else {
-        // Globe
+        // Globe: compute sphere position
         const theta = star.RA_in_radian;
         const phi = (Math.PI / 2) - star.DEC_in_radian;
         const R = 100;
@@ -124,6 +123,8 @@ class MapManager {
         const z = R * Math.sin(phi) * Math.sin(theta);
         mesh.position.set(x, y, z);
         star.spherePosition = { x, y, z };
+        // Ensure stars on the Globe are rendered above the globe surface.
+        mesh.renderOrder = 1;
       }
 
       this.scene.add(mesh);
@@ -169,21 +170,16 @@ class MapManager {
     requestAnimationFrame(() => this.animate());
     this.renderer.render(this.scene, this.camera);
 
-    // For labeling, we just pass the entire star list to the label manager
-    // since the label manager uses the star's position & color to place 3D sprite labels
+    // For labeling, pass the appropriate star list
     let starList = (this.mapType === 'TrueCoordinates') ? currentFilteredStars : currentGlobeFilteredStars;
     this.labelManager.updateLabels(starList);
-
-    // The occlusion is handled by the 3D pipeline. Sprites behind the black sphere won't be visible.
   }
 }
 
 function projectStarTrueCoordinates(star) {
-  // Not used anymore for 2D labeling, but we'll keep it if your code references it
   return null;
 }
 function projectStarGlobe(star) {
-  // Also not used for 2D labeling. The sprite approach doesn't need this.
   return null;
 }
 
@@ -304,26 +300,26 @@ function buildAndApplyFilters() {
 }
 
 function removeConstellationObjectsFromGlobe() {
-  if (constellationLinesGlobe && constellationLinesGlobe.length>0) {
+  if (constellationLinesGlobe && constellationLinesGlobe.length > 0) {
     constellationLinesGlobe.forEach(l => globeMap.scene.remove(l));
   }
-  constellationLinesGlobe=[];
+  constellationLinesGlobe = [];
 
-  if (constellationLabelsGlobe && constellationLabelsGlobe.length>0) {
+  if (constellationLabelsGlobe && constellationLabelsGlobe.length > 0) {
     constellationLabelsGlobe.forEach(lbl => globeMap.scene.remove(lbl));
   }
-  constellationLabelsGlobe=[];
+  constellationLabelsGlobe = [];
 }
 
 /**
  * Creates or removes a black sphere of radius=100 with front side rendering,
- * so that everything behind it is hidden from view. 
- * But with 3D sprites, the depth test ensures correct occlusion automatically.
+ * so that everything behind it is hidden from view.
+ * The sphere is rendered behind all other Globe objects.
  */
 function applyGlobeSurface(isOpaque) {
   if (globeSurfaceSphere) {
     globeMap.scene.remove(globeSurfaceSphere);
-    globeSurfaceSphere=null;
+    globeSurfaceSphere = null;
   }
 
   if (isOpaque) {
@@ -336,6 +332,8 @@ function applyGlobeSurface(isOpaque) {
       transparent: false,
     });
     globeSurfaceSphere = new THREE.Mesh(geom, mat);
+    // Render the globe surface first (background)
+    globeSurfaceSphere.renderOrder = 0;
     globeMap.scene.add(globeSurfaceSphere);
   }
 }
