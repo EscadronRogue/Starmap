@@ -47,29 +47,14 @@ export class LabelManager {
       const sizeMultiplier = THREE.MathUtils.clamp(star.displaySize / 2, 0.5, 1.5);
       offset = baseOffset.clone().multiplyScalar(sizeMultiplier);
     } else if (this.mapType === 'Globe') {
-      // Compute offset in the tangent plane at the star's sphere position.
-      let starPosition;
-      if (star.spherePosition) {
-        starPosition = new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z);
-      } else {
-        starPosition = new THREE.Vector3(0, 0, 0);
-      }
-      const normal = starPosition.clone().normalize();
-      // Pick an arbitrary vector that is not parallel to the normal.
-      let arbitrary = new THREE.Vector3(0, 1, 0);
-      if (Math.abs(normal.dot(arbitrary)) > 0.9) {
-        arbitrary = new THREE.Vector3(1, 0, 0);
-      }
-      const tangent1 = new THREE.Vector3().crossVectors(normal, arbitrary).normalize();
-      const tangent2 = new THREE.Vector3().crossVectors(normal, tangent1).normalize();
       const hash = hashString(star.displayName || star.Common_name_of_the_star || 'Star');
       const angle = (hash % 360) * (Math.PI / 180);
       const baseDistance = 2;
       const sizeFactor = THREE.MathUtils.clamp(star.displaySize / 2, 1, 5);
-      const magnitude = baseDistance * sizeFactor;
-      offset = new THREE.Vector3()
-        .addScaledVector(tangent1, Math.cos(angle) * magnitude)
-        .addScaledVector(tangent2, Math.sin(angle) * magnitude);
+      const offsetX = baseDistance * sizeFactor * Math.cos(angle);
+      const offsetY = baseDistance * sizeFactor * Math.sin(angle);
+      const offsetZ = 0;
+      offset = new THREE.Vector3(offsetX, offsetY, offsetZ);
     } else {
       offset = new THREE.Vector3(1, 1, 0);
     }
@@ -135,7 +120,7 @@ export class LabelManager {
     const points = [starPosition, labelPosition];
     const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
     const lineMaterial = new THREE.LineBasicMaterial({
-      color: new THREE.Color(star.displayColor || '#888888'),
+      color: new THREE.Color(starColor),
       transparent: true,
       opacity: 0.2,
       linewidth: 2,
