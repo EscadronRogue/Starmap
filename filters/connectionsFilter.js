@@ -1,34 +1,76 @@
-// filters/connectionsFilter.js
+// /filters/connectionsFilter.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { calculateDistance } from '../utils.js';
 
 /**
- * We separate "computeConnectionPairs" from "createConnectionLines":
- * - computeConnectionPairs() calculates star pairs within max distance.
- * - createConnectionLines() receives those pairs + mapType => creates lines for 3D maps.
+ * Computes connection pairs using a grid‐based spatial index to avoid the O(n²) loop.
+ * Stars are binned into cubic cells of size equal to the maximum allowed distance.
  */
-
-export function computeConnectionPairs(stars, userMaxDistance) {
+export function computeConnectionPairs(stars, maxDistance) {
   const pairs = [];
-  for (let i = 0; i < stars.length; i++) {
-    for (let j = i + 1; j < stars.length; j++) {
-      const starA = stars[i];
-      const starB = stars[j];
-      const dist = calculateDistance(starA, starB);
+  if (stars.length === 0) return pairs;
+  const cellSize = maxDistance; // set cell size equal to maxDistance
 
-      if (dist > 0 && dist <= userMaxDistance) {
-        pairs.push({ starA, starB, distance: dist });
+  const grid = new Map();
+  function getCellKey(x, y, z) {
+    const ix = Math.floor(x / cellSize);
+    const iy = Math.floor(y / cellSize);
+    const iz = Math.floor(z / cellSize);
+    return `${ix},${iy},${iz}`;
+  }
+
+  // Populate the grid with stars (using x_coordinate, y_coordinate, z_coordinate)
+  for (let i = 0; i < stars.length; i++) {
+    const star = stars[i];
+    const key = getCellKey(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+    if (!grid.has(key)) {
+      grid.set(key, []);
+    }
+    grid.get(key).push({ index: i, star: star });
+  }
+
+  // Offsets for the neighboring cells (including the cell itself)
+  const neighborOffsets = [];
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        neighborOffsets.push([dx, dy, dz]);
+      }
+    }
+  }
+
+  // For each star, check its cell and neighboring cells
+  for (let i = 0; i < stars.length; i++) {
+    const starA = stars[i];
+    const cellX = Math.floor(starA.x_coordinate / cellSize);
+    const cellY = Math.floor(starA.y_coordinate / cellSize);
+    const cellZ = Math.floor(starA.z_coordinate / cellSize);
+    for (const offset of neighborOffsets) {
+      const key = `${cellX + offset[0]},${cellY + offset[1]},${cellZ + offset[2]}`;
+      const cellStars = grid.get(key);
+      if (!cellStars) continue;
+      for (const item of cellStars) {
+        const j = item.index;
+        if (j <= i) continue; // avoid duplicate pairs
+        const starB = item.star;
+        const dist = calculateDistance(starA, starB);
+        if (dist > 0 && dist <= maxDistance) {
+          pairs.push({ starA, starB, distance: dist });
+        }
       }
     }
   }
   return pairs;
 }
 
+/**
+ * Creates connection lines between star pairs.
+ */
 export function createConnectionLines(stars, pairs, mapType) {
   if (!pairs || pairs.length === 0) return [];
 
-  // Largest distance for thickness/opacity normalization
+  // Largest distance for normalization
   const largestPairDistance = pairs.reduce((maxSoFar, p) => {
     return p.distance > maxSoFar ? p.distance : maxSoFar;
   }, 0);
@@ -48,18 +90,14 @@ export function createConnectionLines(stars, pairs, mapType) {
       posB = new THREE.Vector3(starB.x_coordinate, starB.y_coordinate, starB.z_coordinate);
     }
 
-    // Colors
     const c1 = new THREE.Color(starA.displayColor || '#ffffff');
     const c2 = new THREE.Color(starB.displayColor || '#ffffff');
     const gradientColor = c1.clone().lerp(c2, 0.5);
 
-    // thickness & opacity
     const normDist = distance / (largestPairDistance || distance);
     const lineThickness = THREE.MathUtils.lerp(5, 1, normDist);
     const lineOpacity = THREE.MathUtils.lerp(1.0, 0.3, normDist);
 
-    // For Globe -> great-circle
-    // For TrueCoordinates -> direct line
     let points;
     if (mapType === 'Globe') {
       const R = 100;
@@ -74,7 +112,7 @@ export function createConnectionLines(stars, pairs, mapType) {
       color: gradientColor,
       transparent: true,
       opacity: lineOpacity,
-      linewidth: lineThickness
+      linewidth: lineThickness,
     });
     const line = new THREE.Line(geometry, material);
     return line;
@@ -84,7 +122,7 @@ export function createConnectionLines(stars, pairs, mapType) {
 }
 
 /**
- * Great-circle path generator for the globe
+ * Returns an array of points along the great-circle path between two points on a sphere.
  */
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
