@@ -4,6 +4,29 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 import { hexToRGBA } from './utils.js';
 
 /**
+ * Helper function that removes any alpha component from a color string.
+ * If the color is specified in rgba format, it converts it to an rgb string.
+ * Otherwise, returns the color unchanged.
+ * @param {string} color - The input color string.
+ * @returns {string} - The color string without an alpha component.
+ */
+function cleanColor(color) {
+  if (typeof color === "string") {
+    if (color.indexOf("rgba") === 0) {
+      // Match rgba(r, g, b, a) and extract r, g, b
+      const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d\.]+)?\)/);
+      if (match) {
+        const r = match[1];
+        const g = match[2];
+        const b = match[3];
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+    }
+  }
+  return color;
+}
+
+/**
  * Simple hash function to generate a consistent number from a string.
  * Used to generate deterministic angles for label offsets in the Globe map.
  * @param {string} str - The input string to hash.
@@ -122,11 +145,7 @@ export class LabelManager {
     // Draw white text
     ctx.fillStyle = '#ffffff'; // White text
     ctx.textBaseline = 'middle';
-    ctx.fillText(
-      star.displayName,
-      paddingX,
-      canvas.height / 2
-    );
+    ctx.fillText(star.displayName, paddingX, canvas.height / 2);
 
     // Create texture from canvas
     const texture = new THREE.CanvasTexture(canvas);
@@ -179,13 +198,13 @@ export class LabelManager {
 
     const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
 
+    // Use cleanColor to ensure no alpha is passed to THREE.Color.
     const lineMaterial = new THREE.LineBasicMaterial({
-      color: new THREE.Color(hexToRGBA(starColor, 0.2)),
+      color: new THREE.Color(cleanColor(starColor)),
       transparent: true,
       opacity: 0.2, // Reduced opacity
       linewidth: 2,  // Attempt to set thicker lines (Note: WebGL may not support >1)
     });
-
     const line = new THREE.Line(lineGeometry, lineMaterial);
     this.scene.add(line);
     this.lines.set(star, line);
@@ -236,11 +255,7 @@ export class LabelManager {
           // Redraw white text
           ctx.fillStyle = '#ffffff';
           ctx.textBaseline = 'middle';
-          ctx.fillText(
-            star.displayName,
-            paddingX,
-            canvas.height / 2
-          );
+          ctx.fillText(star.displayName, paddingX, canvas.height / 2);
 
           // Update texture
           sprite.material.map.needsUpdate = true;
@@ -275,8 +290,8 @@ export class LabelManager {
           points.push(labelPosition);
           line.geometry.setFromPoints(points);
 
-          // Update line color and opacity
-          line.material.color.setHex(new THREE.Color(hexToRGBA(star.displayColor || '#888888', 0.2)).getHex());
+          // Update line color using cleanColor to remove any alpha component.
+          line.material.color.set(new THREE.Color(cleanColor(star.displayColor || '#888888')));
           line.material.opacity = 0.2; // Ensure opacity remains consistent
         }
       }
