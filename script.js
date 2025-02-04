@@ -13,7 +13,7 @@ import {
 } from './filters/constellationFilter.js';
 import { globeSurfaceOpaque } from './filters/globeSurfaceFilter.js';
 
-import { ThreeDControls } from './cameraControls.js';
+import { ThreeDControls } from './cameraControls.js'; // No changes here
 import { LabelManager } from './labelManager.js';
 
 // We'll store global references
@@ -52,8 +52,9 @@ async function loadStarData() {
 
 /**
  * MapManager class
- * Creates two 3D scenes: one for TrueCoordinates, one for Globe.
- * Uses the LabelManager to add 3D sprite labels.
+ * Creates two 3D scenes: one for TrueCoordinates, one for Globe
+ * For labeling, we now pass the entire scene to the LabelManager
+ * so it can create 3D sprite labels in the scene.
  */
 class MapManager {
   constructor({ canvasId, mapType, projectFunction }) {
@@ -61,32 +62,21 @@ class MapManager {
     this.mapType = mapType;
     this.projectFunction = projectFunction;
 
-    // Instead of storing many individual star meshes, we will use one instanced mesh.
     this.starObjects = [];
     this.connectionLines = [];
 
     // Create a THREE scene
     this.scene = new THREE.Scene();
 
-    // Use the label manager that places 3D sprite labels in the scene
+    // Use the new label manager that places 3D sprites in the scene
     this.labelManager = new LabelManager(mapType, this.scene);
 
     // Setup camera
     if (mapType === 'TrueCoordinates') {
-      this.camera = new THREE.PerspectiveCamera(
-        75,
-        this.canvas.clientWidth / this.canvas.clientHeight,
-        0.1,
-        10000
-      );
+      this.camera = new THREE.PerspectiveCamera(75, this.canvas.clientWidth / this.canvas.clientHeight, 0.1, 10000);
       this.camera.position.set(0, 0, 70);
     } else {
-      this.camera = new THREE.PerspectiveCamera(
-        75,
-        this.canvas.clientWidth / this.canvas.clientHeight,
-        0.1,
-        10000
-      );
+      this.camera = new THREE.PerspectiveCamera(75, this.canvas.clientWidth / this.canvas.clientHeight, 0.1, 10000);
       this.camera.position.set(0, 0, 200);
     }
 
@@ -109,70 +99,54 @@ class MapManager {
     this.animate();
   }
 
-  /**
-   * Instead of creating a separate Mesh for each star,
-   * we now build a single InstancedMesh for improved performance.
-   */
   addStars(stars) {
-    const count = stars.length;
-    // Use a low-poly unit sphere geometry as a base
-    const geometry = new THREE.SphereGeometry(1, 8, 8);
-    // Enable per-instance color (we ignore per-instance opacity here)
-    const material = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true });
-    const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
-    // Use DynamicDrawUsage so the instance matrix can update if needed
-    instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-
-    const dummy = new THREE.Object3D();
-    for (let i = 0; i < count; i++) {
-      const star = stars[i];
+    // Remove old if needed
+    stars.forEach(star => {
       const sizeMult = (this.mapType === 'TrueCoordinates') ? 0.2 : 0.5;
       const adjustedSize = star.displaySize * sizeMult;
-      dummy.scale.set(adjustedSize, adjustedSize, adjustedSize);
+      const color = new THREE.Color(star.displayColor || '#ffffff');
+      const opacity = star.displayOpacity ?? 1.0;
+
+      // Create star sphere
+      const geom = new THREE.SphereGeometry(adjustedSize, 16, 16);
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity });
+      const mesh = new THREE.Mesh(geom, mat);
 
       if (this.mapType === 'TrueCoordinates') {
-        dummy.position.set(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+        mesh.position.set(star.x_coordinate, star.y_coordinate, star.z_coordinate);
       } else {
-        // For Globe, compute sphere coordinates from RA/DEC (in radians)
+        // Globe
         const theta = star.RA_in_radian;
         const phi = (Math.PI / 2) - star.DEC_in_radian;
         const R = 100;
         const x = R * Math.sin(phi) * Math.cos(theta);
         const y = R * Math.cos(phi);
         const z = R * Math.sin(phi) * Math.sin(theta);
-        dummy.position.set(x, y, z);
+        mesh.position.set(x, y, z);
         star.spherePosition = { x, y, z };
       }
-      dummy.updateMatrix();
-      instancedMesh.setMatrixAt(i, dummy.matrix);
 
-      // Set the per-instance color based on star.displayColor (opacity is not handled per instance)
-      const color = new THREE.Color(star.displayColor || '#ffffff');
-      instancedMesh.setColorAt(i, color);
-    }
-    instancedMesh.instanceColor.needsUpdate = true;
-
-    // Remove previous star objects from the scene, if any
-    if (this.starObjects.length > 0) {
-      this.starObjects.forEach(obj => this.scene.remove(obj));
-    }
-    this.scene.add(instancedMesh);
-    this.starObjects = [instancedMesh];
+      this.scene.add(mesh);
+      this.starObjects.push({ mesh, data: star });
+    });
   }
 
   updateMap(stars, connectionObjs) {
-    // Remove old instanced mesh (if any) and connection lines
-    this.starObjects.forEach(obj => {
-      if (obj) this.scene.remove(obj);
+    // Remove any old star meshes from the scene
+    this.starObjects.forEach(o => {
+      if (o.mesh) {
+        this.scene.remove(o.mesh);
+      }
     });
     this.starObjects = [];
 
+    // Remove old lines
     this.connectionLines.forEach(line => {
       if (line) this.scene.remove(line);
     });
     this.connectionLines = [];
 
-    // Add new stars using instanced mesh
+    // Add new
     this.addStars(stars);
 
     if (connectionObjs && connectionObjs.length > 0) {
@@ -195,16 +169,21 @@ class MapManager {
     requestAnimationFrame(() => this.animate());
     this.renderer.render(this.scene, this.camera);
 
-    // Update labels – note that the LabelManager now throttles its updates internally.
-    const starList = (this.mapType === 'TrueCoordinates') ? currentFilteredStars : currentGlobeFilteredStars;
+    // For labeling, we just pass the entire star list to the label manager
+    // since the label manager uses the star's position & color to place 3D sprite labels
+    let starList = (this.mapType === 'TrueCoordinates') ? currentFilteredStars : currentGlobeFilteredStars;
     this.labelManager.updateLabels(starList);
+
+    // The occlusion is handled by the 3D pipeline. Sprites behind the black sphere won't be visible.
   }
 }
 
 function projectStarTrueCoordinates(star) {
+  // Not used anymore for 2D labeling, but we'll keep it if your code references it
   return null;
 }
 function projectStarGlobe(star) {
+  // Also not used for 2D labeling. The sprite approach doesn't need this.
   return null;
 }
 
@@ -222,6 +201,7 @@ window.onload = async () => {
     if (form) {
       form.addEventListener('change', () => buildAndApplyFilters());
 
+      // connection slider
       const cSlider = document.getElementById('connection-slider');
       const cVal = document.getElementById('connection-value');
       if (cSlider && cVal) {
@@ -231,6 +211,7 @@ window.onload = async () => {
         });
       }
 
+      // density slider
       const dSlider = document.getElementById('density-slider');
       const dVal = document.getElementById('density-value');
       if (dSlider && dVal) {
@@ -240,6 +221,7 @@ window.onload = async () => {
         });
       }
 
+      // tolerance slider
       const tSlider = document.getElementById('tolerance-slider');
       const tVal = document.getElementById('tolerance-value');
       if (tSlider && tVal) {
@@ -251,7 +233,7 @@ window.onload = async () => {
     }
 
     maxDistanceFromCenter = Math.max(
-      ...cachedStars.map(s => Math.sqrt(s.x_coordinate ** 2 + s.y_coordinate ** 2 + s.z_coordinate ** 2))
+      ...cachedStars.map(s => Math.sqrt(s.x_coordinate**2 + s.y_coordinate**2 + s.z_coordinate**2))
     );
 
     trueCoordinatesMap = new MapManager({
@@ -267,6 +249,7 @@ window.onload = async () => {
 
     buildAndApplyFilters();
 
+    // init density
     const cubes = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars);
     cubes.forEach(c => {
       trueCoordinatesMap.scene.add(c.tcMesh);
@@ -291,7 +274,7 @@ function buildAndApplyFilters() {
     globeConnections,
     showConstellationBoundaries,
     showConstellationNames,
-    globeOpaqueSurface,
+    globeOpaqueSurface
   } = applyFilters(cachedStars);
 
   currentFilteredStars = filteredStars;
@@ -321,24 +304,26 @@ function buildAndApplyFilters() {
 }
 
 function removeConstellationObjectsFromGlobe() {
-  if (constellationLinesGlobe && constellationLinesGlobe.length > 0) {
+  if (constellationLinesGlobe && constellationLinesGlobe.length>0) {
     constellationLinesGlobe.forEach(l => globeMap.scene.remove(l));
   }
-  constellationLinesGlobe = [];
+  constellationLinesGlobe=[];
 
-  if (constellationLabelsGlobe && constellationLabelsGlobe.length > 0) {
+  if (constellationLabelsGlobe && constellationLabelsGlobe.length>0) {
     constellationLabelsGlobe.forEach(lbl => globeMap.scene.remove(lbl));
   }
-  constellationLabelsGlobe = [];
+  constellationLabelsGlobe=[];
 }
 
 /**
- * Creates or removes a black sphere of radius=100 with front side rendering.
+ * Creates or removes a black sphere of radius=100 with front side rendering,
+ * so that everything behind it is hidden from view. 
+ * But with 3D sprites, the depth test ensures correct occlusion automatically.
  */
 function applyGlobeSurface(isOpaque) {
   if (globeSurfaceSphere) {
     globeMap.scene.remove(globeSurfaceSphere);
-    globeSurfaceSphere = null;
+    globeSurfaceSphere=null;
   }
 
   if (isOpaque) {
