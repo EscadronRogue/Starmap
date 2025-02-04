@@ -17,7 +17,7 @@ function hashString(str) {
 
 /**
  * LabelManager Class
- * Manages 3D sprite labels and connecting lines.
+ * Manages 3D label meshes and connecting lines.
  */
 export class LabelManager {
   /**
@@ -78,7 +78,7 @@ export class LabelManager {
   }
 
   /**
-   * Creates a 3D sprite for a star and its connecting line.
+   * Creates a 3D label and connecting line for a star.
    */
   createSpriteAndLine(star) {
     const starColor = star.displayColor || '#888888';
@@ -103,38 +103,60 @@ export class LabelManager {
     ctx.fillText(star.displayName, paddingX, canvas.height / 2);
     const texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
-    const spriteMaterial = new THREE.SpriteMaterial({
-      map: texture,
-      depthWrite: true,
-      depthTest: true,
-      transparent: true,
-    });
-    const sprite = new THREE.Sprite(spriteMaterial);
-    const spriteScale = new THREE.Vector3(
-      (canvas.width / 100) * scaleFactor,
-      (canvas.height / 100) * scaleFactor,
-      1
-    );
-    sprite.scale.copy(spriteScale);
+    
+    let labelObj;
+    if (this.mapType === 'Globe') {
+      // For Globe map, create a flat plane label (instead of a sprite)
+      const planeGeom = new THREE.PlaneGeometry((canvas.width / 100) * scaleFactor, (canvas.height / 100) * scaleFactor);
+      const mat = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        depthWrite: true,
+        depthTest: true,
+      });
+      labelObj = new THREE.Mesh(planeGeom, mat);
+      // Position and orient the label on the globe
+      let starPosition = new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z);
+      const offset = this.generateOffset(star);
+      const labelPosition = starPosition.clone().add(offset);
+      labelObj.position.copy(labelPosition);
+      // Orient the label so that its default normal (0,0,1) rotates to match the radial direction.
+      const normal = starPosition.clone().normalize();
+      const defaultNormal = new THREE.Vector3(0, 0, 1);
+      const quat = new THREE.Quaternion().setFromUnitVectors(defaultNormal, normal);
+      labelObj.quaternion.copy(quat);
+      labelObj.renderOrder = 1;
+    } else {
+      // For TrueCoordinates, use a Sprite that always faces the camera
+      const spriteMaterial = new THREE.SpriteMaterial({
+        map: texture,
+        depthWrite: true,
+        depthTest: true,
+        transparent: true,
+      });
+      labelObj = new THREE.Sprite(spriteMaterial);
+      const spriteScale = new THREE.Vector3(
+        (canvas.width / 100) * scaleFactor,
+        (canvas.height / 100) * scaleFactor,
+        1
+      );
+      labelObj.scale.copy(spriteScale);
+      let starPosition = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+      const offset = this.generateOffset(star);
+      const labelPosition = starPosition.clone().add(offset);
+      labelObj.position.copy(labelPosition);
+    }
+    this.scene.add(labelObj);
+    this.sprites.set(star, labelObj);
+
+    // Create connecting line (same for both map types)
     let starPosition;
     if (this.mapType === 'TrueCoordinates') {
       starPosition = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
     } else {
-      if (!star.spherePosition) {
-        console.warn('Star missing spherePosition:', star);
-        return;
-      }
       starPosition = new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z);
     }
-    const offset = this.generateOffset(star);
-    const labelPosition = starPosition.clone().add(offset);
-    sprite.position.copy(labelPosition);
-    // Ensure the label is rendered above the globe surface.
-    sprite.renderOrder = 1;
-    this.scene.add(sprite);
-    this.sprites.set(star, sprite);
-
-    const points = [starPosition, labelPosition];
+    const points = [starPosition, labelObj.position.clone()];
     const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
     const lineMaterial = new THREE.LineBasicMaterial({
       color: new THREE.Color(star.displayColor || '#888888'),
@@ -163,58 +185,54 @@ export class LabelManager {
       if (!this.sprites.has(star)) {
         this.createSpriteAndLine(star);
       } else {
-        const sprite = this.sprites.get(star);
+        const labelObj = this.sprites.get(star);
         const line = this.lines.get(star);
-        if (sprite && line) {
-          const scaleFactor = THREE.MathUtils.clamp(star.displaySize / 2, 1, 5);
-          const fontSize = 24 * scaleFactor;
-          const canvas = sprite.material.map.image;
-          const ctx = canvas.getContext('2d');
-          ctx.font = `${fontSize}px Arial`;
-          const textMetrics = ctx.measureText(star.displayName);
-          const textWidth = textMetrics.width;
-          const textHeight = fontSize;
-          const paddingX = 10;
-          const paddingY = 5;
-          canvas.width = textWidth + paddingX * 2;
-          canvas.height = textHeight + paddingY * 2;
-          ctx.font = `${fontSize}px Arial`;
-          ctx.fillStyle = hexToRGBA(star.displayColor || '#888888', 0.2);
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.fillStyle = '#ffffff';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(star.displayName, paddingX, canvas.height / 2);
-          sprite.material.map.needsUpdate = true;
-          sprite.scale.set(
-            (canvas.width / 100) * scaleFactor,
-            (canvas.height / 100) * scaleFactor,
-            1
-          );
-          let starPosition;
-          if (this.mapType === 'TrueCoordinates') {
-            starPosition = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
-          } else {
-            if (!star.spherePosition) {
-              console.warn('Star missing spherePosition:', star);
-              return;
-            }
-            starPosition = new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z);
-          }
-          const offset = this.generateOffset(star);
-          const labelPosition = starPosition.clone().add(offset);
-          sprite.position.copy(labelPosition);
-          const points = [starPosition, labelPosition];
-          line.geometry.setFromPoints(points);
-          line.material.color.set(new THREE.Color(star.displayColor || '#888888'));
-          line.material.opacity = 0.2;
+        const scaleFactor = THREE.MathUtils.clamp(star.displaySize / 2, 1, 5);
+        const fontSize = 24 * scaleFactor;
+        const canvas = labelObj.material.map.image;
+        const ctx = canvas.getContext('2d');
+        ctx.font = `${fontSize}px Arial`;
+        const textMetrics = ctx.measureText(star.displayName);
+        const textWidth = textMetrics.width;
+        const textHeight = fontSize;
+        const paddingX = 10;
+        const paddingY = 5;
+        canvas.width = textWidth + paddingX * 2;
+        canvas.height = textHeight + paddingY * 2;
+        ctx.font = `${fontSize}px Arial`;
+        ctx.fillStyle = hexToRGBA(star.displayColor || '#888888', 0.2);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(star.displayName, paddingX, canvas.height / 2);
+        labelObj.material.map.needsUpdate = true;
+        if (this.mapType === 'TrueCoordinates') {
+          labelObj.scale.set((canvas.width / 100) * scaleFactor, (canvas.height / 100) * scaleFactor, 1);
         }
+        let starPosition;
+        if (this.mapType === 'TrueCoordinates') {
+          starPosition = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+        } else {
+          if (!star.spherePosition) {
+            console.warn('Star missing spherePosition:', star);
+            return;
+          }
+          starPosition = new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z);
+        }
+        const offset = this.generateOffset(star);
+        const labelPosition = starPosition.clone().add(offset);
+        labelObj.position.copy(labelPosition);
+        const points = [starPosition, labelObj.position.clone()];
+        line.geometry.setFromPoints(points);
+        line.material.color.set(new THREE.Color(star.displayColor || '#888888'));
+        line.material.opacity = 0.2;
       }
     });
 
-    // Remove sprites and lines for stars no longer present
-    this.sprites.forEach((sprite, star) => {
+    // Remove labels and lines for stars no longer present
+    this.sprites.forEach((labelObj, star) => {
       if (!stars.includes(star)) {
-        this.scene.remove(sprite);
+        this.scene.remove(labelObj);
         this.sprites.delete(star);
         const line = this.lines.get(star);
         if (line) {
@@ -244,8 +262,8 @@ export class LabelManager {
   }
 
   removeLabels() {
-    this.sprites.forEach((sprite, star) => {
-      this.scene.remove(sprite);
+    this.sprites.forEach((labelObj, star) => {
+      this.scene.remove(labelObj);
     });
     this.sprites.clear();
 
