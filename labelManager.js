@@ -36,6 +36,8 @@ export class LabelManager {
 
   /**
    * Generates an offset for a star’s label.
+   * For Globe mode, the offset is computed in the tangent plane (i.e. the plane perpendicular
+   * to the globe surface at the star’s position) using a hash-based random angle.
    */
   generateOffset(star) {
     if (this.offsets.has(star)) {
@@ -47,14 +49,36 @@ export class LabelManager {
       const sizeMultiplier = THREE.MathUtils.clamp(star.displaySize / 2, 0.5, 1.5);
       offset = baseOffset.clone().multiplyScalar(sizeMultiplier);
     } else if (this.mapType === 'Globe') {
+      // Get the star's sphere position
+      let starPosition;
+      if (!star.spherePosition) {
+        starPosition = new THREE.Vector3(0, 0, 0);
+      } else {
+        starPosition = new THREE.Vector3(
+          star.spherePosition.x,
+          star.spherePosition.y,
+          star.spherePosition.z
+        );
+      }
+      // Compute the normal (same as the normalized position)
+      const normal = starPosition.clone().normalize();
+      // Choose an arbitrary vector that is not parallel to the normal
+      let arbitrary = new THREE.Vector3(0, 1, 0);
+      if (Math.abs(normal.dot(arbitrary)) > 0.99) {
+        arbitrary.set(1, 0, 0);
+      }
+      // Create two orthogonal tangent vectors spanning the tangent plane
+      const tangent1 = new THREE.Vector3().crossVectors(normal, arbitrary).normalize();
+      const tangent2 = new THREE.Vector3().crossVectors(normal, tangent1).normalize();
+      // Use a hash-based angle to ensure consistency for this star
       const hash = hashString(star.displayName || star.Common_name_of_the_star || 'Star');
-      const angle = (hash % 360) * (Math.PI / 180);
-      const baseDistance = 2;
+      const angle = (Math.abs(hash) % 360) * (Math.PI / 180);
+      const baseDistance = 2; // base offset distance (adjust as needed)
       const sizeFactor = THREE.MathUtils.clamp(star.displaySize / 2, 1, 5);
-      const offsetX = baseDistance * sizeFactor * Math.cos(angle);
-      const offsetY = baseDistance * sizeFactor * Math.sin(angle);
-      const offsetZ = 0;
-      offset = new THREE.Vector3(offsetX, offsetY, offsetZ);
+      // Compute the offset in the tangent plane
+      offset = tangent1.clone().multiplyScalar(Math.cos(angle))
+        .add(tangent2.clone().multiplyScalar(Math.sin(angle)))
+        .multiplyScalar(baseDistance * sizeFactor);
     } else {
       offset = new THREE.Vector3(1, 1, 0);
     }
@@ -109,7 +133,11 @@ export class LabelManager {
         console.warn('Star missing spherePosition:', star);
         return;
       }
-      starPosition = new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z);
+      starPosition = new THREE.Vector3(
+        star.spherePosition.x,
+        star.spherePosition.y,
+        star.spherePosition.z
+      );
     }
     const offset = this.generateOffset(star);
     const labelPosition = starPosition.clone().add(offset);
@@ -180,7 +208,11 @@ export class LabelManager {
               console.warn('Star missing spherePosition:', star);
               return;
             }
-            starPosition = new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z);
+            starPosition = new THREE.Vector3(
+              star.spherePosition.x,
+              star.spherePosition.y,
+              star.spherePosition.z
+            );
           }
           const offset = this.generateOffset(star);
           const labelPosition = starPosition.clone().add(offset);
