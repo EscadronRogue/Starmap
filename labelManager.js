@@ -47,14 +47,29 @@ export class LabelManager {
       const sizeMultiplier = THREE.MathUtils.clamp(star.displaySize / 2, 0.5, 1.5);
       offset = baseOffset.clone().multiplyScalar(sizeMultiplier);
     } else if (this.mapType === 'Globe') {
+      // Compute tangent plane at the star's sphere position
+      let starPos;
+      if (star.spherePosition) {
+        starPos = new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z);
+      } else {
+        console.warn('Missing spherePosition for star in LabelManager.generateOffset');
+        starPos = new THREE.Vector3(0, 0, 0);
+      }
+      const normal = starPos.clone().normalize();
+      // Choose an arbitrary vector not parallel to normal
+      let tangent = new THREE.Vector3(0, 1, 0);
+      if (Math.abs(normal.dot(tangent)) > 0.9) {
+        tangent = new THREE.Vector3(1, 0, 0);
+      }
+      tangent = tangent.cross(normal).normalize();
+      const bitangent = normal.clone().cross(tangent).normalize();
       const hash = hashString(star.displayName || star.Common_name_of_the_star || 'Star');
       const angle = (hash % 360) * (Math.PI / 180);
       const baseDistance = 2;
       const sizeFactor = THREE.MathUtils.clamp(star.displaySize / 2, 1, 5);
-      const offsetX = baseDistance * sizeFactor * Math.cos(angle);
-      const offsetY = baseDistance * sizeFactor * Math.sin(angle);
-      const offsetZ = 0;
-      offset = new THREE.Vector3(offsetX, offsetY, offsetZ);
+      offset = tangent.clone().multiplyScalar(Math.cos(angle))
+                .add(bitangent.clone().multiplyScalar(Math.sin(angle)))
+                .multiplyScalar(baseDistance * sizeFactor);
     } else {
       offset = new THREE.Vector3(1, 1, 0);
     }
@@ -114,18 +129,21 @@ export class LabelManager {
     const offset = this.generateOffset(star);
     const labelPosition = starPosition.clone().add(offset);
     sprite.position.copy(labelPosition);
+    // Ensure the label is rendered above the globe surface.
+    sprite.renderOrder = 1;
     this.scene.add(sprite);
     this.sprites.set(star, sprite);
 
     const points = [starPosition, labelPosition];
     const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
     const lineMaterial = new THREE.LineBasicMaterial({
-      color: new THREE.Color(starColor),
+      color: new THREE.Color(star.displayColor || '#888888'),
       transparent: true,
       opacity: 0.2,
       linewidth: 2,
     });
     const line = new THREE.Line(lineGeometry, lineMaterial);
+    line.renderOrder = 1;
     this.scene.add(line);
     this.lines.set(star, line);
   }
