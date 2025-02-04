@@ -37,6 +37,9 @@ let constellationLabelsGlobe = [];
 // Opaque sphere
 let globeSurfaceSphere = null;
 
+// Density overlay reference (includes cubes and adjacent lines)
+let densityOverlay = null;
+
 async function loadStarData() {
   try {
     const resp = await fetch('complete_data_stars.json');
@@ -132,7 +135,6 @@ class MapManager {
         const y = R * Math.cos(phi);
         const z = R * Math.sin(phi) * Math.sin(theta);
         star.spherePosition = { x, y, z };
-
         // Create a circle (disk) geometry
         const geom = new THREE.CircleGeometry(adjustedSize, 16);
         const mat = new THREE.MeshBasicMaterial({
@@ -143,9 +145,9 @@ class MapManager {
         });
         mesh = new THREE.Mesh(geom, mat);
         mesh.position.set(x, y, z);
-        // Orient the disk so that it is tangent to the sphere (its normal becomes the radial direction)
+        // Orient the disk so that it is tangent to the sphere.
         const normal = new THREE.Vector3(x, y, z).normalize();
-        const defaultNormal = new THREE.Vector3(0, 0, 1); // CircleGeometry default normal
+        const defaultNormal = new THREE.Vector3(0, 0, 1);
         const quat = new THREE.Quaternion().setFromUnitVectors(defaultNormal, normal);
         mesh.quaternion.copy(quat);
         mesh.renderOrder = 1;
@@ -193,7 +195,7 @@ class MapManager {
     requestAnimationFrame(() => this.animate());
     this.renderer.render(this.scene, this.camera);
 
-    // For labeling, we pass the appropriate star list to the label manager
+    // For labeling, pass the appropriate star list to the label manager.
     let starList = (this.mapType === 'TrueCoordinates') ? currentFilteredStars : currentGlobeFilteredStars;
     this.labelManager.updateLabels(starList);
   }
@@ -268,11 +270,14 @@ window.onload = async () => {
 
     buildAndApplyFilters();
 
-    // init density
-    const cubes = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars);
-    cubes.forEach(c => {
+    // Initialize density overlay and add its elements to the scenes.
+    densityOverlay = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars);
+    densityOverlay.cubesData.forEach(c => {
       trueCoordinatesMap.scene.add(c.tcMesh);
       globeMap.scene.add(c.globeMesh);
+    });
+    densityOverlay.adjacentLines.forEach(line => {
+      globeMap.scene.add(line);
     });
     updateDensityMapping(currentFilteredStars);
   } catch (err) {
