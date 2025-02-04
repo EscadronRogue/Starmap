@@ -94,14 +94,14 @@ export function applyStellarClassLogic(stars, form) {
 /**
  * Builds UI for the stellar class subcategories.
  *  - Each subcategory line has:
- *    -> Title: e.g. "O (Blue Giant) - 7"
- *    -> Two checkboxes for "Show Name" & "Show Star" (for the entire class)
- *  - The individual star list is inside a hidden subcontent, only shown
- *    when the user clicks on the subcategory title.
+ *    -> A visually distinct header (subcategory title) that is clickable to expand/collapse the star list.
+ *    -> The star list is wrapped in a scrollable sidebar if needed.
  */
 export function generateStellarClassFilters(stars) {
   const container = document.getElementById('stellar-class-container');
   container.innerHTML = ''; // Clear previous
+  // Wrap the whole category in a scrollable container (sidebar) if content exceeds a fixed height.
+  container.classList.add('scrollable-category');
 
   // Group stars by class
   const classMap = {};
@@ -135,18 +135,17 @@ export function generateStellarClassFilters(stars) {
     const arr = classMap[cls] || [];
     const starCount = arr.length;
 
-    // Outer container
+    // Outer container for this subcategory
     const subcatDiv = document.createElement('div');
     subcatDiv.classList.add('stellar-class-subcategory');
 
-    // 1) The subcategory title
-    //    This is the clickable line that expands/collapses the star list
+    // 1) The subcategory header (visually distinct)
     const header = document.createElement('h3');
-    header.classList.add('collapsible-subcategory');
+    header.classList.add('collapsible-subcategory', 'subcategory-header');
     header.textContent = `${cls} (${cName}) - ${starCount}`;
     subcatDiv.appendChild(header);
 
-    // 2) Class-level checkboxes row (always visible, even when subcat is "collapsed")
+    // 2) Class-level checkboxes row (always visible)
     const classCheckboxesDiv = document.createElement('div');
     classCheckboxesDiv.classList.add('class-level-checkboxes');
 
@@ -184,10 +183,10 @@ export function generateStellarClassFilters(stars) {
 
     subcatDiv.appendChild(classCheckboxesDiv);
 
-    // 3) The star list subcontent (hidden by default)
+    // 3) The star list subcontent (initially collapsed and scrollable if needed)
     const subcontentDiv = document.createElement('div');
-    subcontentDiv.classList.add('filter-subcontent');
-    // Initialize subcontent as collapsed
+    subcontentDiv.classList.add('filter-subcontent', 'subcategory-content');
+    // Start collapsed
     subcontentDiv.style.maxHeight = '0';
     subcontentDiv.style.overflowY = 'hidden';
 
@@ -254,9 +253,8 @@ export function generateStellarClassFilters(stars) {
     subcontentDiv.appendChild(individualStarsDiv);
     subcatDiv.appendChild(subcontentDiv);
 
-    // Finally, add logic to collapse/expand the star list upon clicking the subcategory header
+    // Add logic to collapse/expand the star list upon clicking the subcategory header
     header.addEventListener('click', () => {
-      // Toggle active state
       header.classList.toggle('active');
       const isActive = header.classList.contains('active');
       header.setAttribute('aria-expanded', isActive);
