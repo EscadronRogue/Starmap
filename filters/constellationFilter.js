@@ -2,11 +2,16 @@
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 
-// Internal data arrays for constellation boundaries and centers.
+/**
+ * This file manages constellation boundaries & labels for the Globe map.
+ * We store the parsed data from your .txt files and build lines/labels.
+ */
+
+// Internal data arrays
 let boundaryData = [];
 let centerData = [];
 
-// We’ll store references to the constellation lines and labels for the Globe.
+// We'll store references to the lines/labels in the globe scene
 export let globeConstellationLines = [];
 export let globeConstellationLabels = [];
 
@@ -22,7 +27,7 @@ export async function loadConstellationBoundaries() {
 
     boundaryData = [];
     for (const line of lines) {
-      // Example line format: "354:608 M+ 15:03:00 -55:00:00 15:03:00 -54:00:00 NOR LUP"
+      // e.g. "354:608 M+ 15:03:00 -55:00:00 15:03:00 -54:00:00 NOR LUP"
       const parts = line.split(/\s+/);
       if (parts.length < 8) continue;
 
@@ -59,7 +64,7 @@ export async function loadConstellationCenters() {
 
     centerData = [];
     for (const line of lines) {
-      // Example line format: '011 P+ 06:00:00 +70:00:00 "Camelopardalis"'
+      // e.g. "011 P+ 06:00:00 +70:00:00 "Camelopardalis""
       const parts = line.split(/\s+/);
       if (parts.length < 5) continue;
 
@@ -81,7 +86,7 @@ export async function loadConstellationCenters() {
 }
 
 /**
- * Build great-circle lines (THREE.Line) for each boundary segment on the Globe (radius = 100).
+ * Build great-circle lines (THREE.Line) for each boundary segment, radius=100 on the globe
  */
 export function createConstellationBoundariesForGlobe() {
   const lines = [];
@@ -91,7 +96,7 @@ export function createConstellationBoundariesForGlobe() {
     const p1 = radToSphere(b.ra1, b.dec1, R);
     const p2 = radToSphere(b.ra2, b.dec2, R);
 
-    // Create a great-circle curve between p1 and p2.
+    // Create a great-circle curve between p1 and p2
     const curve = new THREE.CatmullRomCurve3(getGreatCirclePoints(p1, p2, R, 32));
     const points = curve.getPoints(32);
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
@@ -110,8 +115,7 @@ export function createConstellationBoundariesForGlobe() {
 }
 
 /**
- * Build label sprites for each constellation center on the Globe.
- * The label is positioned at the center point plus an offset computed in the tangent plane.
+ * Build label sprites for each constellation center
  */
 export function createConstellationLabelsForGlobe() {
   const labels = [];
@@ -120,26 +124,7 @@ export function createConstellationLabelsForGlobe() {
   centerData.forEach(c => {
     const p = radToSphere(c.ra, c.dec, R);
     const spr = makeTextSprite(c.name, { fontSize: 100, color: '#888888' });
-
-    // Compute the normal vector at point p.
-    const normal = p.clone().normalize();
-    // Choose an arbitrary vector not parallel to the normal.
-    let arbitrary = new THREE.Vector3(0, 1, 0);
-    if (Math.abs(normal.dot(arbitrary)) > 0.99) {
-      arbitrary.set(1, 0, 0);
-    }
-    // Compute two tangent vectors spanning the tangent plane.
-    const tangent1 = new THREE.Vector3().crossVectors(normal, arbitrary).normalize();
-    const tangent2 = new THREE.Vector3().crossVectors(normal, tangent1).normalize();
-    // Use a hash-based angle to determine the offset direction.
-    const hash = hashString(c.name);
-    const angle = (Math.abs(hash) % 360) * (Math.PI / 180);
-    const baseDistance = 2; // Adjust as needed for proper spacing.
-    const offset = tangent1.clone().multiplyScalar(Math.cos(angle))
-      .add(tangent2.clone().multiplyScalar(Math.sin(angle)))
-      .multiplyScalar(baseDistance);
-
-    spr.position.copy(p.clone().add(offset));
+    spr.position.copy(p);
     labels.push(spr);
   });
 
@@ -147,7 +132,6 @@ export function createConstellationLabelsForGlobe() {
 }
 
 // Helpers
-
 function parseRA(raStr) {
   const [hh, mm, ss] = raStr.split(':').map(x => parseFloat(x));
   const hours = hh + mm / 60 + ss / 3600;
@@ -167,11 +151,8 @@ function degToRad(d) {
   return d * Math.PI / 180;
 }
 
-/**
- * Converts RA/DEC in radians to a THREE.Vector3 on a sphere of radius R.
- */
 function radToSphere(ra, dec, R) {
-  // x = R sin(phi) cos(theta), y = R cos(phi), z = R sin(phi) sin(theta)
+  // x=R sin(phi) cos(theta), y=R cos(phi), z=R sin(phi) sin(theta)
   const phi = (Math.PI / 2) - dec;
   const theta = ra;
   const x = R * Math.sin(phi) * Math.cos(theta);
@@ -181,7 +162,7 @@ function radToSphere(ra, dec, R) {
 }
 
 /**
- * Generates points along the great-circle path between two points on a sphere.
+ * Generates points along the great-circle path between two points on the sphere
  */
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
@@ -198,9 +179,6 @@ function getGreatCirclePoints(p1, p2, R, segments) {
   return points;
 }
 
-/**
- * Creates a text sprite using a canvas.
- */
 function makeTextSprite(txt, opts) {
   const fontSize = opts.fontSize || 100;
   const color = opts.color || '#888888';
@@ -218,28 +196,18 @@ function makeTextSprite(txt, opts) {
 
   const tex = new THREE.Texture(canvas);
   tex.needsUpdate = true;
+  // Updated: enable depth testing so that constellation labels are hidden by foreground objects.
   const mat = new THREE.SpriteMaterial({
     map: tex,
     transparent: true,
-    depthWrite: false,
-    depthTest: false
+    depthWrite: true,
+    depthTest: true
   });
   const sprite = new THREE.Sprite(mat);
 
-  // Smaller scale for the sprite
+  // Smaller scale
   const scaleFactor = 0.02;
   sprite.scale.set(canvas.width * scaleFactor, canvas.height * scaleFactor, 1);
 
   return sprite;
-}
-
-/**
- * Simple hash function to generate a consistent number from a string.
- */
-function hashString(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return hash;
 }
