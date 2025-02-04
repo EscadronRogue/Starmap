@@ -120,14 +120,19 @@ export class LabelManager {
       const offset = this.generateOffset(star);
       const labelPosition = starPosition.clone().add(offset);
       labelObj.position.copy(labelPosition);
-      // Orient the label so that its default normal (0,0,1) rotates to match the radial direction.
+      // First, orient the label so its default normal (0,0,1) aligns with the radial direction.
       const normal = starPosition.clone().normalize();
       const defaultNormal = new THREE.Vector3(0, 0, 1);
       const quat = new THREE.Quaternion().setFromUnitVectors(defaultNormal, normal);
       labelObj.quaternion.copy(quat);
+      // Then, adjust rotation about the normal so that the label’s local up aligns with global up.
+      const globalUp = new THREE.Vector3(0, 1, 0);
+      const localGlobalUp = globalUp.clone().applyQuaternion(labelObj.quaternion.clone().invert());
+      const angle = Math.atan2(localGlobalUp.x, localGlobalUp.y);
+      labelObj.rotateOnAxis(normal, -angle);
       labelObj.renderOrder = 1;
     } else {
-      // For TrueCoordinates, use a Sprite that always faces the camera
+      // For TrueCoordinates, use a Sprite that always faces the camera.
       const spriteMaterial = new THREE.SpriteMaterial({
         map: texture,
         depthWrite: true,
@@ -149,7 +154,7 @@ export class LabelManager {
     this.scene.add(labelObj);
     this.sprites.set(star, labelObj);
 
-    // Create connecting line (same for both map types)
+    // Create connecting line (common for both map types)
     let starPosition;
     if (this.mapType === 'TrueCoordinates') {
       starPosition = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
