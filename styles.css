@@ -104,7 +104,6 @@ header h1 {
   display: block;
 }
 
-/* Expand/Collapse for main categories */
 .sidebar legend:hover {
   background-color: rgba(60, 60, 60, 0.8);
   border-radius: 4px;
@@ -120,6 +119,12 @@ header h1 {
   max-height: 1000px;
 }
 
+/* Scrollable container for categories (sidebar effect) */
+.scrollable-category {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 /* Collapsible subcategory for stellar classes */
 .stellar-class-subcategory {
   margin-bottom: 15px;
@@ -127,18 +132,29 @@ header h1 {
   padding-bottom: 10px;
 }
 
-.collapsible-subcategory {
+/* Subcategory header (visually distinct) */
+.subcategory-header {
   font-size: 16px;
   margin-bottom: 5px;
   color: #ff6f61; 
   user-select: none;
   cursor: pointer;
+  background-color: #2a2a2a;
+  padding: 5px;
+  border-radius: 4px;
   display: block;
   transition: background-color 0.3s;
 }
-.collapsible-subcategory:hover {
+.subcategory-header:hover {
   background-color: rgba(60, 60, 60, 0.8);
+}
+
+/* Subcategory content (visually distinct) */
+.subcategory-content {
+  padding: 5px 10px;
+  background-color: #333;
   border-radius: 4px;
+  margin-bottom: 10px;
 }
 
 /* Sliders, etc. */
