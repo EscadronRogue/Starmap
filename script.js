@@ -16,7 +16,7 @@ import { globeSurfaceOpaque } from './filters/globeSurfaceFilter.js';
 import { ThreeDControls } from './cameraControls.js';
 import { LabelManager } from './labelManager.js';
 
-// We'll store global references
+// Global references
 let cachedStars = null;
 let currentFilteredStars = [];
 let currentConnections = [];
@@ -61,7 +61,7 @@ class MapManager {
     this.mapType = mapType;
     this.projectFunction = projectFunction;
 
-    // Instead of storing many individual star meshes, we will use one instanced mesh.
+    // Instead of storing many individual star meshes, we use an instanced mesh.
     this.starObjects = [];
     this.connectionLines = [];
 
@@ -110,17 +110,16 @@ class MapManager {
   }
 
   /**
-   * Instead of creating a separate Mesh for each star,
-   * we now build a single InstancedMesh for improved performance.
+   * Builds a single InstancedMesh for all stars.
+   * After setting each instance’s matrix and color, we mark the instanceMatrix and instanceColor as needing an update.
+   * For the Globe map, if star.RA_in_radian and star.DEC_in_radian aren’t available, we use a fallback
+   * based on the star’s existing x/y/z coordinates.
    */
   addStars(stars) {
     const count = stars.length;
-    // Use a low-poly unit sphere geometry as a base
     const geometry = new THREE.SphereGeometry(1, 8, 8);
-    // Enable per-instance color (we ignore per-instance opacity here)
     const material = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true });
     const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
-    // Use DynamicDrawUsage so the instance matrix can update if needed
     instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
     const dummy = new THREE.Object3D();
@@ -133,9 +132,16 @@ class MapManager {
       if (this.mapType === 'TrueCoordinates') {
         dummy.position.set(star.x_coordinate, star.y_coordinate, star.z_coordinate);
       } else {
-        // For Globe, compute sphere coordinates from RA/DEC (in radians)
-        const theta = star.RA_in_radian;
-        const phi = (Math.PI / 2) - star.DEC_in_radian;
+        // For Globe, use RA/DEC if available; otherwise, fallback to computing from x,y,z.
+        let theta, phi;
+        if (star.RA_in_radian !== undefined && star.DEC_in_radian !== undefined) {
+          theta = star.RA_in_radian;
+          phi = (Math.PI / 2) - star.DEC_in_radian;
+        } else {
+          const r = Math.sqrt(star.x_coordinate ** 2 + star.y_coordinate ** 2 + star.z_coordinate ** 2);
+          theta = Math.atan2(star.z_coordinate, star.x_coordinate);
+          phi = Math.acos(star.y_coordinate / r);
+        }
         const R = 100;
         const x = R * Math.sin(phi) * Math.cos(theta);
         const y = R * Math.cos(phi);
@@ -146,13 +152,14 @@ class MapManager {
       dummy.updateMatrix();
       instancedMesh.setMatrixAt(i, dummy.matrix);
 
-      // Set the per-instance color based on star.displayColor (opacity is not handled per instance)
       const color = new THREE.Color(star.displayColor || '#ffffff');
       instancedMesh.setColorAt(i, color);
     }
-    instancedMesh.instanceColor.needsUpdate = true;
+    instancedMesh.instanceMatrix.needsUpdate = true;
+    if (instancedMesh.instanceColor) {
+      instancedMesh.instanceColor.needsUpdate = true;
+    }
 
-    // Remove previous star objects from the scene, if any
     if (this.starObjects.length > 0) {
       this.starObjects.forEach(obj => this.scene.remove(obj));
     }
@@ -161,7 +168,7 @@ class MapManager {
   }
 
   updateMap(stars, connectionObjs) {
-    // Remove old instanced mesh (if any) and connection lines
+    // Remove previous star objects and connection lines.
     this.starObjects.forEach(obj => {
       if (obj) this.scene.remove(obj);
     });
@@ -172,7 +179,7 @@ class MapManager {
     });
     this.connectionLines = [];
 
-    // Add new stars using instanced mesh
+    // Add new stars via the instanced mesh.
     this.addStars(stars);
 
     if (connectionObjs && connectionObjs.length > 0) {
@@ -195,7 +202,7 @@ class MapManager {
     requestAnimationFrame(() => this.animate());
     this.renderer.render(this.scene, this.camera);
 
-    // Update labels – note that the LabelManager now throttles its updates internally.
+    // Update labels (throttled inside LabelManager).
     const starList = (this.mapType === 'TrueCoordinates') ? currentFilteredStars : currentGlobeFilteredStars;
     this.labelManager.updateLabels(starList);
   }
