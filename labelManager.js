@@ -11,7 +11,7 @@ import { hexToRGBA } from './utils.js';
  */
 function hashString(str) {
   let hash = 0;
-  for (let i = 0; i < str.length; i++) {
+  for(let i=0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
     hash = hash & hash; // Convert to 32bit integer
   }
@@ -122,7 +122,11 @@ export class LabelManager {
     // Draw white text
     ctx.fillStyle = '#ffffff'; // White text
     ctx.textBaseline = 'middle';
-    ctx.fillText(star.displayName, paddingX, canvas.height / 2);
+    ctx.fillText(
+      star.displayName,
+      paddingX,
+      canvas.height / 2
+    );
 
     // Create texture from canvas
     const texture = new THREE.CanvasTexture(canvas);
@@ -175,13 +179,13 @@ export class LabelManager {
 
     const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
 
-    // Modified: Pass a hex color (without alpha) to THREE.Color.
     const lineMaterial = new THREE.LineBasicMaterial({
-      color: new THREE.Color(starColor),
+      color: new THREE.Color(hexToRGBA(starColor, 0.2)),
       transparent: true,
       opacity: 0.2, // Reduced opacity
       linewidth: 2,  // Attempt to set thicker lines (Note: WebGL may not support >1)
     });
+
     const line = new THREE.Line(lineGeometry, lineMaterial);
     this.scene.add(line);
     this.lines.set(star, line);
@@ -232,7 +236,11 @@ export class LabelManager {
           // Redraw white text
           ctx.fillStyle = '#ffffff';
           ctx.textBaseline = 'middle';
-          ctx.fillText(star.displayName, paddingX, canvas.height / 2);
+          ctx.fillText(
+            star.displayName,
+            paddingX,
+            canvas.height / 2
+          );
 
           // Update texture
           sprite.material.map.needsUpdate = true;
@@ -267,8 +275,8 @@ export class LabelManager {
           points.push(labelPosition);
           line.geometry.setFromPoints(points);
 
-          // Modified: Update line color using a hex color (alpha is handled via opacity).
-          line.material.color.set(new THREE.Color(star.displayColor || '#888888'));
+          // Update line color and opacity
+          line.material.color.setHex(new THREE.Color(hexToRGBA(star.displayColor || '#888888', 0.2)).getHex());
           line.material.opacity = 0.2; // Ensure opacity remains consistent
         }
       }
