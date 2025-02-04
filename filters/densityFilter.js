@@ -10,10 +10,10 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 let densityGrid = null;
 
 /**
- * Internal class to handle the grid/cubes for density mapping.
+ * Internal class to handle the grid/squares for density mapping.
  */
 class DensityGridOverlay {
-  constructor(maxDistance, gridSize=2) {
+  constructor(maxDistance, gridSize = 2) {
     this.maxDistance = maxDistance;
     this.gridSize = gridSize;
     this.cubesData = [];
@@ -30,6 +30,7 @@ class DensityGridOverlay {
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
 
+          // For TrueCoordinates, use a cube as before.
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -40,13 +41,14 @@ class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
 
-          // Mirror on globe
-          let geometry2 = geometry.clone();
-          let material2 = material.clone();
+          // For Globe: use a flat square (plane) instead of a cube.
+          const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
+          const material2 = material.clone();
+          const squareGlobe = new THREE.Mesh(planeGeom, material2);
 
           let projectedPos;
           if (distFromCenter < 1e-6) {
-            projectedPos = new THREE.Vector3(0,0,0);
+            projectedPos = new THREE.Vector3(0, 0, 0);
           } else {
             const theta = Math.atan2(posTC.y, posTC.x);
             const phi = Math.acos(posTC.z / distFromCenter);
@@ -57,15 +59,14 @@ class DensityGridOverlay {
               radius * Math.sin(phi) * Math.sin(theta)
             );
           }
-          const cubeGlobe = new THREE.Mesh(geometry2, material2);
-          cubeGlobe.position.copy(projectedPos);
-          if (distFromCenter > 1e-6) {
-            cubeGlobe.lookAt(0,0,0);
-          }
+          squareGlobe.position.copy(projectedPos);
+          // Orient the square so that it is tangent to the globe.
+          const normal = projectedPos.clone().normalize();
+          squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
 
           this.cubesData.push({
             tcMesh: cubeTC,
-            globeMesh: cubeGlobe,
+            globeMesh: squareGlobe,
             tcPos: posTC,
             distances: []
           });
@@ -81,16 +82,14 @@ class DensityGridOverlay {
         const dx = cell.tcPos.x - star.x_coordinate;
         const dy = cell.tcPos.y - star.y_coordinate;
         const dz = cell.tcPos.z - star.z_coordinate;
-        return Math.sqrt(dx*dx + dy*dy + dz*dz);
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
       });
-      dArr.sort((a,b) => a - b);
+      dArr.sort((a, b) => a - b);
       cell.distances = dArr;
     });
   }
 
   update(stars) {
-    // If star data changes drastically, we might want to re-run computeDistances.
-    // For now, let's assume star set is stable
     const densitySlider = document.getElementById('density-slider');
     const toleranceSlider = document.getElementById('tolerance-slider');
     if (!densitySlider || !toleranceSlider) return;
@@ -103,14 +102,14 @@ class DensityGridOverlay {
       if (cell.distances.length > toleranceVal) {
         isoDist = cell.distances[toleranceVal];
       }
-      const showCube = (isoDist >= isolationVal);
+      const showSquare = (isoDist >= isolationVal);
       let ratio = isoDist / this.maxDistance;
       if (ratio > 1) ratio = 1;
       const alpha = THREE.MathUtils.lerp(0.0, 1.0, ratio);
 
-      cell.tcMesh.visible = showCube;
+      cell.tcMesh.visible = showSquare;
       cell.tcMesh.material.opacity = alpha;
-      cell.globeMesh.visible = showCube;
+      cell.globeMesh.visible = showSquare;
       cell.globeMesh.material.opacity = alpha;
     });
   }
@@ -131,6 +130,5 @@ export function initDensityOverlay(maxDistance, starArray) {
  */
 export function updateDensityMapping(starArray) {
   if (!densityGrid) return;
-  // If star set changed drastically, we might do "densityGrid.computeDistances(starArray);" again
   densityGrid.update(starArray);
 }
