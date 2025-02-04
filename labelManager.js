@@ -4,29 +4,6 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 import { hexToRGBA } from './utils.js';
 
 /**
- * Helper function that removes any alpha component from a color string.
- * If the color is specified in rgba format, it converts it to an rgb string.
- * Otherwise, returns the color unchanged.
- * @param {string} color - The input color string.
- * @returns {string} - The color string without an alpha component.
- */
-function cleanColor(color) {
-  if (typeof color === "string") {
-    if (color.indexOf("rgba") === 0) {
-      // Match rgba(r, g, b, a) and extract r, g, b
-      const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d\.]+)?\)/);
-      if (match) {
-        const r = match[1];
-        const g = match[2];
-        const b = match[3];
-        return `rgb(${r}, ${g}, ${b})`;
-      }
-    }
-  }
-  return color;
-}
-
-/**
  * Simple hash function to generate a consistent number from a string.
  * Used to generate deterministic angles for label offsets in the Globe map.
  * @param {string} str - The input string to hash.
@@ -34,7 +11,7 @@ function cleanColor(color) {
  */
 function hashString(str) {
   let hash = 0;
-  for(let i=0; i < str.length; i++) {
+  for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
     hash = hash & hash; // Convert to 32bit integer
   }
@@ -198,9 +175,9 @@ export class LabelManager {
 
     const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
 
-    // Use cleanColor to ensure no alpha is passed to THREE.Color.
+    // Modified: Pass a hex color (without alpha) to THREE.Color.
     const lineMaterial = new THREE.LineBasicMaterial({
-      color: new THREE.Color(cleanColor(starColor)),
+      color: new THREE.Color(starColor),
       transparent: true,
       opacity: 0.2, // Reduced opacity
       linewidth: 2,  // Attempt to set thicker lines (Note: WebGL may not support >1)
@@ -290,8 +267,8 @@ export class LabelManager {
           points.push(labelPosition);
           line.geometry.setFromPoints(points);
 
-          // Update line color using cleanColor to remove any alpha component.
-          line.material.color.set(new THREE.Color(cleanColor(star.displayColor || '#888888')));
+          // Modified: Update line color using a hex color (alpha is handled via opacity).
+          line.material.color.set(new THREE.Color(star.displayColor || '#888888'));
           line.material.opacity = 0.2; // Ensure opacity remains consistent
         }
       }
