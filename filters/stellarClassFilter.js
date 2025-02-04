@@ -187,9 +187,9 @@ export function generateStellarClassFilters(stars) {
     // 3) The star list subcontent (hidden by default)
     const subcontentDiv = document.createElement('div');
     subcontentDiv.classList.add('filter-subcontent');
-    // We'll store a reference for subcat toggling
+    // Initialize subcontent as collapsed
     subcontentDiv.style.maxHeight = '0';
-    subcontentDiv.style.overflow = 'hidden';
+    subcontentDiv.style.overflowY = 'hidden';
 
     const individualStarsDiv = document.createElement('div');
     individualStarsDiv.classList.add('individual-stars');
@@ -254,19 +254,27 @@ export function generateStellarClassFilters(stars) {
     subcontentDiv.appendChild(individualStarsDiv);
     subcatDiv.appendChild(subcontentDiv);
 
-    // Finally, we add logic to collapse/expand the star list upon clicking the subcat header
+    // Finally, add logic to collapse/expand the star list upon clicking the subcategory header
     header.addEventListener('click', () => {
-      // Toggle active
+      // Toggle active state
       header.classList.toggle('active');
       const isActive = header.classList.contains('active');
       header.setAttribute('aria-expanded', isActive);
 
       if (isActive) {
-        // Expand
-        subcontentDiv.style.maxHeight = `${subcontentDiv.scrollHeight}px`;
+        // Expand: if content height exceeds 300px, limit height and enable scrolling
+        const contentHeight = subcontentDiv.scrollHeight;
+        if (contentHeight > 300) {
+          subcontentDiv.style.maxHeight = '300px';
+          subcontentDiv.style.overflowY = 'auto';
+        } else {
+          subcontentDiv.style.maxHeight = contentHeight + 'px';
+          subcontentDiv.style.overflowY = 'visible';
+        }
       } else {
         // Collapse
         subcontentDiv.style.maxHeight = '0';
+        subcontentDiv.style.overflowY = 'hidden';
       }
     });
 
