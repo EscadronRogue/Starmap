@@ -15,33 +15,21 @@ import { globeSurfaceOpaque } from './filters/globeSurfaceFilter.js';
 
 import { ThreeDControls } from './cameraControls.js';
 import { LabelManager } from './labelManager.js';
-import { showTooltip, hideTooltip } from './tooltips.js'; // <-- NEW: import tooltip functions
+import { showTooltip, hideTooltip } from './tooltips.js';
 
-// Global references
 let cachedStars = null;
 let currentFilteredStars = [];
 let currentConnections = [];
 let currentGlobeFilteredStars = [];
 let currentGlobeConnections = [];
-
 let maxDistanceFromCenter = 0;
-
-// Global variable for the currently selected star (if any)
 let selectedStarData = null;
 
-// TrueCoordinates map
 let trueCoordinatesMap;
-// Globe map
 let globeMap;
-
-// For globe
 let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
-
-// Opaque sphere
 let globeSurfaceSphere = null;
-
-// Density overlay reference (includes cubes and adjacent lines)
 let densityOverlay = null;
 
 async function loadStarData() {
@@ -57,27 +45,16 @@ async function loadStarData() {
   }
 }
 
-/**
- * MapManager class
- * Creates two 3D scenes: one for TrueCoordinates, one for Globe.
- * For labeling, we now pass the entire scene to the LabelManager.
- */
 class MapManager {
   constructor({ canvasId, mapType, projectFunction }) {
     this.canvas = document.getElementById(canvasId);
     this.mapType = mapType;
     this.projectFunction = projectFunction;
-
     this.starObjects = [];
     this.connectionLines = [];
-
-    // Create a THREE scene
     this.scene = new THREE.Scene();
-
-    // Use the new label manager that places 3D label meshes in the scene
     this.labelManager = new LabelManager(mapType, this.scene);
 
-    // Setup camera
     if (mapType === 'TrueCoordinates') {
       this.camera = new THREE.PerspectiveCamera(
         75,
@@ -96,42 +73,33 @@ class MapManager {
       this.camera.position.set(0, 0, 200);
     }
 
-    // Setup renderer
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
     this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
     this.renderer.setPixelRatio(window.devicePixelRatio);
-
-    // Setup controls
     this.controls = new ThreeDControls(this.camera, this.renderer.domElement);
 
-    // Basic lighting
     const amb = new THREE.AmbientLight(0xffffff, 0.5);
     this.scene.add(amb);
     const pt = new THREE.PointLight(0xffffff, 1);
     this.scene.add(pt);
 
     window.addEventListener('resize', () => this.onResize(), false);
-
     this.animate();
   }
 
   addStars(stars) {
-    // Remove old if needed
     stars.forEach(star => {
       const sizeMult = (this.mapType === 'TrueCoordinates') ? 0.2 : 0.5;
       const adjustedSize = star.displaySize * sizeMult;
       const color = new THREE.Color(star.displayColor || '#ffffff');
       const opacity = star.displayOpacity ?? 1.0;
-
       let mesh;
       if (this.mapType === 'TrueCoordinates') {
-        // Use sphere for true coordinates
         const geom = new THREE.SphereGeometry(adjustedSize, 16, 16);
         const mat = new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity });
         mesh = new THREE.Mesh(geom, mat);
         mesh.position.set(star.x_coordinate, star.y_coordinate, star.z_coordinate);
       } else {
-        // Globe map: compute sphere position and create a flat disk
         const theta = star.RA_in_radian;
         const phi = (Math.PI / 2) - star.DEC_in_radian;
         const R = 100;
@@ -139,7 +107,6 @@ class MapManager {
         const y = R * Math.cos(phi);
         const z = R * Math.sin(phi) * Math.sin(theta);
         star.spherePosition = { x, y, z };
-        // Create a circle (disk) geometry
         const geom = new THREE.CircleGeometry(adjustedSize, 16);
         const mat = new THREE.MeshBasicMaterial({
           color,
@@ -149,41 +116,31 @@ class MapManager {
         });
         mesh = new THREE.Mesh(geom, mat);
         mesh.position.set(x, y, z);
-        // Orient the disk so that it is tangent to the sphere.
         const normal = new THREE.Vector3(x, y, z).normalize();
         const defaultNormal = new THREE.Vector3(0, 0, 1);
         const quat = new THREE.Quaternion().setFromUnitVectors(defaultNormal, normal);
         mesh.quaternion.copy(quat);
         mesh.renderOrder = 1;
       }
-      // --- NEW: Add star data and store original scale for selection highlighting ---
       mesh.userData.star = star;
       mesh.userData.originalScale = mesh.scale.clone();
-      // --------------------------------------------------------------------------
-
       this.scene.add(mesh);
       this.starObjects.push({ mesh, data: star });
     });
   }
 
   updateMap(stars, connectionObjs) {
-    // Remove any old star meshes from the scene
     this.starObjects.forEach(o => {
       if (o.mesh) {
         this.scene.remove(o.mesh);
       }
     });
     this.starObjects = [];
-
-    // Remove old lines
     this.connectionLines.forEach(line => {
       if (line) this.scene.remove(line);
     });
     this.connectionLines = [];
-
-    // Add new
     this.addStars(stars);
-
     if (connectionObjs && connectionObjs.length > 0) {
       connectionObjs.forEach(line => {
         this.scene.add(line);
@@ -203,8 +160,6 @@ class MapManager {
   animate() {
     requestAnimationFrame(() => this.animate());
     this.renderer.render(this.scene, this.camera);
-
-    // For labeling, pass the appropriate star list to the label manager.
     let starList = (this.mapType === 'TrueCoordinates') ? currentFilteredStars : currentGlobeFilteredStars;
     this.labelManager.updateLabels(starList);
   }
@@ -217,15 +172,10 @@ function projectStarGlobe(star) {
   return null;
 }
 
-/**
- * Initializes star interaction events (hover & click) for a given map.
- * Uses raycasting to detect star meshes.
- */
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
   map.canvas.addEventListener('mousemove', (event) => {
-    // If a star has been clicked (selected), do not update tooltip on hover.
     if (selectedStarData) return;
     const rect = map.canvas.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -260,7 +210,6 @@ function initStarInteractions(map) {
         updateSelectedStarHighlight();
       }
     } else {
-      // Deselect if clicking on empty space
       selectedStarData = null;
       updateSelectedStarHighlight();
       hideTooltip();
@@ -268,10 +217,6 @@ function initStarInteractions(map) {
   });
 }
 
-/**
- * Updates the visual appearance of stars to reflect selection.
- * Selected star(s) are scaled up by 1.5× their original scale.
- */
 function updateSelectedStarHighlight() {
   [trueCoordinatesMap, globeMap].forEach(map => {
     map.starObjects.forEach(obj => {
@@ -299,7 +244,6 @@ window.onload = async () => {
     if (form) {
       form.addEventListener('change', () => buildAndApplyFilters());
 
-      // connection slider
       const cSlider = document.getElementById('connection-slider');
       const cVal = document.getElementById('connection-value');
       if (cSlider && cVal) {
@@ -309,23 +253,21 @@ window.onload = async () => {
         });
       }
 
-      // density slider
       const dSlider = document.getElementById('density-slider');
       const dVal = document.getElementById('density-value');
       if (dSlider && dVal) {
         dSlider.addEventListener('input', () => {
           dVal.textContent = dSlider.value;
-          updateDensityMapping(currentFilteredStars);
+          buildAndApplyFilters();
         });
       }
 
-      // tolerance slider
       const tSlider = document.getElementById('tolerance-slider');
       const tVal = document.getElementById('tolerance-value');
       if (tSlider && tVal) {
         tSlider.addEventListener('input', () => {
           tVal.textContent = tSlider.value;
-          updateDensityMapping(currentFilteredStars);
+          buildAndApplyFilters();
         });
       }
     }
@@ -345,29 +287,32 @@ window.onload = async () => {
       projectFunction: projectStarGlobe,
     });
 
-    // Initialize star interactions (hover & click) for both maps
     initStarInteractions(trueCoordinatesMap);
     initStarInteractions(globeMap);
 
     buildAndApplyFilters();
 
-    // Initialize density overlay and add its elements to the scenes.
     densityOverlay = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars);
     densityOverlay.cubesData.forEach(c => {
       trueCoordinatesMap.scene.add(c.tcMesh);
       globeMap.scene.add(c.globeMesh);
     });
-    // FIX: Add only the THREE.Object3D (the "line" property) from adjacentLines objects.
     densityOverlay.adjacentLines.forEach(obj => {
       globeMap.scene.add(obj.line);
     });
-    updateDensityMapping(currentFilteredStars);
+
+    buildAndApplyFilters();
   } catch (err) {
     console.error('Error initializing starmap:', err);
     alert('Initialization of starmap failed. Please check console.');
   } finally {
     loader.classList.add('hidden');
   }
+
+  // Hamburger Menu Toggle
+  document.getElementById('menu-toggle').addEventListener('click', () => {
+    document.querySelector('.sidebar').classList.toggle('closed');
+  });
 };
 
 function buildAndApplyFilters() {
@@ -376,8 +321,10 @@ function buildAndApplyFilters() {
   const {
     filteredStars,
     connections,
+    connectionsEnabled,
     globeFilteredStars,
     globeConnections,
+    densityEnabled,
     showConstellationBoundaries,
     showConstellationNames,
     globeOpaqueSurface
@@ -388,8 +335,12 @@ function buildAndApplyFilters() {
   currentGlobeFilteredStars = globeFilteredStars;
   currentGlobeConnections = globeConnections;
 
-  const linesTrue = createConnectionLines(currentFilteredStars, currentConnections, 'TrueCoordinates');
-  const linesGlobe = createConnectionLines(currentGlobeFilteredStars, globeConnections, 'Globe');
+  let linesTrue = [];
+  let linesGlobe = [];
+  if (connectionsEnabled) {
+    linesTrue = createConnectionLines(currentFilteredStars, currentConnections, 'TrueCoordinates');
+    linesGlobe = createConnectionLines(currentGlobeFilteredStars, globeConnections, 'Globe');
+  }
 
   trueCoordinatesMap.updateMap(currentFilteredStars, linesTrue);
   globeMap.updateMap(currentGlobeFilteredStars, linesGlobe);
@@ -406,7 +357,17 @@ function buildAndApplyFilters() {
 
   applyGlobeSurface(globeOpaqueSurface);
 
-  updateDensityMapping(currentFilteredStars);
+  if (densityEnabled) {
+    updateDensityMapping(currentFilteredStars);
+  } else {
+    densityOverlay.cubesData.forEach(c => {
+      c.tcMesh.visible = false;
+      c.globeMesh.visible = false;
+    });
+    densityOverlay.adjacentLines.forEach(obj => {
+      obj.line.visible = false;
+    });
+  }
 }
 
 function removeConstellationObjectsFromGlobe() {
@@ -414,24 +375,17 @@ function removeConstellationObjectsFromGlobe() {
     constellationLinesGlobe.forEach(l => globeMap.scene.remove(l));
   }
   constellationLinesGlobe = [];
-
   if (constellationLabelsGlobe && constellationLabelsGlobe.length > 0) {
     constellationLabelsGlobe.forEach(lbl => globeMap.scene.remove(lbl));
   }
   constellationLabelsGlobe = [];
 }
 
-/**
- * Creates or removes a black sphere of radius=100 with front side rendering,
- * so that everything behind it is hidden from view.
- * The sphere is rendered behind all other Globe objects.
- */
 function applyGlobeSurface(isOpaque) {
   if (globeSurfaceSphere) {
     globeMap.scene.remove(globeSurfaceSphere);
     globeSurfaceSphere = null;
   }
-
   if (isOpaque) {
     const geom = new THREE.SphereGeometry(100, 32, 32);
     const mat = new THREE.MeshBasicMaterial({
@@ -442,7 +396,6 @@ function applyGlobeSurface(isOpaque) {
       transparent: false,
     });
     globeSurfaceSphere = new THREE.Mesh(geom, mat);
-    // Render the globe surface first (background)
     globeSurfaceSphere.renderOrder = 0;
     globeMap.scene.add(globeSurfaceSphere);
   }
