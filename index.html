@@ -11,15 +11,15 @@
   <!-- Loader -->
   <div id="loader" class="active">Loading Stars...</div>
 
-  <!-- Header with menu toggle button -->
+  <!-- Header with Menu Toggle Button -->
   <header>
-    <button id="menu-toggle">☰</button>
+    <button id="menu-toggle" aria-label="Toggle Menu">☰</button>
     <h1>Starmap Visualization</h1>
   </header>
 
   <!-- Main Container -->
   <div class="main-container">
-    <!-- Sidebar for Filters; initially closed -->
+    <!-- Sidebar for Filters (starts closed) -->
     <aside class="sidebar closed">
       <h2>Filters</h2>
       <form id="filters-form">
@@ -145,13 +145,17 @@
           </div>
         </fieldset>
 
-        <!-- Connections Filter -->
+        <!-- Connections Filter (disabled by default) -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Connections (LY)</legend>
           <div class="filter-content">
             <div class="filter-item">
-              <input type="checkbox" id="enable-connections" name="enable-connections">
-              <label for="enable-connections">Enable Connection Lines</label>
+              <input
+                type="checkbox"
+                id="enable-connections"
+                name="enable-connections"
+              />
+              <label for="enable-connections">Enable Connections</label>
             </div>
             <div class="filter-item">
               <input
@@ -161,21 +165,25 @@
                 min="1"
                 max="50"
                 value="7"
+                disabled
               />
               <span id="connection-value">7</span> Light Years
             </div>
           </div>
         </fieldset>
 
-        <!-- Density Mapping Filter -->
+        <!-- Density Mapping Filter (disabled by default) -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Density Mapping</legend>
           <div class="filter-content">
             <div class="filter-item">
-              <input type="checkbox" id="enable-density-mapping" name="enable-density-mapping">
+              <input
+                type="checkbox"
+                id="enable-density-mapping"
+                name="enable-density-mapping"
+              />
               <label for="enable-density-mapping">Enable Density Mapping</label>
             </div>
-            <!-- Isolation Distance Slider -->
             <div class="filter-item">
               <label>Isolation Distance (LY): <span id="density-value">7</span> LY</label>
               <input
@@ -185,10 +193,9 @@
                 min="1"
                 max="20"
                 value="7"
+                disabled
               />
             </div>
-
-            <!-- Tolerance Slider -->
             <div class="filter-item">
               <label>Ignore this many closest stars: <span id="tolerance-value">0</span></label>
               <input
@@ -198,35 +205,47 @@
                 min="0"
                 max="10"
                 value="0"
+                disabled
               />
             </div>
           </div>
         </fieldset>
 
-        <!-- Constellation Filters -->
+        <!-- Constellations Fieldset (unchanged) -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Constellations</legend>
           <div class="filter-content">
-            <!-- Show Boundaries -->
             <div class="filter-item">
-              <input type="checkbox" id="show-constellation-boundaries" name="show-constellation-boundaries" checked>
+              <input
+                type="checkbox"
+                id="show-constellation-boundaries"
+                name="show-constellation-boundaries"
+                checked
+              />
               <label for="show-constellation-boundaries">Show Constellation Boundaries</label>
             </div>
-
-            <!-- Show Names -->
             <div class="filter-item">
-              <input type="checkbox" id="show-constellation-names" name="show-constellation-names" checked>
+              <input
+                type="checkbox"
+                id="show-constellation-names"
+                name="show-constellation-names"
+                checked
+              />
               <label for="show-constellation-names">Show Constellation Names</label>
             </div>
           </div>
         </fieldset>
 
-        <!-- Globe Surface Filter -->
+        <!-- Globe Surface Fieldset (unchanged) -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Globe Surface</legend>
           <div class="filter-content">
             <div class="filter-item">
-              <input type="checkbox" id="globe-opaque-surface" name="globe-opaque-surface">
+              <input
+                type="checkbox"
+                id="globe-opaque-surface"
+                name="globe-opaque-surface"
+              />
               <label for="globe-opaque-surface">Opaque Globe Surface</label>
             </div>
           </div>
@@ -266,5 +285,26 @@
 
   <!-- Scripts -->
   <script type="module" src="script.js"></script>
+  <script>
+    // Toggle sidebar menu on mobile
+    document.getElementById('menu-toggle').addEventListener('click', function() {
+      var sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('closed');
+    });
+
+    // Enable/disable connection slider based on checkbox state
+    document.getElementById('enable-connections').addEventListener('change', function() {
+      var slider = document.getElementById('connection-slider');
+      slider.disabled = !this.checked;
+    });
+
+    // Enable/disable density mapping sliders based on checkbox state
+    document.getElementById('enable-density-mapping').addEventListener('change', function() {
+      var densitySlider = document.getElementById('density-slider');
+      var toleranceSlider = document.getElementById('tolerance-slider');
+      densitySlider.disabled = !this.checked;
+      toleranceSlider.disabled = !this.checked;
+    });
+  </script>
 </body>
 </html>
