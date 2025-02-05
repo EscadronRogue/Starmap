@@ -1,5 +1,3 @@
-// filters/stellarClassFilter.js
-
 /**
  * Handles "Stellar Class" logic for showing/hiding star names and star objects themselves.
  * Also exports `generateStellarClassFilters` to build the UI subcategories (O,B,A,F,G,K,M,L,T,Y).
@@ -189,7 +187,6 @@ export function generateStellarClassFilters(stars) {
     // 3) The star list subcontent (initially collapsed and scrollable if needed)
     const subcontentDiv = document.createElement('div');
     subcontentDiv.classList.add('filter-subcontent', 'subcategory-content');
-    // Start collapsed
     subcontentDiv.style.maxHeight = '0';
     subcontentDiv.style.overflowY = 'hidden';
 
@@ -260,14 +257,12 @@ export function generateStellarClassFilters(stars) {
     subcontentDiv.appendChild(individualStarsDiv);
     subcatDiv.appendChild(subcontentDiv);
 
-    // Add logic to collapse/expand the star list upon clicking the subcategory header
     header.addEventListener('click', () => {
       header.classList.toggle('active');
       const isActive = header.classList.contains('active');
       header.setAttribute('aria-expanded', isActive);
 
       if (isActive) {
-        // Expand: if content height exceeds 300px, limit height and enable scrolling
         const contentHeight = subcontentDiv.scrollHeight;
         if (contentHeight > 300) {
           subcontentDiv.style.maxHeight = '300px';
@@ -277,7 +272,6 @@ export function generateStellarClassFilters(stars) {
           subcontentDiv.style.overflowY = 'visible';
         }
       } else {
-        // Collapse
         subcontentDiv.style.maxHeight = '0';
         subcontentDiv.style.overflowY = 'hidden';
       }
