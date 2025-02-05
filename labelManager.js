@@ -3,6 +3,9 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { hexToRGBA } from './utils.js';
 
+/**
+ * Simple hash function to generate a consistent number from a string.
+ */
 function hashString(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -12,6 +15,9 @@ function hashString(str) {
   return hash;
 }
 
+/**
+ * Returns a ShaderMaterial that renders a texture double‐sided with the same (front) orientation.
+ */
 function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
   return new THREE.ShaderMaterial({
     uniforms: {
@@ -30,6 +36,7 @@ function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
       uniform float opacity;
       varying vec2 vUv;
       void main() {
+        // If rendering the back face, flip the U coordinate so the texture is not mirrored.
         vec2 uvCorrected = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);
         vec4 color = texture2D(map, uvCorrected);
         gl_FragColor = vec4(color.rgb, color.a * opacity);
@@ -40,7 +47,15 @@ function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
   });
 }
 
+/**
+ * LabelManager Class
+ * Manages 3D label meshes and connecting lines.
+ */
 export class LabelManager {
+  /**
+   * @param {string} mapType - 'TrueCoordinates' or 'Globe'
+   * @param {THREE.Scene} scene - The scene to which labels and lines are added.
+   */
   constructor(mapType, scene) {
     this.mapType = mapType;
     this.scene = scene;
@@ -50,6 +65,9 @@ export class LabelManager {
     this.lastLabelUpdate = 0;
   }
 
+  /**
+   * Generates an offset for a star’s label.
+   */
   generateOffset(star) {
     if (this.offsets.has(star)) {
       return this.offsets.get(star);
@@ -88,8 +106,12 @@ export class LabelManager {
     return offset;
   }
 
+  /**
+   * Creates a 3D label and connecting line for a star.
+   */
   createSpriteAndLine(star) {
     const starColor = star.displayColor || '#888888';
+    // Use a larger base font size for Globe labels.
     const baseFontSize = this.mapType === 'Globe' ? 64 : 24;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -114,15 +136,21 @@ export class LabelManager {
     
     let labelObj;
     if (this.mapType === 'Globe') {
+      // Create a plane geometry for the label.
       const planeGeom = new THREE.PlaneGeometry((canvas.width / 100) * scaleFactor, (canvas.height / 100) * scaleFactor);
+      // Use our custom shader material so that the label is visible from both sides without mirroring.
       const material = getDoubleSidedLabelMaterial(texture);
       labelObj = new THREE.Mesh(planeGeom, material);
       
+      // Compute label position from the star’s sphere position.
       let starPosition = new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z);
       const offset = this.generateOffset(star);
       const labelPosition = starPosition.clone().add(offset);
       labelObj.position.copy(labelPosition);
       
+      // --- Orientation logic ---
+      // Make the label’s plane tangent to the sphere and then compute a basis so that its local up equals
+      // the projection of global up (0,1,0) onto the tangent plane.
       const normal = starPosition.clone().normalize();
       const globalUp = new THREE.Vector3(0, 1, 0);
       let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
@@ -132,8 +160,11 @@ export class LabelManager {
       const matrix = new THREE.Matrix4();
       matrix.makeBasis(desiredRight, desiredUp, normal);
       labelObj.setRotationFromMatrix(matrix);
+      // --- End orientation ---
+      
       labelObj.renderOrder = 1;
     } else {
+      // For TrueCoordinates, use a Sprite that always faces the camera.
       const spriteMaterial = new THREE.SpriteMaterial({
         map: texture,
         depthWrite: true,
@@ -155,6 +186,7 @@ export class LabelManager {
     this.scene.add(labelObj);
     this.sprites.set(star, labelObj);
     
+    // Create a connecting line.
     let starPosition;
     if (this.mapType === 'TrueCoordinates') {
       starPosition = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
@@ -177,8 +209,7 @@ export class LabelManager {
 
   updateLabels(stars) {
     const now = performance.now();
-    // Throttle label updates to every 100ms instead of 33ms to reduce load
-    if (now - this.lastLabelUpdate < 100) return;
+    if (now - this.lastLabelUpdate < 33) return;
     this.lastLabelUpdate = now;
     stars.forEach(star => {
       if (!this.sprites.has(star)) {
