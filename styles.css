@@ -55,7 +55,7 @@ header {
   left: 10px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 32px;
+  font-size: 36px;
   background: none;
   border: none;
   color: #ff6f61;
@@ -71,7 +71,6 @@ header h1 {
 
 /* Main Container */
 .main-container {
-  /* Since sidebar is now an overlay, let maps section take full width */
   margin-top: 60px;
   height: calc(100vh - 60px);
   overflow: hidden;
@@ -98,7 +97,6 @@ header h1 {
   transform: translateX(0);
 }
 
-/* Sidebar Header */
 .sidebar h2 {
   margin-bottom: 15px;
   font-size: 22px;
@@ -153,7 +151,6 @@ header h1 {
   padding-bottom: 10px;
 }
 
-/* Subcategory header */
 .subcategory-header {
   font-size: 16px;
   margin-bottom: 5px;
@@ -169,7 +166,6 @@ header h1 {
   background-color: rgba(60, 60, 60, 0.8);
 }
 
-/* Subcategory content */
 .subcategory-content {
   padding: 5px 10px;
   background-color: #333;
@@ -306,6 +302,13 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
   z-index: 10;
 }
 
+/* Fullscreen styling: when any element is in fullscreen mode, force full width/height */
+:fullscreen,
+:-webkit-full-screen {
+  width: 100%;
+  height: 100%;
+}
+
 /* Tooltip */
 #tooltip {
   position: absolute;
@@ -372,10 +375,10 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
     width: 220px;
   }
   .map-container {
-    max-width:100%;
+    max-width: 100%;
   }
   .map-container canvas {
-    height:600px;
+    height: 600px;
   }
   header h1 {
     font-size: 20px;
@@ -387,16 +390,16 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
     font-size: 20px;
   }
   .sidebar fieldset {
-    padding:12px;
+    padding: 12px;
   }
   .filter-item label {
-    font-size:13px;
+    font-size: 13px;
   }
   #tooltip {
-    font-size:13px;
-    max-width:200px;
+    font-size: 13px;
+    max-width: 200px;
   }
   .label-container .label {
-    font-size:11px;
+    font-size: 11px;
   }
 }
