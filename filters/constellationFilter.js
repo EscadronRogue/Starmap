@@ -24,7 +24,6 @@ export async function loadConstellationBoundaries() {
     if (!resp.ok) throw new Error(`Failed to load constellation_boundaries.txt: ${resp.status}`);
     const raw = await resp.text();
     const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
-
     boundaryData = [];
     for (const line of lines) {
       const parts = line.split(/\s+/);
@@ -57,7 +56,6 @@ export async function loadConstellationCenters() {
     if (!resp.ok) throw new Error(`Failed to load constellation_center.txt: ${resp.status}`);
     const raw = await resp.text();
     const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
-
     centerData = [];
     for (const line of lines) {
       const parts = line.split(/\s+/);
@@ -105,7 +103,8 @@ export function createConstellationBoundariesForGlobe() {
 /**
  * Build constellation label meshes for the Globe.
  * The labels are flat and follow the globe curvature.
- * Their text is scaled very large (base font size 200) and rotated so that their up aligns with the north.
+ * Their text is scaled very large and oriented so that their local up equals the projection
+ * of global up (0,1,0) onto the tangent plane at that point.
  */
 export function createConstellationLabelsForGlobe() {
   const labels = [];
@@ -128,20 +127,19 @@ export function createConstellationLabelsForGlobe() {
     const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: true, depthTest: true });
     const label = new THREE.Mesh(planeGeom, mat);
     label.position.copy(p);
-    // Align label's face so its default normal (0,0,1) matches the radial direction.
+    // NEW ORIENTATION LOGIC: Compute label rotation explicitly.
     const normal = p.clone().normalize();
-    const defaultNormal = new THREE.Vector3(0, 0, 1);
-    const quat = new THREE.Quaternion().setFromUnitVectors(defaultNormal, normal);
-    label.quaternion.copy(quat);
-    // Adjust rotation: make the label's local up align with the projection of global up.
     const globalUp = new THREE.Vector3(0, 1, 0);
-    const desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal))).normalize();
-    const currentUp = new THREE.Vector3(0, 1, 0).applyQuaternion(label.quaternion);
-    const angle = currentUp.angleTo(desiredUp);
-    const cross = new THREE.Vector3().crossVectors(currentUp, desiredUp);
-    const sign = cross.dot(normal) < 0 ? -1 : 1;
-    const adjustmentQuat = new THREE.Quaternion().setFromAxisAngle(normal, sign * angle);
-    label.quaternion.multiply(adjustmentQuat);
+    let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
+    if (desiredUp.lengthSq() < 1e-6) {
+      desiredUp = new THREE.Vector3(0, 0, 1);
+    } else {
+      desiredUp.normalize();
+    }
+    const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
+    const matrix = new THREE.Matrix4();
+    matrix.makeBasis(desiredRight, desiredUp, normal);
+    label.setRotationFromMatrix(matrix);
     label.renderOrder = 1;
     labels.push(label);
   });
