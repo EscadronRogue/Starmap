@@ -230,6 +230,94 @@ function updateSelectedStarHighlight() {
   });
 }
 
+function buildAndApplyFilters() {
+  if (!cachedStars) return;
+
+  const {
+    filteredStars,
+    connections,
+    connectionsEnabled,
+    globeFilteredStars,
+    globeConnections,
+    densityEnabled,
+    showConstellationBoundaries,
+    showConstellationNames,
+    globeOpaqueSurface
+  } = applyFilters(cachedStars);
+
+  currentFilteredStars = filteredStars;
+  currentConnections = connections;
+  currentGlobeFilteredStars = globeFilteredStars;
+  currentGlobeConnections = globeConnections;
+
+  let linesTrue = [];
+  let linesGlobe = [];
+  if (connectionsEnabled) {
+    linesTrue = createConnectionLines(currentFilteredStars, currentConnections, 'TrueCoordinates');
+    linesGlobe = createConnectionLines(currentGlobeFilteredStars, globeConnections, 'Globe');
+  }
+
+  trueCoordinatesMap.updateMap(currentFilteredStars, linesTrue);
+  globeMap.updateMap(currentGlobeFilteredStars, linesGlobe);
+
+  removeConstellationObjectsFromGlobe();
+  if (showConstellationBoundaries) {
+    constellationLinesGlobe = createConstellationBoundariesForGlobe();
+    constellationLinesGlobe.forEach(ln => globeMap.scene.add(ln));
+  }
+  if (showConstellationNames) {
+    constellationLabelsGlobe = createConstellationLabelsForGlobe();
+    constellationLabelsGlobe.forEach(lbl => globeMap.scene.add(lbl));
+  }
+
+  applyGlobeSurface(globeOpaqueSurface);
+
+  if (densityOverlay) {
+    if (densityEnabled) {
+      updateDensityMapping(currentFilteredStars);
+    } else {
+      densityOverlay.cubesData.forEach(c => {
+        c.tcMesh.visible = false;
+        c.globeMesh.visible = false;
+      });
+      densityOverlay.adjacentLines.forEach(obj => {
+        obj.line.visible = false;
+      });
+    }
+  }
+}
+
+function removeConstellationObjectsFromGlobe() {
+  if (constellationLinesGlobe && constellationLinesGlobe.length > 0) {
+    constellationLinesGlobe.forEach(l => globeMap.scene.remove(l));
+  }
+  constellationLinesGlobe = [];
+  if (constellationLabelsGlobe && constellationLabelsGlobe.length > 0) {
+    constellationLabelsGlobe.forEach(lbl => globeMap.scene.remove(lbl));
+  }
+  constellationLabelsGlobe = [];
+}
+
+function applyGlobeSurface(isOpaque) {
+  if (globeSurfaceSphere) {
+    globeMap.scene.remove(globeSurfaceSphere);
+    globeSurfaceSphere = null;
+  }
+  if (isOpaque) {
+    const geom = new THREE.SphereGeometry(100, 32, 32);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      side: THREE.FrontSide,
+      depthWrite: true,
+      depthTest: true,
+      transparent: false,
+    });
+    globeSurfaceSphere = new THREE.Mesh(geom, mat);
+    globeSurfaceSphere.renderOrder = 0;
+    globeMap.scene.add(globeSurfaceSphere);
+  }
+}
+
 window.onload = async () => {
   const loader = document.getElementById('loader');
   loader.classList.remove('hidden');
@@ -309,94 +397,7 @@ window.onload = async () => {
     loader.classList.add('hidden');
   }
 
-  // Hamburger Menu Toggle
   document.getElementById('menu-toggle').addEventListener('click', () => {
     document.querySelector('.sidebar').classList.toggle('closed');
   });
 };
-
-function buildAndApplyFilters() {
-  if (!cachedStars) return;
-
-  const {
-    filteredStars,
-    connections,
-    connectionsEnabled,
-    globeFilteredStars,
-    globeConnections,
-    densityEnabled,
-    showConstellationBoundaries,
-    showConstellationNames,
-    globeOpaqueSurface
-  } = applyFilters(cachedStars);
-
-  currentFilteredStars = filteredStars;
-  currentConnections = connections;
-  currentGlobeFilteredStars = globeFilteredStars;
-  currentGlobeConnections = globeConnections;
-
-  let linesTrue = [];
-  let linesGlobe = [];
-  if (connectionsEnabled) {
-    linesTrue = createConnectionLines(currentFilteredStars, currentConnections, 'TrueCoordinates');
-    linesGlobe = createConnectionLines(currentGlobeFilteredStars, globeConnections, 'Globe');
-  }
-
-  trueCoordinatesMap.updateMap(currentFilteredStars, linesTrue);
-  globeMap.updateMap(currentGlobeFilteredStars, linesGlobe);
-
-  removeConstellationObjectsFromGlobe();
-  if (showConstellationBoundaries) {
-    constellationLinesGlobe = createConstellationBoundariesForGlobe();
-    constellationLinesGlobe.forEach(ln => globeMap.scene.add(ln));
-  }
-  if (showConstellationNames) {
-    constellationLabelsGlobe = createConstellationLabelsForGlobe();
-    constellationLabelsGlobe.forEach(lbl => globeMap.scene.add(lbl));
-  }
-
-  applyGlobeSurface(globeOpaqueSurface);
-
-  if (densityEnabled) {
-    updateDensityMapping(currentFilteredStars);
-  } else {
-    densityOverlay.cubesData.forEach(c => {
-      c.tcMesh.visible = false;
-      c.globeMesh.visible = false;
-    });
-    densityOverlay.adjacentLines.forEach(obj => {
-      obj.line.visible = false;
-    });
-  }
-}
-
-function removeConstellationObjectsFromGlobe() {
-  if (constellationLinesGlobe && constellationLinesGlobe.length > 0) {
-    constellationLinesGlobe.forEach(l => globeMap.scene.remove(l));
-  }
-  constellationLinesGlobe = [];
-  if (constellationLabelsGlobe && constellationLabelsGlobe.length > 0) {
-    constellationLabelsGlobe.forEach(lbl => globeMap.scene.remove(lbl));
-  }
-  constellationLabelsGlobe = [];
-}
-
-function applyGlobeSurface(isOpaque) {
-  if (globeSurfaceSphere) {
-    globeMap.scene.remove(globeSurfaceSphere);
-    globeSurfaceSphere = null;
-  }
-  if (isOpaque) {
-    const geom = new THREE.SphereGeometry(100, 32, 32);
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0x000000,
-      side: THREE.FrontSide,
-      depthWrite: true,
-      depthTest: true,
-      transparent: false,
-    });
-    globeSurfaceSphere = new THREE.Mesh(geom, mat);
-    globeSurfaceSphere.renderOrder = 0;
-    globeMap.scene.add(globeSurfaceSphere);
-  }
-}
