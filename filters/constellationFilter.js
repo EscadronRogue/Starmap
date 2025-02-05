@@ -104,35 +104,36 @@ export function createConstellationBoundariesForGlobe() {
 
 /**
  * Build constellation label meshes for the Globe.
- * The labels are flat and follow the globe curvature. Their up is aligned with north.
+ * The labels are flat and follow the globe curvature.
+ * Their text is scaled very large (base font size 200) and rotated so that their up aligns with the north.
  */
 export function createConstellationLabelsForGlobe() {
   const labels = [];
   const R = 100;
   centerData.forEach(c => {
     const p = radToSphere(c.ra, c.dec, R);
-    const fontSize = 100;
+    const baseFontSize = 200; // Much larger for constellation labels
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    ctx.font = `${fontSize}px Arial`;
+    ctx.font = `${baseFontSize}px Arial`;
     const textWidth = ctx.measureText(c.name).width;
     canvas.width = textWidth + 20;
-    canvas.height = fontSize * 1.2;
-    ctx.font = `${fontSize}px Arial`;
+    canvas.height = baseFontSize * 1.2;
+    ctx.font = `${baseFontSize}px Arial`;
     ctx.fillStyle = '#888888';
-    ctx.fillText(c.name, 10, fontSize);
+    ctx.fillText(c.name, 10, baseFontSize);
     const texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
     const planeGeom = new THREE.PlaneGeometry((canvas.width / 100), (canvas.height / 100));
     const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: true, depthTest: true });
     const label = new THREE.Mesh(planeGeom, mat);
     label.position.copy(p);
-    // Align label's normal with radial direction.
+    // Align label's face so its default normal (0,0,1) matches the radial direction.
     const normal = p.clone().normalize();
     const defaultNormal = new THREE.Vector3(0, 0, 1);
     const quat = new THREE.Quaternion().setFromUnitVectors(defaultNormal, normal);
     label.quaternion.copy(quat);
-    // Adjust rotation so that label's up aligns with north.
+    // Adjust rotation: make the label's local up align with the projection of global up.
     const globalUp = new THREE.Vector3(0, 1, 0);
     const desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal))).normalize();
     const currentUp = new THREE.Vector3(0, 1, 0).applyQuaternion(label.quaternion);
