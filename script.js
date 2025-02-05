@@ -89,6 +89,7 @@ class MapManager {
     this.scene.add(pt);
 
     window.addEventListener('resize', () => this.onResize(), false);
+    this.lastLabelUpdate = 0;
     this.animate();
   }
 
@@ -169,8 +170,13 @@ class MapManager {
   animate() {
     requestAnimationFrame(() => this.animate());
     this.renderer.render(this.scene, this.camera);
-    let starList = (this.mapType === 'TrueCoordinates') ? currentFilteredStars : currentGlobeFilteredStars;
-    this.labelManager.updateLabels(starList);
+    const now = performance.now();
+    // Throttle label updates to every 100ms to reduce load
+    if (!this.lastLabelUpdate || now - this.lastLabelUpdate >= 100) {
+      let starList = (this.mapType === 'TrueCoordinates') ? currentFilteredStars : currentGlobeFilteredStars;
+      this.labelManager.updateLabels(starList);
+      this.lastLabelUpdate = now;
+    }
   }
 }
 
@@ -310,9 +316,6 @@ function removeConstellationObjectsFromGlobe() {
   constellationLabelsGlobe = [];
 }
 
-/**
- * Creates or removes a black sphere of radius=100 with front side rendering.
- */
 function applyGlobeSurface(isOpaque) {
   if (globeSurfaceSphere) {
     globeMap.scene.remove(globeSurfaceSphere);
@@ -338,7 +341,6 @@ window.onload = async () => {
   const loader = document.getElementById('loader');
   loader.classList.remove('hidden');
 
-  // Set up menu toggle for mobile/phone accessibility
   const menuToggle = document.getElementById('menu-toggle');
   menuToggle.addEventListener('click', () => {
     const sidebar = document.querySelector('.sidebar');
