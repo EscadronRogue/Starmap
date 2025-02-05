@@ -7,7 +7,7 @@
   box-sizing: border-box;
 }
 
-/* Body, Loader, Header */
+/* Body, Loader */
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: #0d0d0d;
@@ -27,7 +27,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 1100;
   transition: opacity 0.5s, visibility 0.5s;
 }
 
@@ -36,6 +36,7 @@ body {
   visibility: hidden;
 }
 
+/* Header with Menu Button */
 header {
   position: fixed;
   top: 0;
@@ -46,9 +47,22 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 900;
+  z-index: 1050;
 }
 
+#menu-toggle {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 32px;
+  background: none;
+  border: none;
+  color: #ff6f61;
+  cursor: pointer;
+}
+
+/* Title remains centered */
 header h1 {
   font-size: 24px;
   color: #e0e0e0;
@@ -57,31 +71,34 @@ header h1 {
 
 /* Main Container */
 .main-container {
-  display: flex;
+  /* Since sidebar is now an overlay, let maps section take full width */
   margin-top: 60px;
   height: calc(100vh - 60px);
   overflow: hidden;
+  position: relative;
 }
 
-/* Sidebar */
+/* Sidebar (Filter Menu) as an overlay */
 .sidebar {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  bottom: 0;
   width: 300px;
   background-color: rgba(30, 30, 30, 0.95);
   padding: 25px;
   overflow-y: auto;
   border-right: 1px solid #444;
-  transition: background-color 0.3s;
-}
-
-.sidebar.closed {
+  z-index: 1100;
   transform: translateX(-100%);
   transition: transform 0.3s ease;
 }
 
-.sidebar:hover {
-  background-color: rgba(40, 40, 40, 0.95);
+.sidebar.open {
+  transform: translateX(0);
 }
 
+/* Sidebar Header */
 .sidebar h2 {
   margin-bottom: 15px;
   font-size: 22px;
@@ -105,7 +122,6 @@ header h1 {
   color: #f0f0f0;
   cursor: pointer;
   user-select: none;
-  position: relative;
   display: block;
 }
 
@@ -124,7 +140,7 @@ header h1 {
   max-height: 1000px;
 }
 
-/* Scrollable container for categories (sidebar effect) */
+/* Scrollable container for subcategories */
 .scrollable-category {
   max-height: 400px;
   overflow-y: auto;
@@ -137,7 +153,7 @@ header h1 {
   padding-bottom: 10px;
 }
 
-/* Subcategory header (visually distinct) */
+/* Subcategory header */
 .subcategory-header {
   font-size: 16px;
   margin-bottom: 5px;
@@ -147,19 +163,21 @@ header h1 {
   background-color: #2a2a2a;
   padding: 5px;
   border-radius: 4px;
-  display: block;
   transition: background-color 0.3s;
 }
 .subcategory-header:hover {
   background-color: rgba(60, 60, 60, 0.8);
 }
 
-/* Subcategory content (visually distinct) */
+/* Subcategory content */
 .subcategory-content {
   padding: 5px 10px;
   background-color: #333;
   border-radius: 4px;
   margin-bottom: 10px;
+  max-height: 0;
+  overflow-y: hidden;
+  transition: max-height 0.3s ease;
 }
 
 /* Sliders, etc. */
@@ -172,8 +190,8 @@ header h1 {
 .filter-item label {
   margin-left: 10px;
   font-size: 13px;
-  cursor: pointer;
   color: #e0e0e0;
+  cursor: pointer;
 }
 
 .sidebar .filter-item input[type="checkbox"],
@@ -195,6 +213,7 @@ header h1 {
   outline: none;
   transition: background 0.3s;
 }
+
 .filter-item input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 16px;
@@ -235,20 +254,19 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
 
 /* Maps Section */
 .maps-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 20px;
+  width: 100%;
+  height: 100%;
   overflow: auto;
   background-color: #121212;
+  padding-top: 10px;
+  padding-bottom: 10px;
 }
 
 .map-container {
+  position: relative;
   width: 100%;
   max-width: 1200px;
-  margin-bottom: 30px;
+  margin: 0 auto 30px;
   background-color: rgba(20, 20, 20, 0.95);
   border: 1px solid #555;
   border-radius: 8px;
@@ -273,6 +291,21 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
   touch-action: none;
 }
 
+/* Fullscreen Button for Maps */
+.fullscreen-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 24px;
+  background: rgba(20, 20, 20, 0.7);
+  border: none;
+  color: #ff6f61;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 4px;
+  z-index: 10;
+}
+
 /* Tooltip */
 #tooltip {
   position: absolute;
@@ -283,7 +316,7 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
   pointer-events: none;
   font-size: 14px;
   max-width: 220px;
-  z-index: 1001;
+  z-index: 1200;
   transition: opacity 0.3s, visibility 0.3s;
 }
 #tooltip.hidden {
@@ -323,7 +356,7 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
   font-size: 13px;
   pointer-events: none;
   white-space: nowrap;
-  z-index: 1002;
+  z-index: 1200;
   text-shadow: 0px 0px 2px rgba(0,0,0,0.7);
   box-shadow: 0 0 3px rgba(0,0,0,0.5);
 }
@@ -339,13 +372,19 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
     width: 220px;
   }
   .map-container {
-    max-width:1000px;
+    max-width:100%;
   }
   .map-container canvas {
     height:600px;
   }
+  header h1 {
+    font-size: 20px;
+  }
+  #menu-toggle {
+    font-size: 36px;
+  }
   .sidebar h2 {
-    font-size:20px;
+    font-size: 20px;
   }
   .sidebar fieldset {
     padding:12px;
