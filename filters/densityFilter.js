@@ -46,6 +46,7 @@ class DensityGridOverlay {
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
+          
           let projectedPos;
           if (distFromCenter < 1e-6) {
             projectedPos = new THREE.Vector3(0, 0, 0);
