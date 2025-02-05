@@ -15,8 +15,9 @@ import { globeSurfaceOpaque } from './filters/globeSurfaceFilter.js';
 
 import { ThreeDControls } from './cameraControls.js';
 import { LabelManager } from './labelManager.js';
+import { showTooltip, hideTooltip } from './tooltips.js'; // <-- NEW: import tooltip functions
 
-// We'll store global references
+// Global references
 let cachedStars = null;
 let currentFilteredStars = [];
 let currentConnections = [];
@@ -24,6 +25,9 @@ let currentGlobeFilteredStars = [];
 let currentGlobeConnections = [];
 
 let maxDistanceFromCenter = 0;
+
+// Global variable for the currently selected star (if any)
+let selectedStarData = null;
 
 // TrueCoordinates map
 let trueCoordinatesMap;
@@ -152,6 +156,11 @@ class MapManager {
         mesh.quaternion.copy(quat);
         mesh.renderOrder = 1;
       }
+      // --- NEW: Add star data and store original scale for selection highlighting ---
+      mesh.userData.star = star;
+      mesh.userData.originalScale = mesh.scale.clone();
+      // --------------------------------------------------------------------------
+
       this.scene.add(mesh);
       this.starObjects.push({ mesh, data: star });
     });
@@ -206,6 +215,74 @@ function projectStarTrueCoordinates(star) {
 }
 function projectStarGlobe(star) {
   return null;
+}
+
+/**
+ * Initializes star interaction events (hover & click) for a given map.
+ * Uses raycasting to detect star meshes.
+ */
+function initStarInteractions(map) {
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  map.canvas.addEventListener('mousemove', (event) => {
+    // If a star has been clicked (selected), do not update tooltip on hover.
+    if (selectedStarData) return;
+    const rect = map.canvas.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, map.camera);
+    const objects = map.starObjects.map(obj => obj.mesh);
+    const intersects = raycaster.intersectObjects(objects, true);
+    if (intersects.length > 0) {
+      const intersect = intersects[0];
+      const star = intersect.object.userData.star;
+      if (star) {
+        showTooltip(event.clientX, event.clientY, star);
+      }
+    } else {
+      hideTooltip();
+    }
+  });
+  
+  map.canvas.addEventListener('click', (event) => {
+    const rect = map.canvas.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, map.camera);
+    const objects = map.starObjects.map(obj => obj.mesh);
+    const intersects = raycaster.intersectObjects(objects, true);
+    if (intersects.length > 0) {
+      const intersect = intersects[0];
+      const star = intersect.object.userData.star;
+      if (star) {
+        selectedStarData = star;
+        showTooltip(event.clientX, event.clientY, star);
+        updateSelectedStarHighlight();
+      }
+    } else {
+      // Deselect if clicking on empty space
+      selectedStarData = null;
+      updateSelectedStarHighlight();
+      hideTooltip();
+    }
+  });
+}
+
+/**
+ * Updates the visual appearance of stars to reflect selection.
+ * Selected star(s) are scaled up by 1.5× their original scale.
+ */
+function updateSelectedStarHighlight() {
+  [trueCoordinatesMap, globeMap].forEach(map => {
+    map.starObjects.forEach(obj => {
+      if (selectedStarData && obj.data === selectedStarData) {
+        const orig = obj.mesh.userData.originalScale;
+        obj.mesh.scale.copy(orig.clone().multiplyScalar(1.5));
+      } else {
+        obj.mesh.scale.copy(obj.mesh.userData.originalScale);
+      }
+    });
+  });
 }
 
 window.onload = async () => {
@@ -267,6 +344,10 @@ window.onload = async () => {
       mapType: 'Globe',
       projectFunction: projectStarGlobe,
     });
+
+    // Initialize star interactions (hover & click) for both maps
+    initStarInteractions(trueCoordinatesMap);
+    initStarInteractions(globeMap);
 
     buildAndApplyFilters();
 
