@@ -27,22 +27,18 @@ export async function loadConstellationBoundaries() {
 
     boundaryData = [];
     for (const line of lines) {
-      // e.g. "354:608 M+ 15:03:00 -55:00:00 15:03:00 -54:00:00 NOR LUP"
       const parts = line.split(/\s+/);
       if (parts.length < 8) continue;
-
       const raStr1 = parts[2];
       const decStr1 = parts[3];
       const raStr2 = parts[4];
       const decStr2 = parts[5];
       const c1 = parts[6];
       const c2 = parts[7];
-
       const ra1 = parseRA(raStr1);
       const dec1 = parseDec(decStr1);
       const ra2 = parseRA(raStr2);
       const dec2 = parseDec(decStr2);
-
       boundaryData.push({ ra1, dec1, ra2, dec2, const1: c1, const2: c2 });
     }
     console.log(`[ConstellationFilter] Boundaries: loaded ${boundaryData.length} lines.`);
@@ -64,18 +60,14 @@ export async function loadConstellationCenters() {
 
     centerData = [];
     for (const line of lines) {
-      // e.g. "011 P+ 06:00:00 +70:00:00 "Camelopardalis""
       const parts = line.split(/\s+/);
       if (parts.length < 5) continue;
-
       const raStr = parts[2];
       const decStr = parts[3];
       const matchName = line.match(/"([^"]+)"/);
       const name = matchName ? matchName[1] : 'Unknown';
-
       const raVal = parseRA(raStr);
       const decVal = parseDec(decStr);
-
       centerData.push({ ra: raVal, dec: decVal, name });
     }
     console.log(`[ConstellationFilter] Centers: loaded ${centerData.length} items.`);
@@ -86,17 +78,14 @@ export async function loadConstellationCenters() {
 }
 
 /**
- * Build great-circle lines (THREE.Line) for each boundary segment, radius=100 on the globe
+ * Build great-circle lines (THREE.Line) for each boundary segment, radius=100 on the globe.
  */
 export function createConstellationBoundariesForGlobe() {
   const lines = [];
-  const R = 100; // Globe radius
-
+  const R = 100;
   boundaryData.forEach(b => {
     const p1 = radToSphere(b.ra1, b.dec1, R);
     const p2 = radToSphere(b.ra2, b.dec2, R);
-
-    // Create a great-circle curve between p1 and p2
     const curve = new THREE.CatmullRomCurve3(getGreatCirclePoints(p1, p2, R, 32));
     const points = curve.getPoints(32);
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
@@ -110,19 +99,16 @@ export function createConstellationBoundariesForGlobe() {
     line.computeLineDistances();
     lines.push(line);
   });
-
   return lines;
 }
 
 /**
  * Build constellation label meshes for the Globe.
- * The labels are flat (2D) and follow the globe curvature; they are rotated so that
- * their local “up” aligns with the global up (0,1,0), so you always read them upright.
+ * The labels are flat and follow the globe curvature. Their up is aligned with north.
  */
 export function createConstellationLabelsForGlobe() {
   const labels = [];
-  const R = 100; // Globe radius
-
+  const R = 100;
   centerData.forEach(c => {
     const p = radToSphere(c.ra, c.dec, R);
     const fontSize = 100;
@@ -130,8 +116,8 @@ export function createConstellationLabelsForGlobe() {
     const ctx = canvas.getContext('2d');
     ctx.font = `${fontSize}px Arial`;
     const textWidth = ctx.measureText(c.name).width;
-    canvas.width = textWidth + 20; // add horizontal padding
-    canvas.height = fontSize * 1.2; // vertical padding
+    canvas.width = textWidth + 20;
+    canvas.height = fontSize * 1.2;
     ctx.font = `${fontSize}px Arial`;
     ctx.fillStyle = '#888888';
     ctx.fillText(c.name, 10, fontSize);
@@ -141,20 +127,23 @@ export function createConstellationLabelsForGlobe() {
     const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: true, depthTest: true });
     const label = new THREE.Mesh(planeGeom, mat);
     label.position.copy(p);
-    // First, align the label's face so its default normal (0,0,1) matches the radial direction.
+    // Align label's normal with radial direction.
     const normal = p.clone().normalize();
     const defaultNormal = new THREE.Vector3(0, 0, 1);
     const quat = new THREE.Quaternion().setFromUnitVectors(defaultNormal, normal);
     label.quaternion.copy(quat);
-    // Then, adjust rotation about the normal so that the label's local up (0,1,0) aligns with global up.
+    // Adjust rotation so that label's up aligns with north.
     const globalUp = new THREE.Vector3(0, 1, 0);
-    const localGlobalUp = globalUp.clone().applyQuaternion(label.quaternion.clone().invert());
-    const angle = Math.atan2(localGlobalUp.x, localGlobalUp.y);
-    label.rotateOnAxis(normal, -angle);
+    const desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal))).normalize();
+    const currentUp = new THREE.Vector3(0, 1, 0).applyQuaternion(label.quaternion);
+    const angle = currentUp.angleTo(desiredUp);
+    const cross = new THREE.Vector3().crossVectors(currentUp, desiredUp);
+    const sign = cross.dot(normal) < 0 ? -1 : 1;
+    const adjustmentQuat = new THREE.Quaternion().setFromAxisAngle(normal, sign * angle);
+    label.quaternion.multiply(adjustmentQuat);
     label.renderOrder = 1;
     labels.push(label);
   });
-
   return labels;
 }
 
@@ -179,7 +168,6 @@ function degToRad(d) {
 }
 
 function radToSphere(ra, dec, R) {
-  // x = R sin(phi) cos(theta), y = R cos(phi), z = R sin(phi) sin(theta)
   const phi = (Math.PI / 2) - dec;
   const theta = ra;
   const x = R * Math.sin(phi) * Math.cos(theta);
@@ -189,7 +177,7 @@ function radToSphere(ra, dec, R) {
 }
 
 /**
- * Generates points along the great-circle path between two points on the sphere.
+ * Generates points along the great‐circle path between two points on the sphere.
  */
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
@@ -207,31 +195,25 @@ function getGreatCirclePoints(p1, p2, R, segments) {
 }
 
 /**
- * (Legacy) Makes a text sprite.
+ * (Legacy) Creates a text sprite.
  */
 function makeTextSprite(txt, opts) {
   const fontSize = opts.fontSize || 100;
   const color = opts.color || '#888888';
-
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   ctx.font = `${fontSize}px sans-serif`;
   const w = ctx.measureText(txt).width;
   canvas.width = w;
   canvas.height = fontSize * 1.2;
-
   ctx.font = `${fontSize}px sans-serif`;
   ctx.fillStyle = color;
   ctx.fillText(txt, 0, fontSize);
-
   const tex = new THREE.Texture(canvas);
   tex.needsUpdate = true;
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false });
   const sprite = new THREE.Sprite(mat);
-
-  // Smaller scale
   const scaleFactor = 0.02;
   sprite.scale.set(canvas.width * scaleFactor, canvas.height * scaleFactor, 1);
-
   return sprite;
 }
