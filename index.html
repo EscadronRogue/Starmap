@@ -19,15 +19,17 @@
 
   <!-- Main Container -->
   <div class="main-container">
-    <!-- Sidebar for Filters (initially hidden as an overlay) -->
+    <!-- Sidebar for Filters (as an overlay, generated dynamically by filters/index.js) -->
     <aside class="sidebar">
       <h2>Filters</h2>
       <form id="filters-form">
-        <!-- Stellar Class Parent Category -->
+        <!-- The updated Constellations and Globe Surface fieldsets are now generated dynamically.
+             (Any outdated static fieldsets have been removed.) -->
+
+        <!-- Stellar Class Filter -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Stellar Class</legend>
           <div class="filter-content">
-            <!-- Dynamically populated in filters.js -->
             <div id="stellar-class-container"></div>
           </div>
         </fieldset>
@@ -129,32 +131,6 @@
             </div>
           </div>
         </fieldset>
-
-        <!-- Constellations Fieldset -->
-        <fieldset>
-          <legend class="collapsible" aria-expanded="false">Constellations</legend>
-          <div class="filter-content">
-            <div class="filter-item">
-              <input type="checkbox" id="show-constellation-boundaries" name="show-constellation-boundaries" checked />
-              <label for="show-constellation-boundaries">Show Constellation Boundaries</label>
-            </div>
-            <div class="filter-item">
-              <input type="checkbox" id="show-constellation-names" name="show-constellation-names" checked />
-              <label for="show-constellation-names">Show Constellation Names</label>
-            </div>
-          </div>
-        </fieldset>
-
-        <!-- Globe Surface Fieldset -->
-        <fieldset>
-          <legend class="collapsible" aria-expanded="false">Globe Surface</legend>
-          <div class="filter-content">
-            <div class="filter-item">
-              <input type="checkbox" id="globe-opaque-surface" name="globe-opaque-surface" />
-              <label for="globe-opaque-surface">Opaque Globe Surface</label>
-            </div>
-          </div>
-        </fieldset>
       </form>
     </aside>
 
@@ -195,34 +171,30 @@
   <script>
     // Toggle sidebar menu on mobile: toggle the "open" class
     document.getElementById('menu-toggle').addEventListener('click', function() {
-      var sidebar = document.querySelector('.sidebar');
-      sidebar.classList.toggle('open');
+      document.querySelector('.sidebar').classList.toggle('open');
     });
 
     // Enable/disable connection slider based on checkbox state
     document.getElementById('enable-connections').addEventListener('change', function() {
-      var slider = document.getElementById('connection-slider');
-      slider.disabled = !this.checked;
+      document.getElementById('connection-slider').disabled = !this.checked;
     });
 
     // Enable/disable density mapping sliders based on checkbox state
     document.getElementById('enable-density-mapping').addEventListener('change', function() {
-      var densitySlider = document.getElementById('density-slider');
-      var toleranceSlider = document.getElementById('tolerance-slider');
-      densitySlider.disabled = !this.checked;
-      toleranceSlider.disabled = !this.checked;
+      document.getElementById('density-slider').disabled = !this.checked;
+      document.getElementById('tolerance-slider').disabled = !this.checked;
     });
     
-    // Fullscreen button event listeners
+    // Fullscreen button event listeners – request fullscreen on the entire documentElement
     document.querySelectorAll('.fullscreen-btn').forEach(btn => {
       btn.addEventListener('click', function() {
-        var mapContainer = this.parentElement;
-        if (document.fullscreenElement) {
-          document.exitFullscreen();
-        } else {
-          mapContainer.requestFullscreen().catch(err => {
+        if (!document.fullscreenElement) {
+          // Request fullscreen on the documentElement so that the entire plot is shown
+          document.documentElement.requestFullscreen().catch(err => {
             console.error("Error attempting to enable full-screen mode:", err);
           });
+        } else {
+          document.exitFullscreen();
         }
       });
     });
