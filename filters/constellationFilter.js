@@ -90,64 +90,71 @@ export function createConstellationBoundariesForGlobe() {
 }
 
 /**
- * Creates double‑sided constellation label groups.
- * Constellation labels are drawn with a very large font (baseFontSize 300),
- * with a transparent background (no fill rectangle) and lower opacity.
+ * Creates constellation label meshes for the Globe.
+ * The labels are rendered using a custom shader material (see LabelManager) so that
+ * they are double-sided and always oriented with their up equal to the projection of global up.
+ * Also, constellation labels use a very large base font size, lower opacity, and no background.
  */
 export function createConstellationLabelsForGlobe() {
   const labels = [];
   const R = 100;
   centerData.forEach(c => {
     const p = radToSphere(c.ra, c.dec, R);
-    const baseFontSize = 300;
+    const baseFontSize = 300; // Very large
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     ctx.font = `${baseFontSize}px Arial`;
     const textWidth = ctx.measureText(c.name).width;
     canvas.width = textWidth + 20;
     canvas.height = baseFontSize * 1.2;
-    // Clear background to transparent.
+    // Clear background so it's transparent.
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.font = `${baseFontSize}px Arial`;
     ctx.fillStyle = '#888888';
     ctx.fillText(c.name, 10, baseFontSize);
     const texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
-    const planeGeom = new THREE.PlaneGeometry((canvas.width / 100), (canvas.height / 100));
-    const mat = new THREE.MeshBasicMaterial({ 
-      map: texture, 
-      transparent: true, 
-      depthWrite: true, 
-      depthTest: true,
-      opacity: 0.5  // lower alpha
+    // Use a shader material similar to that used for star labels.
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        map: { value: texture },
+        opacity: { value: 0.5 }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D map;
+        uniform float opacity;
+        varying vec2 vUv;
+        void main() {
+          vec2 uvCorrected = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);
+          vec4 color = texture2D(map, uvCorrected);
+          gl_FragColor = vec4(color.rgb, color.a * opacity);
+        }
+      `,
+      transparent: true,
+      side: THREE.DoubleSide
     });
-    // Build a double-sided label group.
-    const labelGroup = new THREE.Group();
-    const meshFront = new THREE.Mesh(planeGeom, mat.clone());
-    meshFront.material.side = THREE.FrontSide;
-    const meshBack = new THREE.Mesh(planeGeom.clone(), mat.clone());
-    meshBack.material.side = THREE.FrontSide;
-    meshBack.scale.x *= -1;
-    labelGroup.add(meshFront);
-    labelGroup.add(meshBack);
-    labelGroup.position.copy(p);
-    
-    // Orientation: Make the label’s plane tangent to the sphere and its local up equal to
-    // the projection of global up (0,1,0) onto the tangent plane.
+    const planeGeom = new THREE.PlaneGeometry((canvas.width / 100), (canvas.height / 100));
+    const label = new THREE.Mesh(planeGeom, material);
+    label.position.copy(p);
+    // Orientation: set label's normal to be p.normalize(), then build a basis where the label’s up equals the projection of global up.
     const normal = p.clone().normalize();
     const globalUp = new THREE.Vector3(0, 1, 0);
     let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
-    if (desiredUp.lengthSq() < 1e-6) {
-      desiredUp = new THREE.Vector3(0, 0, 1);
-    } else {
-      desiredUp.normalize();
-    }
+    if (desiredUp.lengthSq() < 1e-6) desiredUp = new THREE.Vector3(0, 0, 1);
+    else desiredUp.normalize();
     const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
     const matrix = new THREE.Matrix4();
     matrix.makeBasis(desiredRight, desiredUp, normal);
-    labelGroup.setRotationFromMatrix(matrix);
-    labelGroup.renderOrder = 1;
-    labels.push(labelGroup);
+    label.setRotationFromMatrix(matrix);
+    label.renderOrder = 1;
+    labels.push(label);
   });
   return labels;
 }
@@ -182,7 +189,7 @@ function radToSphere(ra, dec, R) {
 }
 
 /**
- * Returns an array of points along the great‐circle path between two points on a sphere.
+ * Generates points along the great‐circle path between two points on the sphere.
  */
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
