@@ -75,11 +75,28 @@ export class LabelManager {
   }
 
   /**
+   * Helper: Creates a double‐sided label from given geometry and material.
+   * The method creates two meshes: one with normal geometry and one with its X‑axis flipped.
+   */
+  createDoubleSidedLabel(geometry, material) {
+    const meshFront = new THREE.Mesh(geometry, material.clone());
+    meshFront.material.side = THREE.FrontSide;
+    const meshBack = new THREE.Mesh(geometry.clone(), material.clone());
+    meshBack.material.side = THREE.FrontSide;
+    // Invert the X scale of the back mesh so its texture appears the same as the front.
+    meshBack.scale.x *= -1;
+    const group = new THREE.Group();
+    group.add(meshFront);
+    group.add(meshBack);
+    return group;
+  }
+
+  /**
    * Creates a 3D label and connecting line for a star.
    */
   createSpriteAndLine(star) {
     const starColor = star.displayColor || '#888888';
-    // Use a larger base font size for Globe labels.
+    // For Globe labels, use a larger base font size.
     const baseFontSize = this.mapType === 'Globe' ? 64 : 24;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -94,6 +111,7 @@ export class LabelManager {
     canvas.width = textWidth + paddingX * 2;
     canvas.height = textHeight + paddingY * 2;
     ctx.font = `${fontSize}px Arial`;
+    // Draw background (for stars, leave as-is)
     ctx.fillStyle = hexToRGBA(starColor, 0.2);
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#ffffff';
@@ -104,7 +122,7 @@ export class LabelManager {
     
     let labelObj;
     if (this.mapType === 'Globe') {
-      // Create a flat plane label.
+      // Create a flat-plane geometry for the label.
       const planeGeom = new THREE.PlaneGeometry((canvas.width / 100) * scaleFactor, (canvas.height / 100) * scaleFactor);
       const mat = new THREE.MeshBasicMaterial({
         map: texture,
@@ -112,32 +130,35 @@ export class LabelManager {
         depthWrite: true,
         depthTest: true,
       });
-      labelObj = new THREE.Mesh(planeGeom, mat);
+      // Use the helper to create a double-sided label.
+      labelObj = this.createDoubleSidedLabel(planeGeom, mat);
+      
+      // Compute the label position from the star’s sphere position and the offset.
       let starPosition = new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z);
       const offset = this.generateOffset(star);
       const labelPosition = starPosition.clone().add(offset);
       labelObj.position.copy(labelPosition);
       
-      // --- NEW ORIENTATION LOGIC: Compute desired rotation from scratch ---
-      const normal = starPosition.clone().normalize(); // tangent plane normal
+      // NEW ORIENTATION LOGIC: Build a basis so that:
+      // • The label’s normal is exactly starPosition.normalize() (tangent plane).
+      // • Its local up equals the projection of global up (0,1,0) onto the tangent plane.
+      const normal = starPosition.clone().normalize();
       const globalUp = new THREE.Vector3(0, 1, 0);
-      // Project globalUp onto the tangent plane:
       let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
       if (desiredUp.lengthSq() < 1e-6) {
-        // At the poles, choose a default up vector
+        // At the poles, use a default up.
         desiredUp = new THREE.Vector3(0, 0, 1);
       } else {
         desiredUp.normalize();
       }
       const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
-      const rotationMatrix = new THREE.Matrix4();
-      rotationMatrix.makeBasis(desiredRight, desiredUp, normal);
-      labelObj.setRotationFromMatrix(rotationMatrix);
-      // --- End NEW ORIENTATION LOGIC ---
+      const matrix = new THREE.Matrix4();
+      matrix.makeBasis(desiredRight, desiredUp, normal);
+      labelObj.setRotationFromMatrix(matrix);
       
       labelObj.renderOrder = 1;
     } else {
-      // For TrueCoordinates, use a Sprite.
+      // For TrueCoordinates, use a Sprite (unchanged).
       const spriteMaterial = new THREE.SpriteMaterial({
         map: texture,
         depthWrite: true,
@@ -186,7 +207,6 @@ export class LabelManager {
       return;
     }
     this.lastLabelUpdate = now;
-
     stars.forEach(star => {
       if (!this.sprites.has(star)) {
         this.createSpriteAndLine(star);
@@ -196,7 +216,7 @@ export class LabelManager {
         const scaleFactor = THREE.MathUtils.clamp(star.displaySize / 2, 1, 5);
         const baseFontSize = this.mapType === 'Globe' ? 64 : 24;
         const fontSize = baseFontSize * scaleFactor;
-        const canvas = labelObj.material.map.image;
+        const canvas = labelObj.children ? labelObj.children[0].material.map.image : labelObj.material.map.image;
         const ctx = canvas.getContext('2d');
         ctx.font = `${fontSize}px Arial`;
         const textMetrics = ctx.measureText(star.displayName);
@@ -212,7 +232,6 @@ export class LabelManager {
         ctx.fillStyle = '#ffffff';
         ctx.textBaseline = 'middle';
         ctx.fillText(star.displayName, paddingX, canvas.height / 2);
-        labelObj.material.map.needsUpdate = true;
         if (this.mapType === 'TrueCoordinates') {
           labelObj.scale.set((canvas.width / 100) * scaleFactor, (canvas.height / 100) * scaleFactor, 1);
         }
@@ -235,7 +254,6 @@ export class LabelManager {
         line.material.opacity = 0.2;
       }
     });
-
     this.sprites.forEach((labelObj, star) => {
       if (!stars.includes(star)) {
         this.scene.remove(labelObj);
@@ -278,4 +296,3 @@ export class LabelManager {
     this.lines.clear();
   }
 }
-
