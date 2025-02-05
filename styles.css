@@ -265,6 +265,7 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
   background-color: #0d0d0d;
   display: block;
   border-radius: 4px;
+  touch-action: none;
 }
 
 /* Tooltip */
