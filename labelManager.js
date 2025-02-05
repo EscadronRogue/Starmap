@@ -278,3 +278,4 @@ export class LabelManager {
     this.lines.clear();
   }
 }
+
