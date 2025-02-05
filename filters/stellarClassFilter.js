@@ -4,7 +4,6 @@
  * Handles "Stellar Class" logic for showing/hiding star names and star objects themselves.
  * Also exports `generateStellarClassFilters` to build the UI subcategories (O,B,A,F,G,K,M,L,T,Y).
  */
-
 export function applyStellarClassLogic(stars, form) {
   // Collect checkboxes from the form
   const stellarClassShowName = {};
@@ -72,6 +71,10 @@ export function applyStellarClassLogic(stars, form) {
       if (starName && starSystemName) {
         if (starName === starSystemName) {
           star.displayName = starName;
+        } else if (/^[A-Za-z]$/.test(starName.trim())) {
+          // If the individual star name is a single letter,
+          // display the star system first, then the letter in parentheses.
+          star.displayName = `${starSystemName} (${starName})`;
         } else {
           star.displayName = `${starName} (${starSystemName})`;
         }
@@ -200,7 +203,11 @@ export function generateStellarClassFilters(stars) {
         star.Common_name_of_the_star_system &&
         star.Common_name_of_the_star !== star.Common_name_of_the_star_system
       ) {
-        formattedName = `${star.Common_name_of_the_star} (${star.Common_name_of_the_star_system})`;
+        if (/^[A-Za-z]$/.test(star.Common_name_of_the_star.trim())) {
+          formattedName = `${star.Common_name_of_the_star_system} (${star.Common_name_of_the_star})`;
+        } else {
+          formattedName = `${star.Common_name_of_the_star} (${star.Common_name_of_the_star_system})`;
+        }
       }
 
       const starContainer = document.createElement('div');
