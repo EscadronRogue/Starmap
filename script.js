@@ -55,7 +55,6 @@ class MapManager {
 
     this.starObjects = [];
     this.connectionLines = [];
-
     this.scene = new THREE.Scene();
     this.labelManager = new LabelManager(mapType, this.scene);
 
@@ -89,7 +88,6 @@ class MapManager {
     this.scene.add(pt);
 
     window.addEventListener('resize', () => this.onResize(), false);
-    this.lastLabelUpdate = 0;
     this.animate();
   }
 
@@ -99,7 +97,6 @@ class MapManager {
       const adjustedSize = star.displaySize * sizeMult;
       const color = new THREE.Color(star.displayColor || '#ffffff');
       const opacity = star.displayOpacity ?? 1.0;
-
       let mesh;
       if (this.mapType === 'TrueCoordinates') {
         const geom = new THREE.SphereGeometry(adjustedSize, 16, 16);
@@ -143,14 +140,11 @@ class MapManager {
       }
     });
     this.starObjects = [];
-
     this.connectionLines.forEach(line => {
       if (line) this.scene.remove(line);
     });
     this.connectionLines = [];
-
     this.addStars(stars);
-
     if (connectionObjs && connectionObjs.length > 0) {
       connectionObjs.forEach(line => {
         this.scene.add(line);
@@ -170,13 +164,8 @@ class MapManager {
   animate() {
     requestAnimationFrame(() => this.animate());
     this.renderer.render(this.scene, this.camera);
-    const now = performance.now();
-    // Throttle label updates to every 100ms to reduce load
-    if (!this.lastLabelUpdate || now - this.lastLabelUpdate >= 100) {
-      let starList = (this.mapType === 'TrueCoordinates') ? currentFilteredStars : currentGlobeFilteredStars;
-      this.labelManager.updateLabels(starList);
-      this.lastLabelUpdate = now;
-    }
+    let starList = (this.mapType === 'TrueCoordinates') ? currentFilteredStars : currentGlobeFilteredStars;
+    this.labelManager.updateLabels(starList);
   }
 }
 
@@ -245,6 +234,113 @@ function updateSelectedStarHighlight() {
   });
 }
 
+window.onload = async () => {
+  const loader = document.getElementById('loader');
+  loader.classList.remove('hidden');
+
+  try {
+    cachedStars = await loadStarData();
+    if (!cachedStars.length) throw new Error('No star data available');
+
+    await setupFilterUI(cachedStars);
+
+    const form = document.getElementById('filters-form');
+    if (form) {
+      form.addEventListener('change', () => buildAndApplyFilters());
+
+      const cSlider = document.getElementById('connection-slider');
+      const cVal = document.getElementById('connection-value');
+      if (cSlider && cVal) {
+        cSlider.addEventListener('input', () => {
+          cVal.textContent = cSlider.value;
+          buildAndApplyFilters();
+        });
+      }
+
+      const dSlider = document.getElementById('density-slider');
+      const dVal = document.getElementById('density-value');
+      if (dSlider && dVal) {
+        dSlider.addEventListener('input', () => {
+          dVal.textContent = dSlider.value;
+          if (getCurrentFilters().enableDensityMapping) {
+            updateDensityMapping(currentFilteredStars);
+          }
+        });
+      }
+
+      const tSlider = document.getElementById('tolerance-slider');
+      const tVal = document.getElementById('tolerance-value');
+      if (tSlider && tVal) {
+        tSlider.addEventListener('input', () => {
+          tVal.textContent = tSlider.value;
+          if (getCurrentFilters().enableDensityMapping) {
+            updateDensityMapping(currentFilteredStars);
+          }
+        });
+      }
+    }
+
+    maxDistanceFromCenter = Math.max(
+      ...cachedStars.map(s => Math.sqrt(s.x_coordinate ** 2 + s.y_coordinate ** 2 + s.z_coordinate ** 2))
+    );
+
+    trueCoordinatesMap = new MapManager({
+      canvasId: 'map3D',
+      mapType: 'TrueCoordinates',
+      projectFunction: projectStarTrueCoordinates,
+    });
+    globeMap = new MapManager({
+      canvasId: 'sphereMap',
+      mapType: 'Globe',
+      projectFunction: projectStarGlobe,
+    });
+
+    initStarInteractions(trueCoordinatesMap);
+    initStarInteractions(globeMap);
+
+    buildAndApplyFilters();
+
+    // Density overlay: initialize only if density mapping is enabled.
+    const currentFilters = getCurrentFilters();
+    if (currentFilters.enableDensityMapping) {
+      densityOverlay = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars);
+      densityOverlay.cubesData.forEach(c => {
+        trueCoordinatesMap.scene.add(c.tcMesh);
+        globeMap.scene.add(c.globeMesh);
+      });
+      densityOverlay.adjacentLines.forEach(obj => {
+        globeMap.scene.add(obj.line);
+      });
+      updateDensityMapping(currentFilteredStars);
+    } else {
+      if (densityOverlay) {
+        densityOverlay.cubesData.forEach(c => {
+          trueCoordinatesMap.scene.remove(c.tcMesh);
+          globeMap.scene.remove(c.globeMesh);
+        });
+        densityOverlay.adjacentLines.forEach(obj => {
+          globeMap.scene.remove(obj.line);
+        });
+        densityOverlay = null;
+      }
+    }
+  } catch (err) {
+    console.error('Error initializing starmap:', err);
+    alert('Initialization of starmap failed. Please check console.');
+  } finally {
+    loader.classList.add('hidden');
+  }
+};
+
+function getCurrentFilters() {
+  const form = document.getElementById('filters-form');
+  const formData = new FormData(form);
+  return {
+    enableConnections: (formData.get('enable-connections') !== null),
+    enableDensityMapping: (formData.get('enable-density-mapping') !== null)
+  };
+}
+
 function buildAndApplyFilters() {
   if (!cachedStars) return;
 
@@ -256,6 +352,7 @@ function buildAndApplyFilters() {
     showConstellationBoundaries,
     showConstellationNames,
     globeOpaqueSurface,
+    enableConnections,
     enableDensityMapping
   } = applyFilters(cachedStars);
 
@@ -265,7 +362,7 @@ function buildAndApplyFilters() {
   currentGlobeConnections = globeConnections;
 
   const linesTrue = createConnectionLines(currentFilteredStars, currentConnections, 'TrueCoordinates');
-  const linesGlobe = createConnectionLines(currentGlobeFilteredStars, globeConnections, 'Globe');
+  const linesGlobe = createConnectionLines(currentGlobeFilteredStars, currentGlobeConnections, 'Globe');
 
   trueCoordinatesMap.updateMap(currentFilteredStars, linesTrue);
   globeMap.updateMap(currentGlobeFilteredStars, linesGlobe);
@@ -282,25 +379,30 @@ function buildAndApplyFilters() {
 
   applyGlobeSurface(globeOpaqueSurface);
 
+  // Update density mapping only if enabled.
   if (enableDensityMapping) {
-    updateDensityMapping(currentFilteredStars);
-    if (densityOverlay) {
-      densityOverlay.cubesData.forEach(cell => {
-        cell.tcMesh.visible = true;
-        cell.globeMesh.visible = true;
+    if (!densityOverlay) {
+      densityOverlay = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars);
+      densityOverlay.cubesData.forEach(c => {
+        trueCoordinatesMap.scene.add(c.tcMesh);
+        globeMap.scene.add(c.globeMesh);
       });
       densityOverlay.adjacentLines.forEach(obj => {
-        obj.line.visible = true;
+        globeMap.scene.add(obj.line);
       });
     }
-  } else if (densityOverlay) {
-    densityOverlay.cubesData.forEach(cell => {
-      cell.tcMesh.visible = false;
-      cell.globeMesh.visible = false;
-    });
-    densityOverlay.adjacentLines.forEach(obj => {
-      obj.line.visible = false;
-    });
+    updateDensityMapping(currentFilteredStars);
+  } else {
+    if (densityOverlay) {
+      densityOverlay.cubesData.forEach(c => {
+        trueCoordinatesMap.scene.remove(c.tcMesh);
+        globeMap.scene.remove(c.globeMesh);
+      });
+      densityOverlay.adjacentLines.forEach(obj => {
+        globeMap.scene.remove(obj.line);
+      });
+      densityOverlay = null;
+    }
   }
 }
 
@@ -336,89 +438,3 @@ function applyGlobeSurface(isOpaque) {
     globeMap.scene.add(globeSurfaceSphere);
   }
 }
-
-window.onload = async () => {
-  const loader = document.getElementById('loader');
-  loader.classList.remove('hidden');
-
-  const menuToggle = document.getElementById('menu-toggle');
-  menuToggle.addEventListener('click', () => {
-    const sidebar = document.querySelector('.sidebar');
-    sidebar.classList.toggle('open');
-    sidebar.classList.toggle('closed');
-  });
-
-  try {
-    cachedStars = await loadStarData();
-    if (!cachedStars.length) throw new Error('No star data available');
-
-    await setupFilterUI(cachedStars);
-
-    const form = document.getElementById('filters-form');
-    if (form) {
-      form.addEventListener('change', () => buildAndApplyFilters());
-
-      const cSlider = document.getElementById('connection-slider');
-      const cVal = document.getElementById('connection-value');
-      if (cSlider && cVal) {
-        cSlider.addEventListener('input', () => {
-          cVal.textContent = cSlider.value;
-          buildAndApplyFilters();
-        });
-      }
-
-      const dSlider = document.getElementById('density-slider');
-      const dVal = document.getElementById('density-value');
-      if (dSlider && dVal) {
-        dSlider.addEventListener('input', () => {
-          dVal.textContent = dSlider.value;
-          buildAndApplyFilters();
-        });
-      }
-
-      const tSlider = document.getElementById('tolerance-slider');
-      const tVal = document.getElementById('tolerance-value');
-      if (tSlider && tVal) {
-        tSlider.addEventListener('input', () => {
-          tVal.textContent = tSlider.value;
-          buildAndApplyFilters();
-        });
-      }
-    }
-
-    maxDistanceFromCenter = Math.max(
-      ...cachedStars.map(s => Math.sqrt(s.x_coordinate ** 2 + s.y_coordinate ** 2 + s.z_coordinate ** 2))
-    );
-
-    trueCoordinatesMap = new MapManager({
-      canvasId: 'map3D',
-      mapType: 'TrueCoordinates',
-      projectFunction: projectStarTrueCoordinates,
-    });
-    globeMap = new MapManager({
-      canvasId: 'sphereMap',
-      mapType: 'Globe',
-      projectFunction: projectStarGlobe,
-    });
-
-    initStarInteractions(trueCoordinatesMap);
-    initStarInteractions(globeMap);
-
-    buildAndApplyFilters();
-
-    densityOverlay = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars);
-    densityOverlay.cubesData.forEach(c => {
-      trueCoordinatesMap.scene.add(c.tcMesh);
-      globeMap.scene.add(c.globeMesh);
-    });
-    densityOverlay.adjacentLines.forEach(obj => {
-      globeMap.scene.add(obj.line);
-    });
-    buildAndApplyFilters();
-  } catch (err) {
-    console.error('Error initializing starmap:', err);
-    alert('Initialization of starmap failed. Please check console.');
-  } finally {
-    loader.classList.add('hidden');
-  }
-};
