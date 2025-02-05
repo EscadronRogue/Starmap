@@ -36,7 +36,7 @@ body {
   visibility: hidden;
 }
 
-/* Header with Hamburger Button */
+/* Header */
 header {
   position: fixed;
   top: 0;
@@ -47,7 +47,7 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 900;
+  z-index: 1050;
 }
 
 header h1 {
@@ -71,61 +71,75 @@ header h1 {
   cursor: pointer;
 }
 
-/* Main Container */
-.main-container {
-  display: flex;
-  margin-top: 60px;
-  height: calc(100vh - 60px);
-  overflow: hidden;
-}
-
-/* Sidebar for Filters */
+/* Sidebar (Overlay Menu) */
 .sidebar {
+  position: fixed;
+  top: 60px;
+  left: 0;
   width: 300px;
+  height: calc(100vh - 60px);
   background-color: rgba(30, 30, 30, 0.95);
-  padding: 25px;
   overflow-y: auto;
-  border-right: 1px solid #444;
+  padding: 20px;
+  z-index: 1100;
   transition: transform 0.3s ease;
-  z-index: 1000;
 }
 
-/* Sidebar closed state (moved off-screen) */
 .sidebar.closed {
   transform: translateX(-320px);
 }
 
-/* Sidebar open state */
-.sidebar:not(.closed) {
-  transform: translateX(0);
-}
-
-/* Improved Filter Menu Styling */
-.sidebar h2 {
-  font-size: 24px;
+/* Sidebar Header */
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
-  text-align: center;
-  border-bottom: 2px solid #ff6f61;
-  padding-bottom: 10px;
 }
 
-.sidebar fieldset {
+.sidebar-header h2 {
+  font-size: 22px;
+  color: #ff6f61;
+}
+
+.menu-close {
+  background: none;
+  border: none;
+  color: #ff6f61;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* Filter Form Styling */
+#filters-form fieldset {
   margin-bottom: 20px;
   padding: 15px;
-  background-color: #2a2a2a;
+  background-color: #1e1e1e;
   border: 1px solid #444;
   border-radius: 6px;
 }
 
-.sidebar legend {
-  font-size: 18px;
+#filters-form legend {
+  font-size: 16px;
   font-weight: bold;
   margin-bottom: 10px;
-  cursor: pointer;
   padding: 5px;
   background-color: #ff6f61;
   border-radius: 4px;
-  text-align: center;
+  cursor: pointer;
+  position: relative;
+}
+
+/* Arrow indicator for collapsible legends */
+#filters-form legend::after {
+  content: "\25BC";
+  position: absolute;
+  right: 10px;
+  transition: transform 0.3s;
+}
+
+#filters-form legend.active::after {
+  transform: rotate(-180deg);
 }
 
 .filter-content {
@@ -134,7 +148,7 @@ header h1 {
   transition: max-height 0.3s ease;
 }
 
-.sidebar legend.active + .filter-content {
+#filters-form legend.active + .filter-content {
   max-height: 1000px;
 }
 
@@ -146,16 +160,16 @@ header h1 {
   font-size: 14px;
 }
 
-/* Sidebar form elements */
-.sidebar input[type="checkbox"],
-.sidebar input[type="radio"] {
+/* Form Elements */
+#filters-form input[type="checkbox"],
+#filters-form input[type="radio"] {
   width: 18px;
   height: 18px;
   cursor: pointer;
   accent-color: #ff6f61;
 }
 
-.sidebar input[type="range"] {
+#filters-form input[type="range"] {
   width: 100%;
   margin-top: 8px;
   cursor: pointer;
@@ -167,7 +181,7 @@ header h1 {
   transition: background 0.3s;
 }
 
-.sidebar input[type="range"]::-webkit-slider-thumb {
+#filters-form input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 16px;
   height: 16px;
@@ -178,7 +192,7 @@ header h1 {
   transition: background 0.3s;
 }
 
-.sidebar input[type="range"]::-moz-range-thumb {
+#filters-form input[type="range"]::-moz-range-thumb {
   width: 16px;
   height: 16px;
   background: #ff6f61;
@@ -191,20 +205,18 @@ header h1 {
 
 /* Maps Section */
 .maps-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 20px;
-  overflow: auto;
+  margin-top: 60px;
+  width: 100%;
+  height: 100vh;
+  overflow-y: auto;
   background-color: #121212;
+  padding: 20px;
 }
 
 .map-container {
   width: 100%;
   max-width: 1200px;
-  margin-bottom: 30px;
+  margin: 0 auto 30px auto;
   background-color: rgba(20, 20, 20, 0.95);
   border: 1px solid #555;
   border-radius: 8px;
@@ -222,7 +234,7 @@ header h1 {
 
 .map-container canvas {
   width: 100%;
-  height: 1000px;
+  height: 600px;
   background-color: #0d0d0d;
   display: block;
   border-radius: 4px;
@@ -239,26 +251,31 @@ header h1 {
   pointer-events: none;
   font-size: 14px;
   max-width: 220px;
-  z-index: 1001;
+  z-index: 1200;
   transition: opacity 0.3s, visibility 0.3s;
 }
+
 #tooltip.hidden {
   opacity: 0;
   visibility: hidden;
 }
+
 #tooltip.visible {
   opacity: 0.95;
   visibility: visible;
 }
+
 #tooltip-starName {
   font-size: 16px;
   font-weight: bold;
   color: #ff6f61;
 }
+
 #tooltip-systemName {
   font-size: 14px;
   color: #ff8566;
 }
+
 #tooltip-distance,
 #tooltip-stellarClass,
 #tooltip-mass,
@@ -279,41 +296,20 @@ header h1 {
   font-size: 13px;
   pointer-events: none;
   white-space: nowrap;
-  z-index: 1002;
+  z-index: 1200;
   text-shadow: 0px 0px 2px rgba(0,0,0,0.7);
   box-shadow: 0 0 3px rgba(0,0,0,0.5);
 }
 
-/* Responsive */
-@media (max-width:1200px) {
+/* Responsive Adjustments */
+@media (max-width: 600px) {
   .map-container canvas {
-    height: 800px;
+    height: 400px;
   }
-}
-@media (max-width:800px) {
   .sidebar {
-    width: 220px;
+    width: 250px;
   }
-  .map-container {
-    max-width:1000px;
-  }
-  .map-container canvas {
-    height:600px;
-  }
-  .sidebar h2 {
-    font-size:20px;
-  }
-  .sidebar fieldset {
-    padding:12px;
-  }
-  .filter-item label {
-    font-size:13px;
-  }
-  #tooltip {
-    font-size:13px;
-    max-width:200px;
-  }
-  .label-container .label {
-    font-size:11px;
+  .sidebar.closed {
+    transform: translateX(-270px);
   }
 }
