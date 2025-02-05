@@ -7,17 +7,12 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
  * We store the parsed data from your .txt files and build lines/labels.
  */
 
-// Internal data arrays
 let boundaryData = [];
 let centerData = [];
 
-// We'll store references to the lines/labels in the globe scene
 export let globeConstellationLines = [];
 export let globeConstellationLabels = [];
 
-/**
- * Load & parse "constellation_boundaries.txt"
- */
 export async function loadConstellationBoundaries() {
   try {
     const resp = await fetch('constellation_boundaries.txt');
@@ -47,9 +42,6 @@ export async function loadConstellationBoundaries() {
   }
 }
 
-/**
- * Load & parse "constellation_center.txt"
- */
 export async function loadConstellationCenters() {
   try {
     const resp = await fetch('constellation_center.txt');
@@ -75,9 +67,6 @@ export async function loadConstellationCenters() {
   }
 }
 
-/**
- * Build great-circle lines (THREE.Line) for each boundary segment, radius=100 on the globe.
- */
 export function createConstellationBoundariesForGlobe() {
   const lines = [];
   const R = 100;
@@ -101,33 +90,50 @@ export function createConstellationBoundariesForGlobe() {
 }
 
 /**
- * Build constellation label meshes for the Globe.
- * The labels are flat and follow the globe curvature.
- * Their text is scaled very large and oriented so that their local up equals the projection
- * of global up (0,1,0) onto the tangent plane at that point.
+ * Creates double‑sided constellation label groups.
+ * Constellation labels are drawn with a very large font (baseFontSize 300),
+ * with a transparent background (no fill rectangle) and lower opacity.
  */
 export function createConstellationLabelsForGlobe() {
   const labels = [];
   const R = 100;
   centerData.forEach(c => {
     const p = radToSphere(c.ra, c.dec, R);
-    const baseFontSize = 200; // Much larger for constellation labels
+    const baseFontSize = 300;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     ctx.font = `${baseFontSize}px Arial`;
     const textWidth = ctx.measureText(c.name).width;
     canvas.width = textWidth + 20;
     canvas.height = baseFontSize * 1.2;
+    // Clear background to transparent.
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.font = `${baseFontSize}px Arial`;
     ctx.fillStyle = '#888888';
     ctx.fillText(c.name, 10, baseFontSize);
     const texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
     const planeGeom = new THREE.PlaneGeometry((canvas.width / 100), (canvas.height / 100));
-    const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: true, depthTest: true });
-    const label = new THREE.Mesh(planeGeom, mat);
-    label.position.copy(p);
-    // NEW ORIENTATION LOGIC: Compute label rotation explicitly.
+    const mat = new THREE.MeshBasicMaterial({ 
+      map: texture, 
+      transparent: true, 
+      depthWrite: true, 
+      depthTest: true,
+      opacity: 0.5  // lower alpha
+    });
+    // Build a double-sided label group.
+    const labelGroup = new THREE.Group();
+    const meshFront = new THREE.Mesh(planeGeom, mat.clone());
+    meshFront.material.side = THREE.FrontSide;
+    const meshBack = new THREE.Mesh(planeGeom.clone(), mat.clone());
+    meshBack.material.side = THREE.FrontSide;
+    meshBack.scale.x *= -1;
+    labelGroup.add(meshFront);
+    labelGroup.add(meshBack);
+    labelGroup.position.copy(p);
+    
+    // Orientation: Make the label’s plane tangent to the sphere and its local up equal to
+    // the projection of global up (0,1,0) onto the tangent plane.
     const normal = p.clone().normalize();
     const globalUp = new THREE.Vector3(0, 1, 0);
     let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
@@ -139,9 +145,9 @@ export function createConstellationLabelsForGlobe() {
     const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
     const matrix = new THREE.Matrix4();
     matrix.makeBasis(desiredRight, desiredUp, normal);
-    label.setRotationFromMatrix(matrix);
-    label.renderOrder = 1;
-    labels.push(label);
+    labelGroup.setRotationFromMatrix(matrix);
+    labelGroup.renderOrder = 1;
+    labels.push(labelGroup);
   });
   return labels;
 }
@@ -176,7 +182,7 @@ function radToSphere(ra, dec, R) {
 }
 
 /**
- * Generates points along the great‐circle path between two points on the sphere.
+ * Returns an array of points along the great‐circle path between two points on a sphere.
  */
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
