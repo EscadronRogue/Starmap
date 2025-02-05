@@ -36,6 +36,7 @@ body {
   visibility: hidden;
 }
 
+/* Header with Hamburger Button */
 header {
   position: fixed;
   top: 0;
@@ -55,6 +56,21 @@ header h1 {
   text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
 }
 
+/* Hamburger Menu Button */
+.menu-toggle {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  background: #ff6f61;
+  color: #fff;
+  border: none;
+  padding: 10px 15px;
+  font-size: 20px;
+  border-radius: 4px;
+  z-index: 1100;
+  cursor: pointer;
+}
+
 /* Main Container */
 .main-container {
   display: flex;
@@ -63,50 +79,53 @@ header h1 {
   overflow: hidden;
 }
 
-/* Sidebar */
+/* Sidebar for Filters */
 .sidebar {
   width: 300px;
   background-color: rgba(30, 30, 30, 0.95);
   padding: 25px;
   overflow-y: auto;
   border-right: 1px solid #444;
-  transition: background-color 0.3s;
+  transition: transform 0.3s ease;
+  z-index: 1000;
 }
 
-.sidebar:hover {
-  background-color: rgba(40, 40, 40, 0.95);
+/* Sidebar closed state (moved off-screen) */
+.sidebar.closed {
+  transform: translateX(-320px);
 }
 
+/* Sidebar open state */
+.sidebar:not(.closed) {
+  transform: translateX(0);
+}
+
+/* Improved Filter Menu Styling */
 .sidebar h2 {
-  margin-bottom: 15px;
-  font-size: 22px;
-  border-bottom: 2px solid #555;
-  padding-bottom: 5px;
-  color: #f0f0f0;
+  font-size: 24px;
+  margin-bottom: 20px;
+  text-align: center;
+  border-bottom: 2px solid #ff6f61;
+  padding-bottom: 10px;
 }
 
-/* Filter Fieldsets */
 .sidebar fieldset {
-  border: 1px solid #555;
-  border-radius: 5px;
-  padding: 15px;
   margin-bottom: 20px;
-  background-color: rgba(50, 50, 50, 0.8);
+  padding: 15px;
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 6px;
 }
 
 .sidebar legend {
   font-size: 18px;
-  padding: 0 5px;
-  color: #f0f0f0;
+  font-weight: bold;
+  margin-bottom: 10px;
   cursor: pointer;
-  user-select: none;
-  position: relative;
-  display: block;
-}
-
-.sidebar legend:hover {
-  background-color: rgba(60, 60, 60, 0.8);
+  padding: 5px;
+  background-color: #ff6f61;
   border-radius: 4px;
+  text-align: center;
 }
 
 .filter-content {
@@ -119,67 +138,24 @@ header h1 {
   max-height: 1000px;
 }
 
-/* Scrollable container for categories (sidebar effect) */
-.scrollable-category {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-/* Collapsible subcategory for stellar classes */
-.stellar-class-subcategory {
-  margin-bottom: 15px;
-  border-bottom: 1px solid #666;
-  padding-bottom: 10px;
-}
-
-/* Subcategory header (visually distinct) */
-.subcategory-header {
-  font-size: 16px;
-  margin-bottom: 5px;
-  color: #ff6f61; 
-  user-select: none;
-  cursor: pointer;
-  background-color: #2a2a2a;
-  padding: 5px;
-  border-radius: 4px;
-  display: block;
-  transition: background-color 0.3s;
-}
-.subcategory-header:hover {
-  background-color: rgba(60, 60, 60, 0.8);
-}
-
-/* Subcategory content (visually distinct) */
-.subcategory-content {
-  padding: 5px 10px;
-  background-color: #333;
-  border-radius: 4px;
+.filter-item {
   margin-bottom: 10px;
 }
 
-/* Sliders, etc. */
-.filter-item {
-  display: flex;
-  align-items: center;
-  margin-bottom: 5px;
-}
-
 .filter-item label {
-  margin-left: 10px;
-  font-size: 13px;
-  cursor: pointer;
-  color: #e0e0e0;
+  font-size: 14px;
 }
 
-.sidebar .filter-item input[type="checkbox"],
-.sidebar .filter-item input[type="radio"] {
+/* Sidebar form elements */
+.sidebar input[type="checkbox"],
+.sidebar input[type="radio"] {
   width: 18px;
   height: 18px;
   cursor: pointer;
   accent-color: #ff6f61;
 }
 
-.filter-item input[type="range"] {
+.sidebar input[type="range"] {
   width: 100%;
   margin-top: 8px;
   cursor: pointer;
@@ -190,7 +166,8 @@ header h1 {
   outline: none;
   transition: background 0.3s;
 }
-.filter-item input[type="range"]::-webkit-slider-thumb {
+
+.sidebar input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 16px;
   height: 16px;
@@ -200,7 +177,8 @@ header h1 {
   border: 2px solid #fff;
   transition: background 0.3s;
 }
-filter-item input[type="range"]::-moz-range-thumb {
+
+.sidebar input[type="range"]::-moz-range-thumb {
   width: 16px;
   height: 16px;
   background: #ff6f61;
@@ -209,23 +187,6 @@ filter-item input[type="range"]::-moz-range-thumb {
   cursor: pointer;
   border: 2px solid #fff;
   transition: background 0.3s;
-}
-filter-item input[type="range"]:hover {
-  background: #666;
-}
-filter-item input[type="range"]::-webkit-slider-thumb:hover {
-  background: #ff8566;
-}
-filter-item input[type="range"]::-moz-range-thumb:hover {
-  background: #ff8566;
-}
-
-#connection-value,
-#density-value,
-#tolerance-value {
-  font-weight: bold;
-  margin-left: 5px;
-  color: #ff6f61;
 }
 
 /* Maps Section */
