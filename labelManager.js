@@ -16,6 +16,38 @@ function hashString(str) {
 }
 
 /**
+ * Returns a ShaderMaterial that renders a texture double‐sided with the same (front) orientation.
+ */
+function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      map: { value: texture },
+      opacity: { value: opacity }
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D map;
+      uniform float opacity;
+      varying vec2 vUv;
+      void main() {
+        // If rendering the back face, flip the U coordinate so the texture is not mirrored.
+        vec2 uvCorrected = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);
+        vec4 color = texture2D(map, uvCorrected);
+        gl_FragColor = vec4(color.rgb, color.a * opacity);
+      }
+    `,
+    transparent: true,
+    side: THREE.DoubleSide
+  });
+}
+
+/**
  * LabelManager Class
  * Manages 3D label meshes and connecting lines.
  */
@@ -75,28 +107,11 @@ export class LabelManager {
   }
 
   /**
-   * Helper: Creates a double‐sided label from given geometry and material.
-   * The method creates two meshes: one with normal geometry and one with its X‑axis flipped.
-   */
-  createDoubleSidedLabel(geometry, material) {
-    const meshFront = new THREE.Mesh(geometry, material.clone());
-    meshFront.material.side = THREE.FrontSide;
-    const meshBack = new THREE.Mesh(geometry.clone(), material.clone());
-    meshBack.material.side = THREE.FrontSide;
-    // Invert the X scale of the back mesh so its texture appears the same as the front.
-    meshBack.scale.x *= -1;
-    const group = new THREE.Group();
-    group.add(meshFront);
-    group.add(meshBack);
-    return group;
-  }
-
-  /**
    * Creates a 3D label and connecting line for a star.
    */
   createSpriteAndLine(star) {
     const starColor = star.displayColor || '#888888';
-    // For Globe labels, use a larger base font size.
+    // Use a larger base font size for Globe labels.
     const baseFontSize = this.mapType === 'Globe' ? 64 : 24;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -111,7 +126,6 @@ export class LabelManager {
     canvas.width = textWidth + paddingX * 2;
     canvas.height = textHeight + paddingY * 2;
     ctx.font = `${fontSize}px Arial`;
-    // Draw background (for stars, leave as-is)
     ctx.fillStyle = hexToRGBA(starColor, 0.2);
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#ffffff';
@@ -122,43 +136,35 @@ export class LabelManager {
     
     let labelObj;
     if (this.mapType === 'Globe') {
-      // Create a flat-plane geometry for the label.
+      // Create a plane geometry for the label.
       const planeGeom = new THREE.PlaneGeometry((canvas.width / 100) * scaleFactor, (canvas.height / 100) * scaleFactor);
-      const mat = new THREE.MeshBasicMaterial({
-        map: texture,
-        transparent: true,
-        depthWrite: true,
-        depthTest: true,
-      });
-      // Use the helper to create a double-sided label.
-      labelObj = this.createDoubleSidedLabel(planeGeom, mat);
+      // Use our custom shader material so that the label is visible from both sides without mirroring.
+      const material = getDoubleSidedLabelMaterial(texture);
+      labelObj = new THREE.Mesh(planeGeom, material);
       
-      // Compute the label position from the star’s sphere position and the offset.
+      // Compute label position from the star’s sphere position.
       let starPosition = new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z);
       const offset = this.generateOffset(star);
       const labelPosition = starPosition.clone().add(offset);
       labelObj.position.copy(labelPosition);
       
-      // NEW ORIENTATION LOGIC: Build a basis so that:
-      // • The label’s normal is exactly starPosition.normalize() (tangent plane).
-      // • Its local up equals the projection of global up (0,1,0) onto the tangent plane.
+      // --- Orientation logic ---
+      // Make the label’s plane tangent to the sphere and then compute a basis so that its local up equals
+      // the projection of global up (0,1,0) onto the tangent plane.
       const normal = starPosition.clone().normalize();
       const globalUp = new THREE.Vector3(0, 1, 0);
       let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
-      if (desiredUp.lengthSq() < 1e-6) {
-        // At the poles, use a default up.
-        desiredUp = new THREE.Vector3(0, 0, 1);
-      } else {
-        desiredUp.normalize();
-      }
+      if (desiredUp.lengthSq() < 1e-6) desiredUp = new THREE.Vector3(0, 0, 1);
+      else desiredUp.normalize();
       const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
       const matrix = new THREE.Matrix4();
       matrix.makeBasis(desiredRight, desiredUp, normal);
       labelObj.setRotationFromMatrix(matrix);
+      // --- End orientation ---
       
       labelObj.renderOrder = 1;
     } else {
-      // For TrueCoordinates, use a Sprite (unchanged).
+      // For TrueCoordinates, use a Sprite that always faces the camera.
       const spriteMaterial = new THREE.SpriteMaterial({
         map: texture,
         depthWrite: true,
@@ -180,7 +186,7 @@ export class LabelManager {
     this.scene.add(labelObj);
     this.sprites.set(star, labelObj);
     
-    // Create connecting line.
+    // Create a connecting line.
     let starPosition;
     if (this.mapType === 'TrueCoordinates') {
       starPosition = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
@@ -203,9 +209,7 @@ export class LabelManager {
 
   updateLabels(stars) {
     const now = performance.now();
-    if (now - this.lastLabelUpdate < 33) {
-      return;
-    }
+    if (now - this.lastLabelUpdate < 33) return;
     this.lastLabelUpdate = now;
     stars.forEach(star => {
       if (!this.sprites.has(star)) {
@@ -216,7 +220,9 @@ export class LabelManager {
         const scaleFactor = THREE.MathUtils.clamp(star.displaySize / 2, 1, 5);
         const baseFontSize = this.mapType === 'Globe' ? 64 : 24;
         const fontSize = baseFontSize * scaleFactor;
-        const canvas = labelObj.children ? labelObj.children[0].material.map.image : labelObj.material.map.image;
+        const canvas = this.mapType === 'Globe'
+          ? labelObj.material.uniforms.map.value.image
+          : labelObj.material.map.image;
         const ctx = canvas.getContext('2d');
         ctx.font = `${fontSize}px Arial`;
         const textMetrics = ctx.measureText(star.displayName);
@@ -232,7 +238,10 @@ export class LabelManager {
         ctx.fillStyle = '#ffffff';
         ctx.textBaseline = 'middle';
         ctx.fillText(star.displayName, paddingX, canvas.height / 2);
-        if (this.mapType === 'TrueCoordinates') {
+        if (this.mapType === 'Globe') {
+          labelObj.material.uniforms.map.value.needsUpdate = true;
+        } else {
+          labelObj.material.map.needsUpdate = true;
           labelObj.scale.set((canvas.width / 100) * scaleFactor, (canvas.height / 100) * scaleFactor, 1);
         }
         let starPosition;
@@ -268,21 +277,13 @@ export class LabelManager {
   }
 
   hideLabel(star) {
-    if (this.sprites.has(star)) {
-      this.sprites.get(star).visible = false;
-    }
-    if (this.lines.has(star)) {
-      this.lines.get(star).visible = false;
-    }
+    if (this.sprites.has(star)) this.sprites.get(star).visible = false;
+    if (this.lines.has(star)) this.lines.get(star).visible = false;
   }
 
   showLabel(star) {
-    if (this.sprites.has(star)) {
-      this.sprites.get(star).visible = true;
-    }
-    if (this.lines.has(star)) {
-      this.lines.get(star).visible = true;
-    }
+    if (this.sprites.has(star)) this.sprites.get(star).visible = true;
+    if (this.lines.has(star)) this.lines.get(star).visible = true;
   }
 
   removeLabels() {
