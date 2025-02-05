@@ -17,217 +17,133 @@
     <h1>Starmap Visualization</h1>
   </header>
 
-  <!-- Main Container -->
-  <div class="main-container">
-    <!-- Sidebar for Filters (initially closed) -->
-    <aside class="sidebar closed">
+  <!-- Sidebar for Filters (initially closed) -->
+  <aside class="sidebar closed">
+    <div class="sidebar-header">
       <h2>Filters</h2>
-      <form id="filters-form">
-        <!-- Stellar Class Parent Category -->
-        <fieldset>
-          <legend class="collapsible" aria-expanded="false">Stellar Class</legend>
-          <div class="filter-content">
-            <!-- Dynamically populated in filters.js -->
-            <div id="stellar-class-container"></div>
-          </div>
-        </fieldset>
+      <button id="menu-close" class="menu-close">&times;</button>
+    </div>
+    <form id="filters-form">
+      <!-- Stellar Class Parent Category -->
+      <fieldset>
+        <legend class="collapsible" aria-expanded="false">Stellar Class</legend>
+        <div class="filter-content">
+          <!-- Dynamically populated in filters.js -->
+          <div id="stellar-class-container"></div>
+        </div>
+      </fieldset>
 
-        <!-- Size Filter -->
-        <fieldset>
-          <legend class="collapsible" aria-expanded="false">Size</legend>
-          <div class="filter-content">
-            <div class="filter-item">
-              <input
-                type="radio"
-                id="size-stellar-class"
-                name="size"
-                value="stellar-class"
-                checked
-              />
-              <label for="size-stellar-class">Stellar Class-Based</label>
-            </div>
-            <div class="filter-item">
-              <input
-                type="radio"
-                id="size-distance"
-                name="size"
-                value="distance"
-              />
-              <label for="size-distance">Distance-Based</label>
-            </div>
+      <!-- Size Filter -->
+      <fieldset>
+        <legend class="collapsible" aria-expanded="false">Size</legend>
+        <div class="filter-content">
+          <div class="filter-item">
+            <input type="radio" id="size-stellar-class" name="size" value="stellar-class" checked />
+            <label for="size-stellar-class">Stellar Class-Based</label>
           </div>
-        </fieldset>
-
-        <!-- Color Filter -->
-        <fieldset>
-          <legend class="collapsible" aria-expanded="false">Color</legend>
-          <div class="filter-content">
-            <div class="filter-item">
-              <input
-                type="radio"
-                id="color-stellar-class"
-                name="color"
-                value="stellar-class"
-                checked
-              />
-              <label for="color-stellar-class">Stellar Class-Based</label>
-            </div>
-            <div class="filter-item">
-              <input
-                type="radio"
-                id="color-constellation"
-                name="color"
-                value="constellation"
-              />
-              <label for="color-constellation">Constellation</label>
-            </div>
-            <div class="filter-item">
-              <input
-                type="radio"
-                id="color-galactic-plane"
-                name="color"
-                value="galactic-plane"
-              />
-              <label for="color-galactic-plane">Galactic Plane</label>
-            </div>
+          <div class="filter-item">
+            <input type="radio" id="size-distance" name="size" value="distance" />
+            <label for="size-distance">Distance-Based</label>
           </div>
-        </fieldset>
+        </div>
+      </fieldset>
 
-        <!-- Opacity Filter -->
-        <fieldset>
-          <legend class="collapsible" aria-expanded="false">Opacity</legend>
-          <div class="filter-content">
-            <div class="filter-item">
-              <input
-                type="radio"
-                id="opacity-absolute-mag"
-                name="opacity"
-                value="absolute-magnitude"
-                checked
-              />
-              <label for="opacity-absolute-mag">Absolute Magnitude-Based</label>
-            </div>
-            <div class="filter-item">
-              <input
-                type="radio"
-                id="opacity-75"
-                name="opacity"
-                value="75"
-              />
-              <label for="opacity-75">75% Opacity</label>
-            </div>
+      <!-- Color Filter -->
+      <fieldset>
+        <legend class="collapsible" aria-expanded="false">Color</legend>
+        <div class="filter-content">
+          <div class="filter-item">
+            <input type="radio" id="color-stellar-class" name="color" value="stellar-class" checked />
+            <label for="color-stellar-class">Stellar Class-Based</label>
           </div>
-        </fieldset>
-
-        <!-- Stars Shown Filter -->
-        <fieldset>
-          <legend class="collapsible" aria-expanded="false">Stars Shown</legend>
-          <div class="filter-content">
-            <div class="filter-item">
-              <input
-                type="radio"
-                id="stars-shown-all"
-                name="stars-shown"
-                value="all"
-                checked
-              />
-              <label for="stars-shown-all">All Stars</label>
-            </div>
-            <div class="filter-item">
-              <input
-                type="radio"
-                id="stars-shown-visible"
-                name="stars-shown"
-                value="visible"
-              />
-              <label for="stars-shown-visible">Visible Stars (Magnitude ≤ 6)</label>
-            </div>
+          <div class="filter-item">
+            <input type="radio" id="color-constellation" name="color" value="constellation" />
+            <label for="color-constellation">Constellation</label>
           </div>
-        </fieldset>
-
-        <!-- Connections Filter -->
-        <fieldset>
-          <legend class="collapsible" aria-expanded="false">Connections (LY)</legend>
-          <div class="filter-content">
-            <div class="filter-item">
-              <!-- Off by default -->
-              <input
-                type="checkbox"
-                id="connections-toggle"
-                name="connections-toggle"
-              />
-              <label for="connections-toggle">Enable Connections</label>
-            </div>
-            <div class="filter-item">
-              <input
-                type="range"
-                id="connection-slider"
-                name="connections"
-                min="1"
-                max="50"
-                value="7"
-              />
-              <span id="connection-value">7</span> Light Years
-            </div>
+          <div class="filter-item">
+            <input type="radio" id="color-galactic-plane" name="color" value="galactic-plane" />
+            <label for="color-galactic-plane">Galactic Plane</label>
           </div>
-        </fieldset>
+        </div>
+      </fieldset>
 
-        <!-- Density Mapping Filter -->
-        <fieldset>
-          <legend class="collapsible" aria-expanded="false">Density Mapping</legend>
-          <div class="filter-content">
-            <div class="filter-item">
-              <!-- Off by default -->
-              <input
-                type="checkbox"
-                id="density-toggle"
-                name="density-toggle"
-              />
-              <label for="density-toggle">Enable Density Mapping</label>
-            </div>
-            <!-- Isolation Distance Slider -->
-            <div class="filter-item">
-              <label>Isolation Distance (LY): <span id="density-value">7</span> LY</label>
-              <input
-                type="range"
-                id="density-slider"
-                name="density"
-                min="1"
-                max="20"
-                value="7"
-              />
-            </div>
-            <!-- Tolerance Slider -->
-            <div class="filter-item">
-              <label>Ignore this many closest stars: <span id="tolerance-value">0</span></label>
-              <input
-                type="range"
-                id="tolerance-slider"
-                name="tolerance"
-                min="0"
-                max="10"
-                value="0"
-              />
-            </div>
+      <!-- Opacity Filter -->
+      <fieldset>
+        <legend class="collapsible" aria-expanded="false">Opacity</legend>
+        <div class="filter-content">
+          <div class="filter-item">
+            <input type="radio" id="opacity-absolute-mag" name="opacity" value="absolute-magnitude" checked />
+            <label for="opacity-absolute-mag">Absolute Magnitude-Based</label>
           </div>
-        </fieldset>
-      </form>
-    </aside>
+          <div class="filter-item">
+            <input type="radio" id="opacity-75" name="opacity" value="75" />
+            <label for="opacity-75">75% Opacity</label>
+          </div>
+        </div>
+      </fieldset>
 
-    <!-- Maps Section -->
-    <section class="maps-section">
-      <!-- True Coordinates Map -->
-      <div class="map-container">
-        <h2>True Coordinates Map</h2>
-        <canvas id="map3D"></canvas>
-      </div>
-      <!-- Globe Map -->
-      <div class="map-container">
-        <h2>Globe Map</h2>
-        <canvas id="sphereMap"></canvas>
-      </div>
-    </section>
-  </div>
+      <!-- Stars Shown Filter -->
+      <fieldset>
+        <legend class="collapsible" aria-expanded="false">Stars Shown</legend>
+        <div class="filter-content">
+          <div class="filter-item">
+            <input type="radio" id="stars-shown-all" name="stars-shown" value="all" checked />
+            <label for="stars-shown-all">All Stars</label>
+          </div>
+          <div class="filter-item">
+            <input type="radio" id="stars-shown-visible" name="stars-shown" value="visible" />
+            <label for="stars-shown-visible">Visible Stars (Magnitude ≤ 6)</label>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Connections Filter -->
+      <fieldset>
+        <legend class="collapsible" aria-expanded="false">Connections (LY)</legend>
+        <div class="filter-content">
+          <div class="filter-item">
+            <input type="checkbox" id="connections-toggle" name="connections-toggle" />
+            <label for="connections-toggle">Enable Connections</label>
+          </div>
+          <div class="filter-item">
+            <input type="range" id="connection-slider" name="connections" min="1" max="50" value="7" />
+            <span id="connection-value">7</span> Light Years
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Density Mapping Filter -->
+      <fieldset>
+        <legend class="collapsible" aria-expanded="false">Density Mapping</legend>
+        <div class="filter-content">
+          <div class="filter-item">
+            <input type="checkbox" id="density-toggle" name="density-toggle" />
+            <label for="density-toggle">Enable Density Mapping</label>
+          </div>
+          <div class="filter-item">
+            <label>Isolation Distance (LY): <span id="density-value">7</span> LY</label>
+            <input type="range" id="density-slider" name="density" min="1" max="20" value="7" />
+          </div>
+          <div class="filter-item">
+            <label>Ignore this many closest stars: <span id="tolerance-value">0</span></label>
+            <input type="range" id="tolerance-slider" name="tolerance" min="0" max="10" value="0" />
+          </div>
+        </div>
+      </fieldset>
+    </form>
+  </aside>
+
+  <!-- Maps Section (occupies full available space when sidebar is closed) -->
+  <section class="maps-section">
+    <div class="map-container">
+      <h2>True Coordinates Map</h2>
+      <canvas id="map3D"></canvas>
+    </div>
+    <div class="map-container">
+      <h2>Globe Map</h2>
+      <canvas id="sphereMap"></canvas>
+    </div>
+  </section>
 
   <!-- Tooltip -->
   <div id="tooltip" class="hidden">
