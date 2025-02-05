@@ -80,7 +80,7 @@ export class LabelManager {
   createSpriteAndLine(star) {
     const starColor = star.displayColor || '#888888';
     // Use a larger base font size for Globe labels.
-    const baseFontSize = this.mapType === 'Globe' ? 48 : 24;
+    const baseFontSize = this.mapType === 'Globe' ? 64 : 24;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const scaleFactor = THREE.MathUtils.clamp(star.displaySize / 2, 1, 5);
@@ -117,16 +117,15 @@ export class LabelManager {
       const offset = this.generateOffset(star);
       const labelPosition = starPosition.clone().add(offset);
       labelObj.position.copy(labelPosition);
-      // First, align the label's normal with the radial direction.
+      // First, orient the label so its default normal (0,0,1) aligns with the radial direction.
       const normal = starPosition.clone().normalize();
       const defaultNormal = new THREE.Vector3(0, 0, 1);
       const quat = new THREE.Quaternion().setFromUnitVectors(defaultNormal, normal);
       labelObj.quaternion.copy(quat);
-      // Now, adjust the label so that its local up aligns with the north direction.
+      // Now, adjust the label so that its local up aligns with the projected global up.
       const globalUp = new THREE.Vector3(0, 1, 0);
-      // Desired up is the projection of globalUp onto the tangent plane at starPosition.
+      // Desired up: project globalUp onto the tangent plane at starPosition.
       const desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal))).normalize();
-      // The label's current up in world space:
       const currentUp = new THREE.Vector3(0, 1, 0).applyQuaternion(labelObj.quaternion);
       const angle = currentUp.angleTo(desiredUp);
       const cross = new THREE.Vector3().crossVectors(currentUp, desiredUp);
@@ -135,7 +134,7 @@ export class LabelManager {
       labelObj.quaternion.multiply(adjustmentQuat);
       labelObj.renderOrder = 1;
     } else {
-      // For TrueCoordinates, use a Sprite.
+      // For TrueCoordinates, use a Sprite that always faces the camera.
       const spriteMaterial = new THREE.SpriteMaterial({
         map: texture,
         depthWrite: true,
@@ -192,7 +191,7 @@ export class LabelManager {
         const labelObj = this.sprites.get(star);
         const line = this.lines.get(star);
         const scaleFactor = THREE.MathUtils.clamp(star.displaySize / 2, 1, 5);
-        const baseFontSize = this.mapType === 'Globe' ? 48 : 24;
+        const baseFontSize = this.mapType === 'Globe' ? 64 : 24;
         const fontSize = baseFontSize * scaleFactor;
         const canvas = labelObj.material.map.image;
         const ctx = canvas.getContext('2d');
