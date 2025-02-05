@@ -138,12 +138,6 @@ header h1 {
   max-height: 1000px;
 }
 
-/* Scrollable container for subcategories */
-.scrollable-category {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
 /* Collapsible subcategory for stellar classes */
 .stellar-class-subcategory {
   margin-bottom: 15px;
@@ -154,7 +148,7 @@ header h1 {
 .subcategory-header {
   font-size: 16px;
   margin-bottom: 5px;
-  color: #ff6f61; 
+  color: #ff6f61;
   user-select: none;
   cursor: pointer;
   background-color: #2a2a2a;
@@ -302,7 +296,7 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
   z-index: 10;
 }
 
-/* Fullscreen styling: when any element is in fullscreen mode, force full width/height */
+/* Fullscreen styling: when an element is in fullscreen mode, force full width/height */
 :fullscreen,
 :-webkit-full-screen {
   width: 100%;
