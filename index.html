@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -12,15 +11,16 @@
   <!-- Loader -->
   <div id="loader" class="active">Loading Stars...</div>
 
-  <!-- Header -->
+  <!-- Header with Hamburger Menu Button -->
   <header>
+    <button id="menu-toggle" class="menu-toggle">&#9776;</button>
     <h1>Starmap Visualization</h1>
   </header>
 
   <!-- Main Container -->
   <div class="main-container">
-    <!-- Sidebar for Filters -->
-    <aside class="sidebar">
+    <!-- Sidebar for Filters (initially closed) -->
+    <aside class="sidebar closed">
       <h2>Filters</h2>
       <form id="filters-form">
         <!-- Stellar Class Parent Category -->
@@ -150,6 +150,15 @@
           <legend class="collapsible" aria-expanded="false">Connections (LY)</legend>
           <div class="filter-content">
             <div class="filter-item">
+              <!-- Off by default -->
+              <input
+                type="checkbox"
+                id="connections-toggle"
+                name="connections-toggle"
+              />
+              <label for="connections-toggle">Enable Connections</label>
+            </div>
+            <div class="filter-item">
               <input
                 type="range"
                 id="connection-slider"
@@ -167,6 +176,15 @@
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Density Mapping</legend>
           <div class="filter-content">
+            <div class="filter-item">
+              <!-- Off by default -->
+              <input
+                type="checkbox"
+                id="density-toggle"
+                name="density-toggle"
+              />
+              <label for="density-toggle">Enable Density Mapping</label>
+            </div>
             <!-- Isolation Distance Slider -->
             <div class="filter-item">
               <label>Isolation Distance (LY): <span id="density-value">7</span> LY</label>
@@ -179,7 +197,6 @@
                 value="7"
               />
             </div>
-
             <!-- Tolerance Slider -->
             <div class="filter-item">
               <label>Ignore this many closest stars: <span id="tolerance-value">0</span></label>
@@ -204,7 +221,6 @@
         <h2>True Coordinates Map</h2>
         <canvas id="map3D"></canvas>
       </div>
-
       <!-- Globe Map -->
       <div class="map-container">
         <h2>Globe Map</h2>
