@@ -357,8 +357,9 @@ window.onload = async () => {
       trueCoordinatesMap.scene.add(c.tcMesh);
       globeMap.scene.add(c.globeMesh);
     });
-    densityOverlay.adjacentLines.forEach(line => {
-      globeMap.scene.add(line);
+    // FIX: Add only the THREE.Object3D (the "line" property) from adjacentLines objects.
+    densityOverlay.adjacentLines.forEach(obj => {
+      globeMap.scene.add(obj.line);
     });
     updateDensityMapping(currentFilteredStars);
   } catch (err) {
