@@ -19,17 +19,15 @@
 
   <!-- Main Container -->
   <div class="main-container">
-    <!-- Sidebar for Filters (as an overlay, generated dynamically by filters/index.js) -->
+    <!-- Sidebar for Filters (original static fieldsets) -->
     <aside class="sidebar">
       <h2>Filters</h2>
       <form id="filters-form">
-        <!-- The updated Constellations and Globe Surface fieldsets are now generated dynamically.
-             (Any outdated static fieldsets have been removed.) -->
-
-        <!-- Stellar Class Filter -->
+        <!-- Stellar Class Parent Category -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Stellar Class</legend>
           <div class="filter-content">
+            <!-- Dynamically populated in filters.js -->
             <div id="stellar-class-container"></div>
           </div>
         </fieldset>
@@ -98,36 +96,54 @@
           </div>
         </fieldset>
 
-        <!-- Connections Filter (disabled by default) -->
+        <!-- Connections Filter -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Connections (LY)</legend>
           <div class="filter-content">
             <div class="filter-item">
-              <input type="checkbox" id="enable-connections" name="enable-connections" />
-              <label for="enable-connections">Enable Connections</label>
-            </div>
-            <div class="filter-item">
-              <input type="range" id="connection-slider" name="connections" min="1" max="50" value="7" disabled />
+              <input type="range" id="connection-slider" name="connections" min="1" max="50" value="7" />
               <span id="connection-value">7</span> Light Years
             </div>
           </div>
         </fieldset>
 
-        <!-- Density Mapping Filter (disabled by default) -->
+        <!-- Density Mapping Filter -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Density Mapping</legend>
           <div class="filter-content">
             <div class="filter-item">
-              <input type="checkbox" id="enable-density-mapping" name="enable-density-mapping" />
-              <label for="enable-density-mapping">Enable Density Mapping</label>
-            </div>
-            <div class="filter-item">
               <label>Isolation Distance (LY): <span id="density-value">7</span> LY</label>
-              <input type="range" id="density-slider" name="density" min="1" max="20" value="7" disabled />
+              <input type="range" id="density-slider" name="density" min="1" max="20" value="7" />
             </div>
             <div class="filter-item">
               <label>Ignore this many closest stars: <span id="tolerance-value">0</span></label>
-              <input type="range" id="tolerance-slider" name="tolerance" min="0" max="10" value="0" disabled />
+              <input type="range" id="tolerance-slider" name="tolerance" min="0" max="10" value="0" />
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Constellations Fieldset (original static version) -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Constellations</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <input type="checkbox" id="show-constellation-boundaries" name="show-constellation-boundaries" checked />
+              <label for="show-constellation-boundaries">Show Constellation Boundaries</label>
+            </div>
+            <div class="filter-item">
+              <input type="checkbox" id="show-constellation-names" name="show-constellation-names" checked />
+              <label for="show-constellation-names">Show Constellation Names</label>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Globe Surface Fieldset (original static version) -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Globe Surface</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <input type="checkbox" id="globe-opaque-surface" name="globe-opaque-surface" />
+              <label for="globe-opaque-surface">Opaque Globe Surface</label>
             </div>
           </div>
         </fieldset>
@@ -169,29 +185,18 @@
   <!-- Scripts -->
   <script type="module" src="script.js"></script>
   <script>
-    // Toggle sidebar menu on mobile: toggle the "open" class
+    // Toggle sidebar menu on mobile: toggle the "open" class on the sidebar
     document.getElementById('menu-toggle').addEventListener('click', function() {
       document.querySelector('.sidebar').classList.toggle('open');
     });
 
-    // Enable/disable connection slider based on checkbox state
-    document.getElementById('enable-connections').addEventListener('change', function() {
-      document.getElementById('connection-slider').disabled = !this.checked;
-    });
-
-    // Enable/disable density mapping sliders based on checkbox state
-    document.getElementById('enable-density-mapping').addEventListener('change', function() {
-      document.getElementById('density-slider').disabled = !this.checked;
-      document.getElementById('tolerance-slider').disabled = !this.checked;
-    });
-    
-    // Fullscreen button event listeners – request fullscreen on the entire documentElement
+    // Fullscreen button event listeners – request fullscreen on the map container element
     document.querySelectorAll('.fullscreen-btn').forEach(btn => {
       btn.addEventListener('click', function() {
-        if (!document.fullscreenElement) {
-          // Request fullscreen on the documentElement so that the entire plot is shown
-          document.documentElement.requestFullscreen().catch(err => {
-            console.error("Error attempting to enable full-screen mode:", err);
+        var mapContainer = this.parentElement;
+        if (!document.fullscreenElement || document.fullscreenElement !== mapContainer) {
+          mapContainer.requestFullscreen().catch(err => {
+            console.error("Error attempting to enable full-screen mode on map:", err);
           });
         } else {
           document.exitFullscreen();
