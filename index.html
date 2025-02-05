@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <!-- The viewport meta tag ensures responsiveness -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Starmap Visualization</title>
   <link rel="stylesheet" href="styles.css" />
@@ -17,18 +18,18 @@
     <h1>Starmap Visualization</h1>
   </header>
 
-  <!-- Sidebar for Filters (initially closed) -->
+  <!-- Sidebar (Overlay Menu) for Filters (initially closed) -->
   <aside class="sidebar closed">
     <div class="sidebar-header">
       <h2>Filters</h2>
       <button id="menu-close" class="menu-close">&times;</button>
     </div>
     <form id="filters-form">
-      <!-- Stellar Class Parent Category -->
+      <!-- Stellar Class (Top‑level) -->
       <fieldset>
         <legend class="collapsible" aria-expanded="false">Stellar Class</legend>
         <div class="filter-content">
-          <!-- Dynamically populated in filters.js -->
+          <!-- Dynamically populated subcategories in stellarClassFilter.js -->
           <div id="stellar-class-container"></div>
         </div>
       </fieldset>
@@ -133,7 +134,7 @@
     </form>
   </aside>
 
-  <!-- Maps Section (occupies full available space when sidebar is closed) -->
+  <!-- Maps Section (scrollable on mobile) -->
   <section class="maps-section">
     <div class="map-container">
       <h2>True Coordinates Map</h2>
