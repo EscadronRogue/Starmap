@@ -30,7 +30,6 @@ export class LabelManager {
     this.sprites = new Map();
     this.lines = new Map();
     this.offsets = new Map();
-    // For throttling label updates
     this.lastLabelUpdate = 0;
   }
 
@@ -47,7 +46,6 @@ export class LabelManager {
       const sizeMultiplier = THREE.MathUtils.clamp(star.displaySize / 2, 0.5, 1.5);
       offset = baseOffset.clone().multiplyScalar(sizeMultiplier);
     } else if (this.mapType === 'Globe') {
-      // Compute tangent plane at the star's sphere position
       let starPos;
       if (star.spherePosition) {
         starPos = new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z);
@@ -56,7 +54,6 @@ export class LabelManager {
         starPos = new THREE.Vector3(0, 0, 0);
       }
       const normal = starPos.clone().normalize();
-      // Choose an arbitrary vector not parallel to normal
       let tangent = new THREE.Vector3(0, 1, 0);
       if (Math.abs(normal.dot(tangent)) > 0.9) {
         tangent = new THREE.Vector3(1, 0, 0);
@@ -82,9 +79,10 @@ export class LabelManager {
    */
   createSpriteAndLine(star) {
     const starColor = star.displayColor || '#888888';
+    // Use a larger base font size for Globe labels.
+    const baseFontSize = this.mapType === 'Globe' ? 48 : 24;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    const baseFontSize = 24;
     const scaleFactor = THREE.MathUtils.clamp(star.displaySize / 2, 1, 5);
     const fontSize = baseFontSize * scaleFactor;
     ctx.font = `${fontSize}px Arial`;
@@ -106,7 +104,7 @@ export class LabelManager {
     
     let labelObj;
     if (this.mapType === 'Globe') {
-      // For Globe map, create a flat plane label (instead of a sprite)
+      // Create a flat plane label.
       const planeGeom = new THREE.PlaneGeometry((canvas.width / 100) * scaleFactor, (canvas.height / 100) * scaleFactor);
       const mat = new THREE.MeshBasicMaterial({
         map: texture,
@@ -115,24 +113,29 @@ export class LabelManager {
         depthTest: true,
       });
       labelObj = new THREE.Mesh(planeGeom, mat);
-      // Position and orient the label on the globe
       let starPosition = new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z);
       const offset = this.generateOffset(star);
       const labelPosition = starPosition.clone().add(offset);
       labelObj.position.copy(labelPosition);
-      // First, orient the label so its default normal (0,0,1) aligns with the radial direction.
+      // First, align the label's normal with the radial direction.
       const normal = starPosition.clone().normalize();
       const defaultNormal = new THREE.Vector3(0, 0, 1);
       const quat = new THREE.Quaternion().setFromUnitVectors(defaultNormal, normal);
       labelObj.quaternion.copy(quat);
-      // Then, adjust rotation about the normal so that the label’s local up aligns with global up.
+      // Now, adjust the label so that its local up aligns with the north direction.
       const globalUp = new THREE.Vector3(0, 1, 0);
-      const localGlobalUp = globalUp.clone().applyQuaternion(labelObj.quaternion.clone().invert());
-      const angle = Math.atan2(localGlobalUp.x, localGlobalUp.y);
-      labelObj.rotateOnAxis(normal, -angle);
+      // Desired up is the projection of globalUp onto the tangent plane at starPosition.
+      const desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal))).normalize();
+      // The label's current up in world space:
+      const currentUp = new THREE.Vector3(0, 1, 0).applyQuaternion(labelObj.quaternion);
+      const angle = currentUp.angleTo(desiredUp);
+      const cross = new THREE.Vector3().crossVectors(currentUp, desiredUp);
+      const sign = cross.dot(normal) < 0 ? -1 : 1;
+      const adjustmentQuat = new THREE.Quaternion().setFromAxisAngle(normal, sign * angle);
+      labelObj.quaternion.multiply(adjustmentQuat);
       labelObj.renderOrder = 1;
     } else {
-      // For TrueCoordinates, use a Sprite that always faces the camera.
+      // For TrueCoordinates, use a Sprite.
       const spriteMaterial = new THREE.SpriteMaterial({
         map: texture,
         depthWrite: true,
@@ -153,8 +156,8 @@ export class LabelManager {
     }
     this.scene.add(labelObj);
     this.sprites.set(star, labelObj);
-
-    // Create connecting line (common for both map types)
+    
+    // Create connecting line.
     let starPosition;
     if (this.mapType === 'TrueCoordinates') {
       starPosition = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
@@ -175,10 +178,6 @@ export class LabelManager {
     this.lines.set(star, line);
   }
 
-  /**
-   * Updates all star labels and connecting lines.
-   * Throttles updates to roughly 30 FPS.
-   */
   updateLabels(stars) {
     const now = performance.now();
     if (now - this.lastLabelUpdate < 33) {
@@ -193,7 +192,8 @@ export class LabelManager {
         const labelObj = this.sprites.get(star);
         const line = this.lines.get(star);
         const scaleFactor = THREE.MathUtils.clamp(star.displaySize / 2, 1, 5);
-        const fontSize = 24 * scaleFactor;
+        const baseFontSize = this.mapType === 'Globe' ? 48 : 24;
+        const fontSize = baseFontSize * scaleFactor;
         const canvas = labelObj.material.map.image;
         const ctx = canvas.getContext('2d');
         ctx.font = `${fontSize}px Arial`;
@@ -234,7 +234,6 @@ export class LabelManager {
       }
     });
 
-    // Remove labels and lines for stars no longer present
     this.sprites.forEach((labelObj, star) => {
       if (!stars.includes(star)) {
         this.scene.remove(labelObj);
@@ -271,7 +270,6 @@ export class LabelManager {
       this.scene.remove(labelObj);
     });
     this.sprites.clear();
-
     this.lines.forEach((line, star) => {
       this.scene.remove(line);
     });
