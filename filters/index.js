@@ -40,6 +40,7 @@ export async function setupFilterUI(allStars) {
     legend.classList.remove('active');
     const fc = legend.nextElementSibling;
     if (fc) fc.style.maxHeight = null; // collapsed by default
+
     legend.addEventListener('click', () => {
       legend.classList.toggle('active');
       const isActive = legend.classList.contains('active');
@@ -56,7 +57,7 @@ export async function setupFilterUI(allStars) {
   // Add new fieldset for Globe Surface
   addGlobeSurfaceFieldset();
 
-  // Force open fieldsets for newly added categories
+  // We force them "active" so the user sees the checkboxes right away.
   forceOpenFieldsets(['Constellations', 'Globe Surface']);
 
   // Load constellation data in background
@@ -69,13 +70,18 @@ export async function setupFilterUI(allStars) {
  */
 function addConstellationsFieldset() {
   const fs = document.createElement('fieldset');
+
+  // Collapsible legend
   const legend = document.createElement('legend');
   legend.classList.add('collapsible');
   legend.textContent = 'Constellations';
   fs.appendChild(legend);
+
   const contentDiv = document.createElement('div');
   contentDiv.classList.add('filter-content');
   contentDiv.style.maxHeight = '0';
+
+  // Show Boundaries
   const boundaryDiv = document.createElement('div');
   boundaryDiv.classList.add('filter-item');
   const boundaryChk = document.createElement('input');
@@ -89,6 +95,8 @@ function addConstellationsFieldset() {
   boundaryDiv.appendChild(boundaryChk);
   boundaryDiv.appendChild(boundaryLbl);
   contentDiv.appendChild(boundaryDiv);
+
+  // Show Names
   const namesDiv = document.createElement('div');
   namesDiv.classList.add('filter-item');
   const namesChk = document.createElement('input');
@@ -102,6 +110,7 @@ function addConstellationsFieldset() {
   namesDiv.appendChild(namesChk);
   namesDiv.appendChild(namesLbl);
   contentDiv.appendChild(namesDiv);
+
   fs.appendChild(contentDiv);
   filterForm.appendChild(fs);
 }
@@ -111,13 +120,17 @@ function addConstellationsFieldset() {
  */
 function addGlobeSurfaceFieldset() {
   const fs = document.createElement('fieldset');
+
   const legend = document.createElement('legend');
   legend.classList.add('collapsible');
   legend.textContent = 'Globe Surface';
   fs.appendChild(legend);
+
   const contentDiv = document.createElement('div');
   contentDiv.classList.add('filter-content');
   contentDiv.style.maxHeight = '0';
+
+  // Opaque Globe
   const surfDiv = document.createElement('div');
   surfDiv.classList.add('filter-item');
   const surfChk = document.createElement('input');
@@ -130,13 +143,15 @@ function addGlobeSurfaceFieldset() {
   surfLbl.textContent = 'Opaque Globe Surface';
   surfDiv.appendChild(surfChk);
   surfDiv.appendChild(surfLbl);
+
   contentDiv.appendChild(surfDiv);
   fs.appendChild(contentDiv);
+
   filterForm.appendChild(fs);
 }
 
 /**
- * Forcibly open specified fieldsets.
+ * Forcibly open fieldsets whose legends match the provided titles.
  */
 function forceOpenFieldsets(fieldsetTitles) {
   const legends = filterForm.querySelectorAll('legend.collapsible');
@@ -144,7 +159,7 @@ function forceOpenFieldsets(fieldsetTitles) {
     const titleText = legend.textContent.trim();
     if (fieldsetTitles.includes(titleText)) {
       legend.classList.add('active');
-      legend.setAttribute('aria-expanded', 'true');
+      legend.setAttribute('aria-expanded','true');
       const fc = legend.nextElementSibling;
       if (fc && fc.classList.contains('filter-content')) {
         fc.style.maxHeight = fc.scrollHeight + 'px';
@@ -163,25 +178,26 @@ export function applyFilters(allStars) {
       return {
         filteredStars: allStars,
         connections: [],
-        connectionsEnabled: false,
         globeFilteredStars: allStars,
         globeConnections: [],
-        densityEnabled: false,
         showConstellationBoundaries: false,
         showConstellationNames: false,
-        globeOpaqueSurface: false
+        globeOpaqueSurface: false,
+        enableConnections: false,
+        enableDensityMapping: false
       };
     }
   }
   const formData = new FormData(filterForm);
+
   const filters = {
     size: formData.get('size'),
     color: formData.get('color'),
     opacity: formData.get('opacity'),
     starsShown: formData.get('stars-shown'),
     connections: parseFloat(formData.get('connections')) || 7,
-    connectionsEnabled: (formData.get('connections-toggle') !== null),
-    densityEnabled: (formData.get('density-toggle') !== null),
+    enableConnections: (formData.get('enable-connections') !== null),
+    enableDensityMapping: (formData.get('enable-density-mapping') !== null),
     showConstellationBoundaries: (formData.get('show-constellation-boundaries') !== null),
     showConstellationNames: (formData.get('show-constellation-names') !== null),
     globeOpaqueSurface: (formData.get('globe-opaque-surface') !== null)
@@ -194,8 +210,14 @@ export function applyFilters(allStars) {
   filteredStars = applyOpacityFilter(filteredStars, filters);
 
   const globeFiltered = filteredStars.filter(s => s.Common_name_of_the_star !== 'Sun');
-  const pairs = computeConnectionPairs(filteredStars, filters.connections);
-  const globePairs = computeConnectionPairs(globeFiltered, filters.connections);
+
+  let pairs = [];
+  let globePairs = [];
+  if (filters.enableConnections) {
+    pairs = computeConnectionPairs(filteredStars, filters.connections);
+    globePairs = computeConnectionPairs(globeFiltered, filters.connections);
+  }
+
   applyGlobeSurfaceFilter(filters);
 
   return {
@@ -203,13 +225,12 @@ export function applyFilters(allStars) {
     connections: pairs,
     globeFilteredStars: globeFiltered,
     globeConnections: globePairs,
-    connectionsEnabled: filters.connectionsEnabled,
-    densityEnabled: filters.densityEnabled,
     showConstellationBoundaries: filters.showConstellationBoundaries,
     showConstellationNames: filters.showConstellationNames,
-    globeOpaqueSurface: filters.globeOpaqueSurface
+    globeOpaqueSurface: filters.globeOpaqueSurface,
+    enableDensityMapping: filters.enableDensityMapping
   };
 }
 
-// re-export
+// Re-export
 export { scGenerate as generateStellarClassFilters };
