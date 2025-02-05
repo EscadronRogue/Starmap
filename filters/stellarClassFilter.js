@@ -184,7 +184,7 @@ export function generateStellarClassFilters(stars) {
 
     subcatDiv.appendChild(classCheckboxesDiv);
 
-    // 3) The star list subcontent (initially collapsed and scrollable if needed)
+    // 3) The star list subcontent (initially closed)
     const subcontentDiv = document.createElement('div');
     subcontentDiv.classList.add('filter-subcontent', 'subcategory-content');
     subcontentDiv.style.maxHeight = '0';
