@@ -117,24 +117,27 @@ export class LabelManager {
       const offset = this.generateOffset(star);
       const labelPosition = starPosition.clone().add(offset);
       labelObj.position.copy(labelPosition);
-      // First, orient the label so its default normal (0,0,1) aligns with the radial direction.
-      const normal = starPosition.clone().normalize();
-      const defaultNormal = new THREE.Vector3(0, 0, 1);
-      const quat = new THREE.Quaternion().setFromUnitVectors(defaultNormal, normal);
-      labelObj.quaternion.copy(quat);
-      // Now, adjust the label so that its local up aligns with the projected global up.
+      
+      // --- NEW ORIENTATION LOGIC: Compute desired rotation from scratch ---
+      const normal = starPosition.clone().normalize(); // tangent plane normal
       const globalUp = new THREE.Vector3(0, 1, 0);
-      // Desired up: project globalUp onto the tangent plane at starPosition.
-      const desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal))).normalize();
-      const currentUp = new THREE.Vector3(0, 1, 0).applyQuaternion(labelObj.quaternion);
-      const angle = currentUp.angleTo(desiredUp);
-      const cross = new THREE.Vector3().crossVectors(currentUp, desiredUp);
-      const sign = cross.dot(normal) < 0 ? -1 : 1;
-      const adjustmentQuat = new THREE.Quaternion().setFromAxisAngle(normal, sign * angle);
-      labelObj.quaternion.multiply(adjustmentQuat);
+      // Project globalUp onto the tangent plane:
+      let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
+      if (desiredUp.lengthSq() < 1e-6) {
+        // At the poles, choose a default up vector
+        desiredUp = new THREE.Vector3(0, 0, 1);
+      } else {
+        desiredUp.normalize();
+      }
+      const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
+      const rotationMatrix = new THREE.Matrix4();
+      rotationMatrix.makeBasis(desiredRight, desiredUp, normal);
+      labelObj.setRotationFromMatrix(rotationMatrix);
+      // --- End NEW ORIENTATION LOGIC ---
+      
       labelObj.renderOrder = 1;
     } else {
-      // For TrueCoordinates, use a Sprite that always faces the camera.
+      // For TrueCoordinates, use a Sprite.
       const spriteMaterial = new THREE.SpriteMaterial({
         map: texture,
         depthWrite: true,
