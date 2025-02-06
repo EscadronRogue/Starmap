@@ -5,21 +5,28 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 let densityGrid = null;
 
 /**
- * The DensityGridOverlay class now builds a 3D grid of cubes,
- * computes the distance from stars, and marks cells as active based on an isolation value.
+ * The DensityGridOverlay class builds a 3D grid of cubes,
+ * computes distances to stars, and marks cells as active based on an isolation value.
+ * It then groups active cells into clusters using a 26‑neighbor flood‑fill,
+ * and classifies each region (cluster) as follows:
  *
- * It then runs a 26‑neighbor flood‑fill on the active cells to group them into clusters,
- * classifies each cluster according to:
+ * - Lake: a cluster of one or two cubes.
  *
- *  - Lake: one or two cubes.
- *  - Independent Basin: larger than two cubes.
- *      • Among these, if the volume is at least 50% of the largest independent basin, it is an Ocean;
- *        otherwise it is a Sea.
- *  - Gulf: a narrow outgrowth (a cluster touching only one neighbor).
- *  - Strait: a gulf that connects two independent basins (i.e. touches exactly two neighbors).
+ * - For clusters larger than two cubes:
+ *    • Compute the bounding box dimensions (dx, dy, dz),
+ *      the occupancy ratio = volume / ((dx+1)*(dy+1)*(dz+1)),
+ *      and the aspect ratio = max(dx,dy,dz) / min(dx,dy,dz).
  *
- * Finally, each cluster is given a label whose text is composed of the type and the name
- * of the constellation that contributes the most cubes to that cluster.
+ *    • If the occupancy ratio is less than 0.3 and the aspect ratio is greater than 3,
+ *      then the cluster is considered "narrow."
+ *         - If a narrow cluster touches exactly one other cluster, classify it as a Gulf.
+ *         - If a narrow cluster touches two or more other clusters, classify it as a Strait.
+ *    • Otherwise, classify the cluster as an independent basin.
+ *         Among independent basins, if its volume is at least 50% of the largest independent basin,
+ *         it is labeled as an Ocean; otherwise, as a Sea.
+ *
+ * For naming, each cluster is assigned the name of the constellation that appears in most cells
+ * (using a simple RA‑based partition) so that the final label is "<Type> <ConstellationName>".
  *
  * The class also provides a method to add these region labels (as THREE.Sprite objects)
  * into a given scene.
@@ -33,7 +40,7 @@ class DensityGridOverlay {
     this.adjacentLines = [];
     // After clustering, we store region (cluster) data here.
     this.regionClusters = [];
-    // We'll also keep groups for region labels for each map type.
+    // Groups to hold region labels for each map type.
     this.regionLabelsGroupTC = new THREE.Group(); // TrueCoordinates labels
     this.regionLabelsGroupGlobe = new THREE.Group(); // Globe labels
   }
@@ -59,7 +66,7 @@ class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
           
-          // For the Globe map, use a flat square (plane) instead of a cube.
+          // For the Globe map, use a flat square (plane) instead.
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -68,7 +75,6 @@ class DensityGridOverlay {
           if (distFromCenter < 1e-6) {
             projectedPos = new THREE.Vector3(0, 0, 0);
           } else {
-            // Compute RA = atan2(-z, -x) and dec = asin(y / dist)
             const ra = Math.atan2(-posTC.z, -posTC.x);
             const dec = Math.asin(posTC.y / distFromCenter);
             const radius = 100;
@@ -79,7 +85,7 @@ class DensityGridOverlay {
             );
           }
           squareGlobe.position.copy(projectedPos);
-          // Orient the square so that it is tangent to the sphere.
+          // Orient the square tangent to the sphere.
           const normal = projectedPos.clone().normalize();
           squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
           
@@ -105,14 +111,10 @@ class DensityGridOverlay {
 
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
-      // For each star, use its truePosition if available.
       const dArr = stars.map(star => {
-        let starPos;
-        if (star.truePosition) {
-          starPos = star.truePosition;
-        } else {
-          starPos = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
-        }
+        let starPos = star.truePosition
+          ? star.truePosition
+          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
         const dx = cell.tcPos.x - starPos.x;
         const dy = cell.tcPos.y - starPos.y;
         const dz = cell.tcPos.z - starPos.z;
@@ -169,7 +171,6 @@ class DensityGridOverlay {
       if (cell.distances.length > toleranceVal) {
         isoDist = cell.distances[toleranceVal];
       }
-      // Mark cell as active if its tolerance-th distance is at least the isolation value.
       const showSquare = isoDist >= isolationVal;
       cell.active = showSquare;
       let ratio = cell.tcPos.length() / this.maxDistance;
@@ -197,18 +198,23 @@ class DensityGridOverlay {
   }
 
   /**
-   * Runs a 26‑neighbor flood‑fill on all active cells and groups them into clusters.
+   * Performs a 26‑neighbor flood‑fill on all active cells to group them into clusters.
    * Then, for each cluster:
    *
    * 1. If the volume (number of cubes) is 1 or 2, classify as "Lake".
-   * 2. Otherwise, if the cluster touches exactly one other cluster, classify as "Gulf".
-   * 3. Otherwise, if it touches exactly two other clusters, classify as "Strait".
-   * 4. Otherwise, classify as an independent basin.
-   *    Among independent basins, if the volume is at least 50% of the largest independent basin,
-   *    label it "Ocean"; otherwise, label it "Sea".
+   * 2. Otherwise, compute the bounding box dimensions:
+   *      dx = maxX - minX, dy = maxY - minY, dz = maxZ - minZ.
+   *    Let boundingBoxVolume = (dx+1)*(dy+1)*(dz+1) and occupancy = volume / boundingBoxVolume.
+   *    Compute aspect ratio = max(dx,dy,dz) / min(dx,dy,dz).
+   *    If (occupancy < 0.3 and aspect ratio > 3) the cluster is considered narrow.
+   *       - If a narrow cluster touches exactly one other cluster → classify as "Gulf".
+   *       - If a narrow cluster touches two or more other clusters → classify as "Strait".
+   * 3. Otherwise, mark the cluster as an independent basin.
+   *    Among independent basins, if its volume is at least 50% of the largest independent basin,
+   *    label it as "Ocean"; otherwise, label it as "Sea".
    *
-   * For naming, for each cluster the constellation that “occupies” the most cells is chosen,
-   * and the final label is "<Type> <ConstellationName>".
+   * For naming, choose the constellation that occurs most often (via a helper function)
+   * and assign the final label as "<Type> <ConstellationName>".
    *
    * @returns {Array} Array of cluster objects with properties: volume, centroid, type, label, etc.
    */
@@ -238,7 +244,7 @@ class DensityGridOverlay {
         if (visited.has(current.id)) continue;
         visited.add(current.id);
         clusterCells.push(current);
-        // Look in all 26 neighbor directions.
+        // Check all 26 neighbors.
         for (let dx = -1; dx <= 1; dx++) {
           for (let dy = -1; dy <= 1; dy++) {
             for (let dz = -1; dz <= 1; dz++) {
@@ -276,13 +282,12 @@ class DensityGridOverlay {
         if (iz < minZ) minZ = iz;
         if (iz > maxZ) maxZ = iz;
         sumPos.add(cell.tcPos);
-        // Determine constellation for this cell.
         const constName = getConstellationForCell(cell);
         constCount[constName] = (constCount[constName] || 0) + 1;
       });
       const centroid = sumPos.divideScalar(volume);
       const bbox = { minX, maxX, minY, maxY, minZ, maxZ };
-      // Determine the set of neighboring clusters.
+      // Determine neighboring clusters.
       const neighborSet = new Set();
       this.cubesData.forEach(cell => {
         if (!cell.active) return;
@@ -304,6 +309,15 @@ class DensityGridOverlay {
           }
         }
       });
+      // Compute bounding box dimensions.
+      const dx = maxX - minX;
+      const dy = maxY - minY;
+      const dz = maxZ - minZ;
+      const bboxVolume = (dx + 1) * (dy + 1) * (dz + 1);
+      const occupancy = volume / bboxVolume;
+      const maxDim = Math.max(dx, dy, dz);
+      const minDim = Math.min(dx, dy, dz) || 1;
+      const aspectRatio = maxDim / minDim;
       return {
         clusterId,
         cells,
@@ -313,23 +327,29 @@ class DensityGridOverlay {
         neighbors: neighborSet,
         type: null,
         label: '',
-        constCount // for naming
+        constCount,
+        occupancy,
+        aspectRatio
       };
     });
-    // Classify clusters according to criteria:
-    // 1. If volume <= 2 → Lake.
-    // 2. Else, if neighbor count === 1 → Gulf.
-    // 3. Else, if neighbor count === 2 → Strait.
-    // 4. Otherwise, mark as an independent basin.
+    // Classify clusters.
     clusterData.forEach(cluster => {
       if (cluster.volume <= 2) {
         cluster.type = 'Lake';
-      } else if (cluster.neighbors.size === 1) {
-        cluster.type = 'Gulf';
-      } else if (cluster.neighbors.size === 2) {
-        cluster.type = 'Strait';
       } else {
-        cluster.type = 'IndependentBasin';
+        // Determine if this cluster is narrow.
+        const narrow = (cluster.occupancy < 0.3 && cluster.aspectRatio > 3);
+        if (narrow) {
+          if (cluster.neighbors.size === 1) {
+            cluster.type = 'Gulf';
+          } else if (cluster.neighbors.size >= 2) {
+            cluster.type = 'Strait';
+          } else {
+            cluster.type = 'IndependentBasin';
+          }
+        } else {
+          cluster.type = 'IndependentBasin';
+        }
       }
     });
     // Among independent basins, determine the maximum volume.
@@ -338,12 +358,10 @@ class DensityGridOverlay {
     independentBasins.forEach(c => {
       if (c.volume > maxVolume) maxVolume = c.volume;
     });
-    // For each independent basin, label as Ocean if its volume is at least 50% of the maximum;
-    // otherwise, label as Sea.
     independentBasins.forEach(c => {
       c.type = c.volume >= 0.5 * maxVolume ? 'Ocean' : 'Sea';
     });
-    // For naming, choose the constellation that occurs most within the cluster.
+    // For naming, choose the dominant constellation.
     clusterData.forEach(c => {
       let dominantConst = 'Unknown';
       let maxCount = 0;
@@ -362,7 +380,7 @@ class DensityGridOverlay {
   /**
    * Creates a text label as a THREE.Sprite for the given text and position.
    *
-   * @param {string} text - The text to display.
+   * @param {string} text - The label text.
    * @param {THREE.Vector3} position - The 3D position for the label.
    * @param {string} mapType - "Globe" or "TrueCoordinates".
    * @returns {THREE.Sprite} - The created label sprite.
@@ -408,7 +426,7 @@ class DensityGridOverlay {
 
   /**
    * Removes any existing region label group from the scene and creates new labels
-   * based on the current classification. For "TrueCoordinates", the cluster centroid is used;
+   * based on the current classification. For "TrueCoordinates", the centroid is used;
    * for "Globe", the centroid is projected.
    *
    * @param {THREE.Scene} scene - The scene to add labels to.
@@ -446,8 +464,8 @@ class DensityGridOverlay {
 }
 
 /**
- * Helper: Returns a constellation name for a given cell based on its tcPos.
- * (A simple partition of the sphere by RA; replace with your preferred method.)
+ * Helper: Returns a constellation name for a cell based on its tcPos.
+ * (A simple partition by RA; replace with your own method as needed.)
  *
  * @param {Object} cell - A cube cell.
  * @returns {string} - The constellation name.
@@ -457,7 +475,6 @@ function getConstellationForCell(cell) {
   let ra = Math.atan2(-pos.z, -pos.x);
   if (ra < 0) ra += 2 * Math.PI;
   const raDeg = THREE.MathUtils.radToDeg(ra);
-  // Simple partition:
   if (raDeg < 60) return "Orion";
   else if (raDeg < 120) return "Gemini";
   else if (raDeg < 180) return "Taurus";
