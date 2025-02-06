@@ -11,7 +11,7 @@
   <!-- Loader -->
   <div id="loader" class="active">Loading Stars...</div>
 
-  <!-- Header with Menu Toggle Button (placed at top left, separate from title) -->
+  <!-- Header with Menu Toggle Button (positioned top left, separate from title) -->
   <header>
     <button id="menu-toggle" aria-label="Toggle Menu">☰</button>
     <h1>Starmap Visualization</h1>
@@ -19,15 +19,14 @@
 
   <!-- Main Container -->
   <div class="main-container">
-    <!-- Sidebar for Filters (as an overlay; updated filters will be injected dynamically) -->
+    <!-- Sidebar for Filters (as an overlay) -->
+    <!-- Note: The static fieldsets for Constellations and Globe Surface have been removed.
+         The dynamic, collapsible versions will be injected by the filters/index.js module. -->
     <aside class="sidebar">
       <h2>Filters</h2>
       <form id="filters-form">
-        <!-- Keep only the static fieldsets that are not duplicated:
-             The updated (collapsible) Constellations and Globe Surface filters will be added dynamically.
-        -->
-
-        <!-- Stellar Class Filter Fieldset -->
+        <!-- Static fieldsets (that remain) -->
+        <!-- Stellar Class Filter -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Stellar Class</legend>
           <div class="filter-content">
@@ -132,7 +131,7 @@
             </div>
           </div>
         </fieldset>
-        <!-- End of static fieldsets. (No static duplicates for Constellations or Globe Surface.) -->
+        <!-- End static fieldsets -->
       </form>
     </aside>
 
@@ -196,7 +195,7 @@
         if (document.fullscreenElement) {
           document.exitFullscreen();
         } else {
-          // Request fullscreen on the canvas so it occupies the entire screen
+          // Request fullscreen on the canvas element
           canvas.requestFullscreen().catch(err => {
             console.error("Error attempting to enable full-screen mode:", err);
           });
@@ -204,11 +203,16 @@
       });
     });
 
-    // Listen for fullscreen change so that when we exit fullscreen, we trigger a resize
+    // When exiting fullscreen, force a resize so that the maps return to their proper size.
     document.addEventListener("fullscreenchange", function() {
       if (!document.fullscreenElement) {
-        // When exiting fullscreen, dispatch a resize event to restore layout
-        window.dispatchEvent(new Event('resize'));
+        // Call the resize routines for both maps (attached to window in script.js)
+        if (window.trueCoordinatesMap) {
+          window.trueCoordinatesMap.onResize();
+        }
+        if (window.globeMap) {
+          window.globeMap.onResize();
+        }
       }
     });
   </script>
