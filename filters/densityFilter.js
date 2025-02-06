@@ -179,7 +179,7 @@ class DensityGridOverlay {
 }
 
 /**
- * Returns an array of points along the great‐circle path between two points on a sphere.
+ * Returns an array of points along the great‑circle path between two points on a sphere.
  */
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
