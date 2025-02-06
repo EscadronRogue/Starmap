@@ -32,28 +32,16 @@ let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
 let globeSurfaceSphere = null;
 let densityOverlay = null;
+let globeGrid = null;
 
-// ---------------------------------------------------------
-async function loadStarData() {
-  try {
-    const resp = await fetch('complete_data_stars.json');
-    if (!resp.ok) throw new Error(`HTTP error: ${resp.status}`);
-    const arr = await resp.json();
-    console.log(`Loaded ${arr.length} stars.`);
-    return arr;
-  } catch (err) {
-    console.error('Error loading star data:', err);
-    return [];
-  }
-}
-
-// Simple debounce helper
-function debounce(func, wait) {
-  let timeout;
-  return function (...args) {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => { func.apply(this, args); }, wait);
-  };
+// ---
+// A helper conversion function (same as in constellationFilter.js)
+function radToSphere(ra, dec, R) {
+  return new THREE.Vector3(
+    -R * Math.cos(dec) * Math.cos(ra),
+     R * Math.sin(dec),
+    -R * Math.cos(dec) * Math.sin(ra)
+  );
 }
 
 /**
@@ -61,19 +49,12 @@ function debounce(func, wait) {
  * of radius 100 using its RA and DEC.
  *
  * We first compute:
- *
  *   r = sqrt(x^2 + y^2 + z^2)
- *   ra  = atan2(z, x)
+ *   ra  = atan2(-z, -x)
  *   dec = asin(y / r)
  *
  * Then we convert (ra, dec) to Cartesian coordinates as seen from inside the sphere
- * using the same formula as in the constellation conversion:
- *
- *   x = -R · cos(dec) · cos(ra)
- *   y =  R · sin(dec)
- *   z = -R · cos(dec) · sin(ra)
- *
- * This consistent conversion ensures that stars fall in the same regions as the constellation boundaries.
+ * using the same formula as in radToSphere.
  */
 function projectStarGlobe(star) {
   const x0 = star.x_coordinate;
@@ -81,13 +62,58 @@ function projectStarGlobe(star) {
   const z0 = star.z_coordinate;
   const r = Math.sqrt(x0 * x0 + y0 * y0 + z0 * z0);
   if (r === 0) return new THREE.Vector3(0, 0, 0);
-  const ra = Math.atan2(z0, x0);
+  // IMPORTANT: flip the signs so that the computed RA matches our "inside sphere" convention.
+  const ra = Math.atan2(-z0, -x0);
   const dec = Math.asin(y0 / r);
   const R = 100;
-  const x = -R * Math.cos(dec) * Math.cos(ra);
-  const y =  R * Math.sin(dec);
-  const z = -R * Math.cos(dec) * Math.sin(ra);
-  return new THREE.Vector3(x, y, z);
+  return radToSphere(ra, dec, R);
+}
+
+/**
+ * Creates a grid overlay on the inside surface of the sphere (radius 100) to help verify coordinates.
+ * We draw lines of constant RA (vertical “meridians”) and constant DEC (horizontal “parallels”).
+ */
+function createGlobeGrid(R = 100, options = {}) {
+  const gridGroup = new THREE.Group();
+  const gridColor = options.color || 0x444444;
+  const lineOpacity = options.opacity !== undefined ? options.opacity : 0.25;
+  const lineWidth = options.lineWidth || 1;
+
+  const material = new THREE.LineBasicMaterial({
+    color: gridColor,
+    transparent: true,
+    opacity: lineOpacity,
+    linewidth: lineWidth
+  });
+
+  const raLines = [];
+  // Draw meridians: RA lines every 30° (in radians, 30° = Math.PI/6)
+  for (let ra = 0; ra < 2 * Math.PI; ra += Math.PI / 6) {
+    const points = [];
+    // Let dec vary from -80° to +80° to avoid extreme distortion at the poles.
+    for (let dec = -80 * Math.PI/180; dec <= 80 * Math.PI/180; dec += Math.PI/180 * 2) {
+      points.push(radToSphere(ra, dec, R));
+    }
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geometry, material);
+    gridGroup.add(line);
+  }
+
+  // Draw parallels: constant dec lines every 30° from -60° to +60°
+  for (let dec = -60 * Math.PI/180; dec <= 60 * Math.PI/180; dec += Math.PI/6) {
+    const points = [];
+    // Let RA vary from 0 to 2π.
+    const segments = 64;
+    for (let i = 0; i <= segments; i++) {
+      const ra = (i / segments) * 2 * Math.PI;
+      points.push(radToSphere(ra, dec, R));
+    }
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geometry, material);
+    gridGroup.add(line);
+  }
+
+  return gridGroup;
 }
 
 // ---------------------------------------------------------
@@ -346,6 +372,10 @@ window.onload = async () => {
 
     buildAndApplyFilters();
 
+    // Create and add the globe grid to the Globe map scene.
+    globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
+    globeMap.scene.add(globeGrid);
+
     loader.classList.add('hidden');
   } catch (err) {
     console.error('Error initializing starmap:', err);
@@ -353,6 +383,28 @@ window.onload = async () => {
     loader.classList.add('hidden');
   }
 };
+
+async function loadStarData() {
+  try {
+    const resp = await fetch('complete_data_stars.json');
+    if (!resp.ok) throw new Error(`HTTP error: ${resp.status}`);
+    const arr = await resp.json();
+    console.log(`Loaded ${arr.length} stars.`);
+    return arr;
+  } catch (err) {
+    console.error('Error loading star data:', err);
+    return [];
+  }
+}
+
+// Simple debounce helper
+function debounce(func, wait) {
+  let timeout;
+  return function (...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => { func.apply(this, args); }, wait);
+  };
+}
 
 function getCurrentFilters() {
   const form = document.getElementById('filters-form');
