@@ -294,7 +294,7 @@ window.onload = async () => {
       mapType: 'Globe',
       projectFunction: projectStarGlobe,
     });
-    // Attach these to window so the fullscreen exit handler can access them.
+    // Attach to window so that fullscreen exit handler can call onResize.
     window.trueCoordinatesMap = trueCoordinatesMap;
     window.globeMap = globeMap;
 
