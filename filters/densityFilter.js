@@ -11,10 +11,12 @@ let densityGrid = null;
 
 /**
  * Helper function for projecting any true-coordinate position to the Globe.
- * This function should exactly mirror the transformation we apply to stars:
- *   (1) normalize the vector,
- *   (2) apply the fixed rotation (if available), and
- *   (3) scale to radius 100.
+ * This function mirrors the projection you use for stars.
+ * It does the following:
+ *   (1) Normalize the vector.
+ *   (2) Apply the fixed rotation (if available in window.rotationQuaternion).
+ *   (3) Multiply by the sphere’s radius (100).
+ *   (4) Add a fixed offset (window.globeOffset) computed in the main script.
  */
 function projectToGlobe(pos) {
   const R = 100;
@@ -22,7 +24,13 @@ function projectToGlobe(pos) {
   if (window.rotationQuaternion) {
     p.applyQuaternion(window.rotationQuaternion);
   }
-  return p.multiplyScalar(R);
+  // Scale to sphere radius...
+  p.multiplyScalar(R);
+  // ...and add the offset (which should be computed in your main script).
+  if (window.globeOffset) {
+    p.add(window.globeOffset);
+  }
+  return p;
 }
 
 /**
@@ -64,11 +72,11 @@ class DensityGridOverlay {
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
           
-          // Use our unified projection function.
           let projectedPos;
           if (distFromCenter < 1e-6) {
             projectedPos = new THREE.Vector3(0, 0, 0);
           } else {
+            // Use our unified helper which now adds the global offset.
             projectedPos = projectToGlobe(posTC);
           }
           squareGlobe.position.copy(projectedPos);
