@@ -202,20 +202,10 @@
       });
     });
 
-    // When exiting fullscreen, force a resize so that the maps return to their proper size.
+    // When exiting fullscreen, dispatch a window resize event so that maps re-layout properly.
     document.addEventListener("fullscreenchange", function() {
       if (!document.fullscreenElement) {
-        // Reset any left offsets on the canvases
-        document.querySelectorAll('canvas').forEach(canvas => {
-          canvas.style.left = '0';
-        });
-        // Call the resize routines for both maps
-        if (window.trueCoordinatesMap && window.trueCoordinatesMap.onResize) {
-          window.trueCoordinatesMap.onResize();
-        }
-        if (window.globeMap && window.globeMap.onResize) {
-          window.globeMap.onResize();
-        }
+        window.dispatchEvent(new Event('resize'));
       }
     });
   </script>
