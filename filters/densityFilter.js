@@ -10,13 +10,9 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 let densityGrid = null;
 
 /**
- * Helper function for projecting any true-coordinate position to the Globe.
- * This function mirrors the projection you use for stars.
- * It does the following:
- *   (1) Normalize the vector.
- *   (2) Apply the fixed rotation (if available in window.rotationQuaternion).
- *   (3) Multiply by the sphere’s radius (100).
- *   (4) Add a fixed offset (window.globeOffset) computed in the main script.
+ * Unified helper for projecting a true-coordinate position to the Globe map.
+ * This function normalizes the vector, applies the fixed rotation,
+ * scales by the sphere’s radius (100) and then adds a correction offset.
  */
 function projectToGlobe(pos) {
   const R = 100;
@@ -24,9 +20,7 @@ function projectToGlobe(pos) {
   if (window.rotationQuaternion) {
     p.applyQuaternion(window.rotationQuaternion);
   }
-  // Scale to sphere radius...
   p.multiplyScalar(R);
-  // ...and add the offset (which should be computed in your main script).
   if (window.globeOffset) {
     p.add(window.globeOffset);
   }
@@ -56,7 +50,7 @@ class DensityGridOverlay {
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
           
-          // Create the cube (for the True Coordinates map) as before.
+          // Create the cube (for the True Coordinates map).
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -72,13 +66,11 @@ class DensityGridOverlay {
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
           
-          let projectedPos;
-          if (distFromCenter < 1e-6) {
-            projectedPos = new THREE.Vector3(0, 0, 0);
-          } else {
-            // Use our unified helper which now adds the global offset.
-            projectedPos = projectToGlobe(posTC);
-          }
+          // Project the cell center using the unified helper.
+          let projectedPos = (distFromCenter < 1e-6) 
+                             ? new THREE.Vector3(0, 0, 0) 
+                             : projectToGlobe(posTC);
+          
           squareGlobe.position.copy(projectedPos);
           // Orient the square so that it is tangent to the sphere.
           const normal = projectedPos.clone().normalize();
