@@ -57,32 +57,34 @@ function debounce(func, wait) {
 }
 
 /**
- * Projects a star's (x,y,z) true coordinate onto a sphere of radius 100,
- * using a conversion consistent with our constellation conversion.
+ * Projects a star's (x,y,z) true coordinate onto a sphere of radius 100.
+ * This conversion now matches the constellation conversion by flipping the x and z axes.
+ * That is, for a given star we compute:
  *
- * Instead of merely normalizing the star’s position vector,
- * we compute spherical angles as:
- *   φ = arccos(y / r)   [polar angle measured from +Y]
- *   θ = atan2(z, x)
- * and then set:
- *   x = R · sin(φ) · cos(θ)
- *   y = R · cos(φ)
- *   z = R · sin(φ) · sin(θ)
+ *   let v = (star.x_coordinate, star.y_coordinate, star.z_coordinate)
+ *   r = |v|
+ *   phi = arccos(v.y / r)
+ *   theta = atan2(v.z, v.x)
  *
- * This ensures that the north pole is at (0,100,0).
+ * Then the globe position is:
+ *
+ *   x = -R · sin(phi) · cos(theta)
+ *   y =  R · cos(phi)
+ *   z = -R · sin(phi) · sin(theta)
+ *
+ * This ensures that stars fall into their proper constellations.
  */
 function projectStarGlobe(star) {
   const v = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
   const r = v.length();
   if (r === 0) return new THREE.Vector3(0, 0, 0);
-  const phi = Math.acos(v.y / r); // polar angle from +Y axis
+  const phi = Math.acos(v.y / r);
   const theta = Math.atan2(v.z, v.x);
   const R = 100;
-  const sinPhi = Math.sin(phi);
   return new THREE.Vector3(
-    R * sinPhi * Math.cos(theta),
-    R * Math.cos(phi),
-    R * sinPhi * Math.sin(theta)
+    -R * Math.sin(phi) * Math.cos(theta),
+     R * Math.cos(phi),
+    -R * Math.sin(phi) * Math.sin(theta)
   );
 }
 
