@@ -111,7 +111,7 @@ class MapManager {
 
   /**
    * Creates an instanced mesh for the given stars (TrueCoordinates only).
-   * For the globe, we typically do a different approach (but you have the same code for both here).
+   * For the globe, we typically do a different approach, but here we reuse the same logic.
    */
   addStars(stars) {
     // Remove previous instanced mesh if exists
@@ -128,7 +128,25 @@ class MapManager {
     const dummy = new THREE.Object3D();
     for (let i = 0; i < instanceCount; i++) {
       const star = stars[i];
-      dummy.position.set(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+      // For TrueCoordinates, we directly use x/y/z.
+      // For Globe, we also (in practice) re-use star.x_coordinate, etc. 
+      // or star.spherePosition if we prefer. This is a simplified approach.
+
+      let px, py, pz;
+      if (this.mapType === 'TrueCoordinates') {
+        px = star.x_coordinate;
+        py = star.y_coordinate;
+        pz = star.z_coordinate;
+      } else {
+        // For the globe map, we can just show them on a sphere around the origin
+        // using star.x_coordinate, y, z but normalized to radius=100
+        // (We also store star.spherePosition for labeling.)
+        px = star.spherePosition?.x ?? 0;
+        py = star.spherePosition?.y ?? 0;
+        pz = star.spherePosition?.z ?? 0;
+      }
+
+      dummy.position.set(px, py, pz);
       dummy.scale.setScalar(star.displaySize * 0.2);
       dummy.updateMatrix();
       instanced.setMatrixAt(i, dummy.matrix);
@@ -169,18 +187,20 @@ class MapManager {
   animate() {
     requestAnimationFrame(() => this.animate());
     this.renderer.render(this.scene, this.camera);
-    // Note: We removed per-frame label updates here to avoid performance issues.
+    // We do not update labels every frame — see labelManager for on-demand updates.
   }
 }
 
 /**
- * Dummy functions for projection logic if needed.
+ * Converts star.x/y/z to a position on a globe of radius 100.
+ * You can refine this if you have actual RA/Dec in the data.
  */
-function projectStarTrueCoordinates(star) {
-  return null;
-}
 function projectStarGlobe(star) {
-  return null;
+  const pos = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+  if (pos.lengthSq() > 0) {
+    pos.normalize().multiplyScalar(100);
+  }
+  return { x: pos.x, y: pos.y, z: pos.z };
 }
 
 /**
@@ -244,9 +264,9 @@ function initStarInteractions(map) {
 function updateSelectedStarHighlight() {
   // If you'd like to visually highlight the selected star in the instanced mesh,
   // you would modify the instance color or scale for that particular instance ID.
-  // The code below is just a placeholder.
+  // The code below is just a placeholder / no-op.
   [trueCoordinatesMap, globeMap].forEach(map => {
-    // TODO: custom highlight logic
+    // TODO: custom highlight logic if you wish
   });
 }
 
@@ -310,13 +330,11 @@ window.onload = async () => {
     // Create the two map scenes
     trueCoordinatesMap = new MapManager({
       canvasId: 'map3D',
-      mapType: 'TrueCoordinates',
-      projectFunction: projectStarTrueCoordinates,
+      mapType: 'TrueCoordinates'
     });
     globeMap = new MapManager({
       canvasId: 'sphereMap',
-      mapType: 'Globe',
-      projectFunction: projectStarGlobe,
+      mapType: 'Globe'
     });
 
     // Set them global for debugging if wanted
@@ -373,6 +391,14 @@ function buildAndApplyFilters() {
   currentConnections = connections;
   currentGlobeFilteredStars = globeFilteredStars;
   currentGlobeConnections = globeConnections;
+
+  // ----------------
+  // FIX: We must set spherePosition for each star in the Globe set
+  // so that labelManager does not crash when reading star.spherePosition.x
+  currentGlobeFilteredStars.forEach(star => {
+    star.spherePosition = projectStarGlobe(star);
+  });
+  // ----------------
 
   // Update the TrueCoordinates map
   trueCoordinatesMap.updateMap(currentFilteredStars, currentConnections);
@@ -466,19 +492,14 @@ function applyGlobeSurface(isOpaque) {
 
 /**
  * Initializes the density overlay once, from your existing code in filters/densityFilter.js.
- * We call this only if the user enabled the density mapping.
  */
 function initDensityOverlay(maxDistance, starArray) {
-  // This function is imported from your /filters/densityFilter.js:
-  // export function initDensityOverlay(maxDistance, starArray) { ... }
-  // but we replicate it here or simply call the import. 
-  // For clarity in this code snippet, we'll assume we call the import:
+  // This function is exported by /filters/densityFilter.js
   return window.initDensityOverlay(maxDistance, starArray);
 }
 
 /**
  * Updates the density overlay after user moves slider or filters change.
- * Also from your /filters/densityFilter.js
  */
 function updateDensityMapping(starArray) {
   if (!densityOverlay) return;
