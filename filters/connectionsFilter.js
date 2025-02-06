@@ -5,7 +5,6 @@ import { calculateDistance } from '../utils.js';
 
 /**
  * Computes connection pairs between stars that are within maxDistance.
- * (This is an example implementation; use your own logic if needed.)
  *
  * @param {Array} stars - Array of star objects.
  * @param {number} maxDistance - Maximum allowed distance between stars.
@@ -28,11 +27,8 @@ export function computeConnectionPairs(stars, maxDistance) {
 
 /**
  * Merges connection line segments into a single THREE.LineSegments object.
- * This reduces draw calls by combining all individual line segments into one geometry.
  *
- * @param {Array} connectionObjs - Array of connection objects, where each object has:
- *    { starA, starB, distance }
- *    Each star is expected to have x_coordinate, y_coordinate, and z_coordinate.
+ * @param {Array} connectionObjs - Array of connection objects.
  * @returns {THREE.LineSegments} - The merged connection lines.
  */
 export function mergeConnectionLines(connectionObjs) {
@@ -42,7 +38,7 @@ export function mergeConnectionLines(connectionObjs) {
   connectionObjs.forEach(pair => {
     const { starA, starB } = pair;
     
-    // For TrueCoordinates, we use the stars' x, y, z positions.
+    // Use the stars' x, y, z positions.
     positions.push(starA.x_coordinate, starA.y_coordinate, starA.z_coordinate);
     positions.push(starB.x_coordinate, starB.y_coordinate, starB.z_coordinate);
     
@@ -61,7 +57,7 @@ export function mergeConnectionLines(connectionObjs) {
     vertexColors: true,
     transparent: true,
     opacity: 0.5,
-    linewidth: 1 // Note: linewidth support may vary by platform.
+    linewidth: 1
   });
   
   const mergedLines = new THREE.LineSegments(geometry, material);
@@ -69,18 +65,16 @@ export function mergeConnectionLines(connectionObjs) {
 }
 
 /**
- * (Optional) Creates individual connection line objects between star pairs.
- * This function is provided if you still need the per‑connection line approach.
+ * Creates individual connection line objects between star pairs.
  *
  * @param {Array} stars - Array of star objects.
- * @param {Array} pairs - Array of connection objects as computed by computeConnectionPairs.
- * @param {string} mapType - 'Globe' or other type.
+ * @param {Array} pairs - Array of connection objects.
+ * @param {string} mapType - 'Globe' or other.
  * @returns {Array} - Array of THREE.Line objects.
  */
 export function createConnectionLines(stars, pairs, mapType) {
   if (!pairs || pairs.length === 0) return [];
   
-  // Find the largest pair distance for normalization.
   const largestPairDistance = pairs.reduce((max, p) => Math.max(max, p.distance), 0);
   const lines = [];
   
@@ -96,12 +90,10 @@ export function createConnectionLines(stars, pairs, mapType) {
       posB = new THREE.Vector3(starB.x_coordinate, starB.y_coordinate, starB.z_coordinate);
     }
     
-    // Interpolate a color between the two stars.
     const c1 = new THREE.Color(starA.displayColor || '#ffffff');
     const c2 = new THREE.Color(starB.displayColor || '#ffffff');
     const gradientColor = c1.clone().lerp(c2, 0.5);
     
-    // Adjust line thickness and opacity based on distance.
     const normDist = distance / (largestPairDistance || distance);
     const lineThickness = THREE.MathUtils.lerp(5, 1, normDist);
     const lineOpacity = THREE.MathUtils.lerp(1.0, 0.3, normDist);
@@ -132,13 +124,13 @@ export function createConnectionLines(stars, pairs, mapType) {
 }
 
 /**
- * Helper function to compute points along a great‑circle path between two points on a sphere.
+ * Helper function to compute points along a great‑circle path between two points.
  *
  * @param {THREE.Vector3} p1 - Starting position.
  * @param {THREE.Vector3} p2 - Ending position.
- * @param {number} R - Radius of the sphere.
- * @param {number} segments - Number of segments (points) along the path.
- * @returns {Array} - Array of THREE.Vector3 points along the great‑circle path.
+ * @param {number} R - Sphere radius.
+ * @param {number} segments - Number of segments.
+ * @returns {Array} - Array of THREE.Vector3 points.
  */
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
