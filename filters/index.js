@@ -37,7 +37,7 @@ export async function setupFilterUI(allStars) {
   // Make existing legends collapsible
   const mainLegends = filterForm.querySelectorAll('legend.collapsible');
   mainLegends.forEach(legend => {
-    legend.classList.remove('active');
+    // Remove any existing inline maxHeight setting
     const fc = legend.nextElementSibling;
     if (fc) fc.style.maxHeight = null;
     legend.addEventListener('click', () => {
@@ -75,7 +75,14 @@ function addConstellationsFieldset() {
   fs.appendChild(legend);
   const contentDiv = document.createElement('div');
   contentDiv.classList.add('filter-content');
-  contentDiv.style.maxHeight = '0';
+  contentDiv.style.maxHeight = '0px';
+  // Make this fieldset collapsible (like the others)
+  legend.addEventListener('click', () => {
+    legend.classList.toggle('active');
+    const isActive = legend.classList.contains('active');
+    legend.setAttribute('aria-expanded', isActive);
+    contentDiv.style.maxHeight = isActive ? contentDiv.scrollHeight + 'px' : '0px';
+  });
   const boundaryDiv = document.createElement('div');
   boundaryDiv.classList.add('filter-item');
   const boundaryChk = document.createElement('input');
@@ -117,7 +124,14 @@ function addGlobeSurfaceFieldset() {
   fs.appendChild(legend);
   const contentDiv = document.createElement('div');
   contentDiv.classList.add('filter-content');
-  contentDiv.style.maxHeight = '0';
+  contentDiv.style.maxHeight = '0px';
+  // Make this fieldset collapsible (like the others)
+  legend.addEventListener('click', () => {
+    legend.classList.toggle('active');
+    const isActive = legend.classList.contains('active');
+    legend.setAttribute('aria-expanded', isActive);
+    contentDiv.style.maxHeight = isActive ? contentDiv.scrollHeight + 'px' : '0px';
+  });
   const surfDiv = document.createElement('div');
   surfDiv.classList.add('filter-item');
   const surfChk = document.createElement('input');
