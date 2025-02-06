@@ -6,8 +6,8 @@ let densityGrid = null;
 
 /* --------------------------------------------------------------------------
    Helper: getDoubleSidedLabelMaterial
-   (This material is used for Globe labels so they render double-sided,
-    matching the orientation logic of our other labels.)
+   (This material is used for Globe labels so that they render double-sided
+    with the proper orientation—following the same method as star/constellation labels.)
 -------------------------------------------------------------------------- */
 function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
   return new THREE.ShaderMaterial({
@@ -47,7 +47,7 @@ class DensityGridOverlay {
     this.cubesData = [];
     this.adjacentLines = [];
     this.regionClusters = []; // Final regions (independent basins and branches)
-    // Groups for region labels
+    // Groups for region labels.
     this.regionLabelsGroupTC = new THREE.Group(); // TrueCoordinates
     this.regionLabelsGroupGlobe = new THREE.Group(); // Globe
   }
@@ -65,7 +65,7 @@ class DensityGridOverlay {
           // TrueCoordinates: create a cube.
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
-            color: 0x0000ff,
+            color: 0x0000ff, // temporary default; will be updated later by updateRegionColors()
             transparent: true,
             opacity: 1.0,
             depthWrite: false
@@ -92,7 +92,7 @@ class DensityGridOverlay {
             );
           }
           squareGlobe.position.copy(projectedPos);
-          // Set orientation: tangent to sphere.
+          // For Globe orientation, make the square tangent to the sphere.
           const normal = projectedPos.clone().normalize();
           squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
           
@@ -203,22 +203,22 @@ class DensityGridOverlay {
   /* ------------------------------------------------------------------------
      SEGMENTATION & CLASSIFICATION
      
-     1. Flood-fill active cells into clusters.
-     2. Clusters with ≤2 cells are Lakes.
-     3. For clusters >2 cells:
-         a. Iteratively erode cells with fewer than 3 neighbors to determine the "core".
-         b. Compute connected components (cores) of the remaining cells. (If more than one, treat each as an independent basin.)
-         c. Group removed cells into branches.
-         d. For each branch, compute the set of distinct core components it touches.
-            – If the branch touches at least 2 different cores (and thus connects two different independent basins), classify it as a Strait.
-            – Otherwise, classify it as a Gulf.
-     4. For clusters that yield no branches, treat the entire cluster as an independent basin.
-     5. Among independent basins, label as Ocean if volume ≥50% of the largest independent basin; otherwise label as Sea.
-     6. For each region, compute the dominant constellation using only that region’s cells.
-     7. For label placement, choose the "best cell" – the cell with the highest connectivity within that region.
+     (1) Flood-fill active cells into clusters.
+     (2) Clusters with ≤2 cells are Lakes.
+     (3) For clusters with >2 cells:
+         (a) Iteratively erode cells with fewer than 3 neighbors to form the "core."
+         (b) Compute connected components of the core. (If more than one, each becomes an independent basin.)
+         (c) Group removed cells into branch components.
+         (d) For each branch, determine which distinct core components it touches.
+             • If a branch touches ≥2 different cores (i.e. connects two different basins), classify it as a Strait.
+             • Otherwise, classify it as a Gulf.
+     (4) For clusters yielding no branches, treat the entire cluster as an independent basin.
+     (5) Among independent basins, label as Ocean if volume ≥50% of the largest independent basin; otherwise, Sea.
+     (6) For each region, compute the dominant constellation (using only that region’s cells).
+     (7) For label placement, choose the "best cell" (the most interconnected cell) instead of the centroid.
   ------------------------------------------------------------------------ */
   classifyEmptyRegions() {
-    // Flood-fill grouping.
+    // Flood-fill active cells.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -296,6 +296,7 @@ class DensityGridOverlay {
           });
         }
         seg.branches.forEach(branch => {
+          // For branches, if touchedCores has ≥2, classify as Strait; else Gulf.
           let bType = (branch.touchedCores.size >= 2) ? 'Strait' : 'Gulf';
           regions.push({
             clusterId: idx + '_branch',
@@ -303,13 +304,14 @@ class DensityGridOverlay {
             volume: branch.cells.length,
             dominantConst: getDominantConstellation(computeConstCount(branch.cells)),
             type: bType,
-            bestCell: computeInterconnectedCell(branch.cells)
+            bestCell: computeInterconnectedCell(branch.cells),
+            touchedCores: branch.touchedCores  // Store for later color lookup.
           });
         });
       }
     });
     
-    // Determine maximum volume among independent basins.
+    // Among independent basins, determine maximum volume.
     let independentBasins = regions.filter(r => r.type === 'IndependentBasin');
     let maxVolume = 0;
     independentBasins.forEach(r => { if (r.volume > maxVolume) maxVolume = r.volume; });
@@ -328,10 +330,10 @@ class DensityGridOverlay {
   /**
    * SEGMENT CLUSTER:
    * Given a cluster (array of cells), iteratively erode cells with fewer than 3 neighbors
-   * to produce the core. Then, group the removed cells into branches and determine which distinct
-   * core components each branch contacts.
+   * to obtain the core. Then, group removed cells into branch components and for each branch,
+   * compute the set of distinct core components it touches.
    *
-   * Returns an object: { cores: Array of core arrays, branches: Array of branch objects }.
+   * Returns: { cores: Array of core arrays, branches: Array of branch objects }.
    * Each branch object is { cells: [cells], touchedCores: Set }.
    */
   segmentCluster(cells) {
@@ -382,7 +384,7 @@ class DensityGridOverlay {
       }
       cores.push(comp);
     }
-    // Branches: cells that are in the original cluster but not in the core.
+    // Branches: cells not in the core.
     let removedCells = cells.filter(c => !coreCells.includes(c));
     let branches = [];
     let visitedBranch = new Set();
@@ -424,10 +426,97 @@ class DensityGridOverlay {
   }
   
   /**
-   * Creates a region label using the same formatting as star/constellation labels.
-   * For the TrueCoordinates map, labels are made much larger.
-   * For the Globe map, after creating a plane, the label is oriented so its up vector
-   * is the projection of the global up vector onto the tangent plane at its position.
+   * updateRegionColors:
+   * Updates the material color of each cell based on the region it belongs to.
+   * For independent basins (Ocean, Sea, Lake), fixed colors are used.
+   * For branches (Gulf, Strait), a gradient is applied based on the distance from the region's best cell.
+   *
+   * This method is called before adding labels so that the cubes/squares themselves are colored.
+   */
+  updateRegionColors() {
+    // First, classify regions.
+    const regions = this.classifyEmptyRegions();
+    // Define fixed base colors for independent basins.
+    const baseColorMap = {
+      Ocean: new THREE.Color('#0000FF'),
+      Sea: new THREE.Color('#0099FF'),
+      Lake: new THREE.Color('#66CCFF')
+    };
+    // For each region, determine the color.
+    regions.forEach(region => {
+      let regionColor = new THREE.Color('#FFFFFF');
+      if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
+        regionColor = baseColorMap[region.type];
+      } else if (region.type === 'Gulf') {
+        // For a Gulf, assume touchedCores has only one element.
+        // Look up the parent's color from independent basins.
+        let parentColor = new THREE.Color('#0099FF'); // default to Sea color.
+        // Search among regions.
+        regions.forEach(r => {
+          if (region.touchedCores && region.touchedCores.has(r.clusterId)) {
+            if (r.type === 'Ocean' || r.type === 'Sea') {
+              parentColor = baseColorMap[r.type];
+            }
+          }
+        });
+        regionColor = parentColor;
+      } else if (region.type === 'Strait') {
+        // For a Strait, average the colors of the independent basins it touches.
+        let colors = [];
+        regions.forEach(r => {
+          if (region.touchedCores && region.touchedCores.has(r.clusterId)) {
+            if (r.type === 'Ocean' || r.type === 'Sea') {
+              colors.push(baseColorMap[r.type]);
+            }
+          }
+        });
+        if (colors.length > 0) {
+          let sumR = 0, sumG = 0, sumB = 0;
+          colors.forEach(col => {
+            sumR += col.r;
+            sumG += col.g;
+            sumB += col.b;
+          });
+          sumR /= colors.length;
+          sumG /= colors.length;
+          sumB /= colors.length;
+          regionColor = new THREE.Color(sumR, sumG, sumB);
+        } else {
+          regionColor = new THREE.Color('#0099FF');
+        }
+      }
+      // Now update each cell's material.
+      if (region.type === 'Gulf' || region.type === 'Strait') {
+        // Apply a gradient: for each cell, compute its distance from the region.bestCell,
+        // normalize by the maximum distance in the region, and lerp from regionColor to white.
+        let maxDist = 0;
+        region.cells.forEach(cell => {
+          let d = cell.tcPos.distanceTo(region.bestCell.tcPos);
+          if (d > maxDist) maxDist = d;
+        });
+        region.cells.forEach(cell => {
+          let d = cell.tcPos.distanceTo(region.bestCell.tcPos);
+          let factor = maxDist > 0 ? d / maxDist : 0;
+          let cellColor = regionColor.clone().lerp(new THREE.Color('#ffffff'), factor);
+          cell.tcMesh.material.color.set(cellColor);
+          cell.globeMesh.material.color.set(cellColor);
+        });
+      } else {
+        // For independent basins, assign a constant color.
+        region.cells.forEach(cell => {
+          cell.tcMesh.material.color.set(regionColor);
+          cell.globeMesh.material.color.set(regionColor);
+        });
+      }
+    });
+  }
+
+  /**
+   * createRegionLabel:
+   * Creates a region label using the same formatting as the star and constellation labels.
+   * For TrueCoordinates, we use a very large base font size (400) so that labels are much bigger.
+   * For the Globe, after creating a plane, we orient the label so its "up" points toward the north pole,
+   * exactly as with the other Globe labels.
    *
    * @param {string} text - The label text.
    * @param {THREE.Vector3} position - The label position.
@@ -437,7 +526,6 @@ class DensityGridOverlay {
   createRegionLabel(text, position, mapType) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    // For TrueCoordinates, use a very large base font size.
     const baseFontSize = (mapType === 'Globe' ? 300 : 400);
     ctx.font = `${baseFontSize}px Arial`;
     const textWidth = ctx.measureText(text).width;
@@ -456,9 +544,8 @@ class DensityGridOverlay {
       const material = getDoubleSidedLabelMaterial(texture, 1.0);
       labelObj = new THREE.Mesh(planeGeom, material);
       labelObj.renderOrder = 1;
-      // Orientation: use the label's position (projected) to compute the outward normal.
-      const pos = position.clone();
-      const normal = pos.clone().normalize();
+      // Orientation: label is tangent to the sphere. Compute normal from label position.
+      const normal = position.clone().normalize();
       const globalUp = new THREE.Vector3(0, 1, 0);
       let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
       if (desiredUp.lengthSq() < 1e-6) desiredUp = new THREE.Vector3(0, 0, 1);
@@ -467,7 +554,6 @@ class DensityGridOverlay {
       const matrix = new THREE.Matrix4().makeBasis(desiredRight, desiredUp, normal);
       labelObj.setRotationFromMatrix(matrix);
     } else {
-      // TrueCoordinates: use a Sprite.
       const spriteMaterial = new THREE.SpriteMaterial({
         map: texture,
         depthWrite: true,
@@ -475,7 +561,7 @@ class DensityGridOverlay {
         transparent: true,
       });
       labelObj = new THREE.Sprite(spriteMaterial);
-      const scaleFactor = 0.18;
+      const scaleFactor = 0.22;
       labelObj.scale.set((canvas.width / 100) * scaleFactor, (canvas.height / 100) * scaleFactor, 1);
     }
     labelObj.position.copy(position);
@@ -500,7 +586,7 @@ class DensityGridOverlay {
 
   /**
    * Removes any existing region label group from the scene and adds new labels.
-   * For each region the label is placed at the "best cell" (most interconnected cell).
+   * The label for each region is placed at the position of the "best cell" (most interconnected) rather than the centroid.
    */
   addRegionLabelsToScene(scene, mapType) {
     if (mapType === 'TrueCoordinates') {
@@ -510,6 +596,8 @@ class DensityGridOverlay {
       if (this.regionLabelsGroupGlobe.parent) scene.remove(this.regionLabelsGroupGlobe);
       this.regionLabelsGroupGlobe = new THREE.Group();
     }
+    // Update cell colors based on region classification.
+    this.updateRegionColors();
     const regions = this.classifyEmptyRegions();
     regions.forEach(region => {
       let labelPos;
