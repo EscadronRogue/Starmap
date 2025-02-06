@@ -10,6 +10,22 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 let densityGrid = null;
 
 /**
+ * Helper function for projecting any true-coordinate position to the Globe.
+ * This function should exactly mirror the transformation we apply to stars:
+ *   (1) normalize the vector,
+ *   (2) apply the fixed rotation (if available), and
+ *   (3) scale to radius 100.
+ */
+function projectToGlobe(pos) {
+  const R = 100;
+  let p = pos.clone().normalize();
+  if (window.rotationQuaternion) {
+    p.applyQuaternion(window.rotationQuaternion);
+  }
+  return p.multiplyScalar(R);
+}
+
+/**
  * Internal class to handle the grid and 2D squares for density mapping.
  */
 class DensityGridOverlay {
@@ -48,19 +64,12 @@ class DensityGridOverlay {
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
           
+          // Use our unified projection function.
           let projectedPos;
           if (distFromCenter < 1e-6) {
             projectedPos = new THREE.Vector3(0, 0, 0);
           } else {
-            // NEW METHOD:
-            // Instead of computing RA/dec from posTC,
-            // we simply project posTC onto the sphere using the same rotation used for stars.
-            // That is, we normalize posTC, then apply the rotation (window.rotationQuaternion),
-            // then multiply by 100.
-            projectedPos = posTC.clone()
-              .normalize()
-              .applyQuaternion(window.rotationQuaternion || new THREE.Quaternion())
-              .multiplyScalar(100);
+            projectedPos = projectToGlobe(posTC);
           }
           squareGlobe.position.copy(projectedPos);
           // Orient the square so that it is tangent to the sphere.
@@ -119,7 +128,7 @@ class DensityGridOverlay {
         const neighborKey = `${cell.grid.ix + dir.dx},${cell.grid.iy + dir.dy},${cell.grid.iz + dir.dz}`;
         if (cellMap.has(neighborKey)) {
           const neighbor = cellMap.get(neighborKey);
-          // Create a geodesic (great‑circle) line connecting the two globeMesh positions.
+          // Create a geodesic (great-circle) line connecting the two globeMesh positions.
           const points = getGreatCirclePoints(cell.globeMesh.position, neighbor.globeMesh.position, 100, 16);
           const geom = new THREE.BufferGeometry().setFromPoints(points);
           const mat = new THREE.LineBasicMaterial({
@@ -178,7 +187,7 @@ class DensityGridOverlay {
 }
 
 /**
- * Returns an array of points along the great‑circle path between two points on a sphere.
+ * Returns an array of points along the great-circle path between two points on a sphere.
  */
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
