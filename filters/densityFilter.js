@@ -10,22 +10,6 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 let densityGrid = null;
 
 /**
- * Helper conversion function.
- * Given a right ascension (ra in radians), declination (dec in radians) and radius R,
- * returns the corresponding THREE.Vector3 using our standard convention:
- *   x = -R · cos(dec) · cos(ra)
- *   y =  R · sin(dec)
- *   z = -R · cos(dec) · sin(ra)
- */
-function radToSphere(ra, dec, R) {
-  return new THREE.Vector3(
-    -R * Math.cos(dec) * Math.cos(ra),
-     R * Math.sin(dec),
-    -R * Math.cos(dec) * Math.sin(ra)
-  );
-}
-
-/**
  * Internal class to handle the grid and 2D squares for density mapping.
  */
 class DensityGridOverlay {
@@ -59,7 +43,7 @@ class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
           
-          // For the Globe map, use a flat square (plane).
+          // For the Globe map, use a flat square (plane) instead of a cube.
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -69,12 +53,8 @@ class DensityGridOverlay {
             projectedPos = new THREE.Vector3(0, 0, 0);
           } else {
             // NEW METHOD:
-            // Compute dec and ra for the cell center.
-            const dec = Math.asin(posTC.y / distFromCenter);
-            // Use the same "flip" as for the Globe star projection:
-            const ra = Math.atan2(-posTC.z, -posTC.x);
-            const radius = 100;
-            projectedPos = radToSphere(ra, dec, radius);
+            // Instead of computing RA/dec from posTC, simply use:
+            projectedPos = posTC.clone().normalize().multiplyScalar(100);
           }
           squareGlobe.position.copy(projectedPos);
           // Orient the square so that it is tangent to the sphere.
