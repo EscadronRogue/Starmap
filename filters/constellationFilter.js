@@ -179,12 +179,19 @@ function degToRad(d) {
   return d * Math.PI / 180;
 }
 
+/**
+ * Converts RA and DEC (in radians) into a position on the sphere of radius R.
+ * Note that this conversion is done as seen from Earth (from inside the globe)
+ * with north at +Y.
+ *
+ * x = R · cos(dec) · cos(ra)
+ * y = R · sin(dec)
+ * z = R · cos(dec) · sin(ra)
+ */
 function radToSphere(ra, dec, R) {
-  const phi = (Math.PI / 2) - dec;
-  const theta = ra;
-  const x = R * Math.sin(phi) * Math.cos(theta);
-  const y = R * Math.cos(phi);
-  const z = R * Math.sin(phi) * Math.sin(theta);
+  const x = R * Math.cos(dec) * Math.cos(ra);
+  const y = R * Math.sin(dec);
+  const z = R * Math.cos(dec) * Math.sin(ra);
   return new THREE.Vector3(x, y, z);
 }
 
