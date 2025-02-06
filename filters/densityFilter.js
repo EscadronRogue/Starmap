@@ -3,31 +3,28 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 
 /**
- * This updated density filter now not only builds the grid of empty cubes,
- * but also clusters them and dynamically names each contiguous region.
- * The classification is as follows:
+ * Updated density filter that builds a 3D grid of empty cubes,
+ * clusters them using flood‑fill (26‑neighbor connectivity),
+ * and classifies each contiguous region as follows:
+ * 
  *   - Lake: volume < lakeVolumeThreshold (small, isolated cluster)
- *   - Ocean: volume ≥ 0.5 * V_max (largest independent basin)
+ *   - Ocean: independent basin with volume ≥ 0.5 * V_max
  *   - Sea: any other independent basin
- *
- * (For simplicity, the current version does not further subdivide using narrow connectors.)
+ * 
+ * It then creates region labels (using canvas textures) following the
+ * same methodology as the other labels in the program.
  */
 
 let densityGrid = null;
-
-///////////////////////
-// DENSITY GRID CLASS
-///////////////////////
 
 class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
     this.maxDistance = maxDistance;
     this.gridSize = gridSize;
-    this.cubesData = []; // Each cell: { tcMesh, globeMesh, tcPos, grid }
-    this.adjacentLines = []; // (For visualizing the grid – unchanged)
+    this.cubesData = []; // Each cell: { tcMesh, globeMesh, tcPos, grid, distances }
+    this.adjacentLines = []; // Array of objects { line, cell1, cell2 }
     this.regionLabels = [];  // Array to hold region label meshes
-    // Configuration for region classification:
-    this.lakeVolumeThreshold = 3; // Change as needed (in cube count)
+    this.lakeVolumeThreshold = 3; // Volume threshold (in cube count) to classify as Lake
   }
 
   createGrid(stars) {
@@ -40,7 +37,7 @@ class DensityGridOverlay {
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
           
-          // Create a cube for TrueCoordinates view
+          // Create a cube for the TrueCoordinates view.
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -51,7 +48,7 @@ class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
           
-          // Globe: use a flat square (plane) instead of a cube.
+          // For the Globe, use a flat square (plane) instead of a cube.
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -60,7 +57,7 @@ class DensityGridOverlay {
           if (distFromCenter < 1e-6) {
             projectedPos = new THREE.Vector3(0, 0, 0);
           } else {
-            // Compute RA = atan2(-z, -x) and dec = asin(y / distFromCenter)
+            // Compute RA and dec from TC coordinates.
             const ra = Math.atan2(-posTC.z, -posTC.x);
             const dec = Math.asin(posTC.y / distFromCenter);
             const radius = 100;
@@ -71,7 +68,6 @@ class DensityGridOverlay {
             );
           }
           squareGlobe.position.copy(projectedPos);
-          // Orient the square so that it is tangent to the sphere.
           const normal = projectedPos.clone().normalize();
           squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
           
@@ -95,7 +91,6 @@ class DensityGridOverlay {
 
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
-      // For each star, compute distance from the cell's center
       const dArr = stars.map(star => {
         let starPos;
         if (star.truePosition) {
@@ -109,7 +104,6 @@ class DensityGridOverlay {
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
       });
       dArr.sort((a, b) => a - b);
-      // We store the sorted distances in the cell (you can later use a tolerance slider if desired)
       cell.distances = dArr;
     });
   }
@@ -147,25 +141,18 @@ class DensityGridOverlay {
     });
   }
   
-  /**
-   * Clusters the cubes (cells) using flood‑fill (26‑neighbor connectivity) based on grid indices.
-   * Returns an array of clusters, each of which is an object with:
-   *   - cells: an array of cell objects in the cluster
-   *   - volume: number of cells
-   *   - centroid: average position (in TC space) of the cells
-   */
+  // Cluster the cubes using flood‑fill (26‑neighbor connectivity).
   clusterCells() {
     const clusters = [];
     const visited = new Set();
     const cellKey = cell => `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
-
-    // Build a map from grid-key to cell.
+    
     const cellMap = new Map();
     this.cubesData.forEach(cell => {
       cellMap.set(cellKey(cell), cell);
     });
-
-    // Offsets for 26 neighbors in 3D.
+    
+    // Offsets for all 26 neighbors.
     const neighborOffsets = [];
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
@@ -175,15 +162,14 @@ class DensityGridOverlay {
         }
       }
     }
-
-    // Flood-fill each unvisited cell.
+    
     this.cubesData.forEach(cell => {
       const key = cellKey(cell);
       if (visited.has(key)) return;
       const cluster = { cells: [] };
       const queue = [cell];
       visited.add(key);
-
+      
       while (queue.length) {
         const current = queue.shift();
         cluster.cells.push(current);
@@ -196,7 +182,7 @@ class DensityGridOverlay {
           }
         });
       }
-      // Compute volume and centroid.
+      
       cluster.volume = cluster.cells.length;
       const centroid = new THREE.Vector3(0, 0, 0);
       cluster.cells.forEach(c => centroid.add(c.tcPos));
@@ -204,23 +190,16 @@ class DensityGridOverlay {
       cluster.centroid = centroid;
       clusters.push(cluster);
     });
+    
     return clusters;
   }
-
-  /**
-   * Classify the clusters into regions (Lake, Sea, Ocean).
-   * Returns an array of region objects: { type, volume, centroid, cells }.
-   */
+  
+  // Classify clusters into regions.
   classifyRegions() {
     const clusters = this.clusterCells();
     if (clusters.length === 0) return [];
-    // Determine maximum volume among clusters
     const V_max = Math.max(...clusters.map(c => c.volume));
-
-    // Classify each cluster:
-    //   - If volume < lakeVolumeThreshold => Lake.
-    //   - Else if volume >= 0.5 * V_max => Ocean.
-    //   - Else => Sea.
+    
     clusters.forEach(cluster => {
       if (cluster.volume < this.lakeVolumeThreshold) {
         cluster.type = 'Lake';
@@ -230,30 +209,24 @@ class DensityGridOverlay {
         cluster.type = 'Sea';
       }
     });
-
+    
     return clusters;
   }
-
-  /**
-   * Creates or updates region labels for the classified empty-space regions.
-   * Each label is a mesh (a plane with a canvas texture) that displays the region’s name.
-   * The label is positioned at the cluster centroid (projected to Globe space).
-   * Returns an array of label objects.
-   */
+  
+  // Create region labels (canvas-based plane meshes) for each classified region.
   createRegionLabels() {
-    // First remove any old region labels.
+    // Remove any old region labels.
     this.regionLabels.forEach(label => {
       if (label.parent) {
         label.parent.remove(label);
       }
     });
     this.regionLabels = [];
-
+    
     const clusters = this.classifyRegions();
-    clusters.forEach((cluster, idx) => {
-      // Build a label string. (You could later add constellation names if desired.)
+    clusters.forEach(cluster => {
       const labelText = `${cluster.type}`;
-      // Create a canvas texture for the label.
+      // Create a canvas for the label.
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const baseFontSize = 48;
@@ -264,11 +237,11 @@ class DensityGridOverlay {
       // Draw semi-transparent background.
       ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      // Draw the text in white.
+      // Draw the label text in white.
       ctx.fillStyle = '#ffffff';
       ctx.textBaseline = 'middle';
       ctx.fillText(labelText, 10, canvas.height / 2);
-
+      
       const texture = new THREE.CanvasTexture(canvas);
       texture.needsUpdate = true;
       const material = new THREE.MeshBasicMaterial({
@@ -276,15 +249,13 @@ class DensityGridOverlay {
         transparent: true,
         depthWrite: false
       });
-      // Create a plane for the label.
       const planeGeom = new THREE.PlaneGeometry(canvas.width / 100, canvas.height / 100);
       const labelMesh = new THREE.Mesh(planeGeom, material);
       labelMesh.renderOrder = 2;
-
-      // Position: project the cluster centroid onto the Globe.
+      
+      // Project the cluster centroid onto the Globe.
       const radius = 100;
       const tc = cluster.centroid;
-      // Compute RA and dec from TC coordinates.
       const r = tc.length();
       const ra = Math.atan2(-tc.z, -tc.x);
       const dec = Math.asin(tc.y / r);
@@ -294,25 +265,18 @@ class DensityGridOverlay {
         -radius * Math.cos(dec) * Math.sin(ra)
       );
       labelMesh.position.copy(projectedPos);
-
-      // Orient the label so that it is tangent to the sphere.
+      
+      // Orient the label tangentially to the sphere.
       const normal = projectedPos.clone().normalize();
       labelMesh.lookAt(projectedPos.clone().add(normal));
-      // Optionally, add a slight offset outward.
-      labelMesh.position.add(normal.multiplyScalar(2));
-
-      // Store the label object (you might add additional properties, e.g. region id)
+      labelMesh.position.add(normal.multiplyScalar(2)); // Offset outward
+      
       cluster.labelMesh = labelMesh;
       this.regionLabels.push(labelMesh);
     });
     return this.regionLabels;
   }
-
-  /**
-   * Update method called on each frame (or when density mapping parameters change).
-   * Adjusts visibility and opacity of grid cubes based on a slider (isolationVal) and
-   * updates adjacent lines.
-   */
+  
   update(stars) {
     const densitySlider = document.getElementById('density-slider');
     const toleranceSlider = document.getElementById('tolerance-slider');
@@ -349,16 +313,8 @@ class DensityGridOverlay {
         line.visible = false;
       }
     });
-    
-    // Optionally, update region labels positions if needed.
-    // For simplicity, we re-create the labels each update.
-    // (You might wish to cache and update them more intelligently.)
   }
 }
-
-///////////////////////
-// HELPER FUNCTIONS
-///////////////////////
 
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
@@ -375,24 +331,15 @@ function getGreatCirclePoints(p1, p2, R, segments) {
   return points;
 }
 
-///////////////////////
-// EXPORT FUNCTIONS
-///////////////////////
-
 export function initDensityOverlay(maxDistance, starArray) {
   densityGrid = new DensityGridOverlay(maxDistance, 2);
   densityGrid.createGrid(starArray);
-  // (Optional: you might immediately add the grid cubes and adjacent lines to your scene.)
   return densityGrid;
 }
 
 export function updateDensityMapping(starArray) {
   if (!densityGrid) return;
   densityGrid.update(starArray);
-  // After updating the grid, create/update region labels.
-  const regionLabels = densityGrid.createRegionLabels();
-  // It is up to your main script to add these label meshes to your scene.
-  // For example, you might iterate over regionLabels and add each to your trueCoordinatesMap and globeMap scenes.
-  // (See script.js updateDensityMapping() for an example of adding objects.)
+  // Update (or create) region labels.
+  densityGrid.createRegionLabels();
 }
-
