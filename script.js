@@ -35,7 +35,7 @@ let densityOverlay = null;
 let globeGrid = null;
 
 // ---
-// Our helper conversion function is still used for constellation boundaries.
+// A helper conversion function (used for both constellations and star projection)
 function radToSphere(ra, dec, R) {
   return new THREE.Vector3(
     -R * Math.cos(dec) * Math.cos(ra),
@@ -46,10 +46,10 @@ function radToSphere(ra, dec, R) {
 
 /**
  * For the Globe map we always project stars onto a sphere of radius 100.
- * We compute RA and dec from the star’s raw (x,y,z) using:
+ * We compute RA and dec from the star’s true (x,y,z) using:
  *
  *    r = sqrt(x² + y² + z²)
- *    ra  = atan2(-z, -x)
+ *    ra  = atan2(–z, –x)
  *    dec = asin(y / r)
  *
  * and then we call radToSphere(ra, dec, 100).
@@ -67,30 +67,34 @@ function projectStarGlobe(star) {
 }
 
 /**
- * In the True Coordinates map we want to show each star at its true (x,y,z) distance.
- * However, to be consistent with the constellation boundaries (which use the radToSphere conversion)
- * we must use the same sign convention. If your star data’s x, y, z were computed in a standard frame,
- * then flipping x and z will match the constellation math.
+ * In the True Coordinates map we want to display stars at their true (x,y,z) positions.
+ * However, to be consistent with the constellation (and Globe) math we now recalc the star’s
+ * spherical coordinates from its (x,y,z) and then rebuild the position using:
  *
- * So instead of re‑deriving RA and dec from scratch (which may re‑introduce a mismatch),
- * we simply plot the star at:
+ *    new THREE.Vector3(
+ *      -r * cos(dec) * cos(ra),
+ *       r * sin(dec),
+ *      -r * cos(dec) * sin(ra)
+ *    );
  *
- *    new THREE.Vector3(-star.x_coordinate, star.y_coordinate, -star.z_coordinate)
- *
- * This simple flip brings the star’s coordinates into the same frame as used by radToSphere.
+ * where r is the star’s true distance.
  */
 function computeStarTruePosition(star) {
+  const { x_coordinate, y_coordinate, z_coordinate } = star;
+  const r = Math.sqrt(x_coordinate * x_coordinate + y_coordinate * y_coordinate + z_coordinate * z_coordinate);
+  if (r === 0) return new THREE.Vector3(0, 0, 0);
+  const ra = Math.atan2(-z_coordinate, -x_coordinate);
+  const dec = Math.asin(y_coordinate / r);
   return new THREE.Vector3(
-    -star.x_coordinate,
-     star.y_coordinate,
-    -star.z_coordinate
+    -r * Math.cos(dec) * Math.cos(ra),
+     r * Math.sin(dec),
+    -r * Math.cos(dec) * Math.sin(ra)
   );
 }
 
 /**
- * Creates a grid overlay on the inside surface of the sphere (radius 100)
- * to help verify coordinate consistency. It draws meridians (constant RA) and
- * parallels (constant dec) with subtle gray lines.
+ * Creates a grid overlay on the inside surface of the sphere (radius 100) to help verify coordinates.
+ * We draw lines of constant RA (meridians) and constant DEC (parallels) with subtle gray lines.
  */
 function createGlobeGrid(R = 100, options = {}) {
   const gridGroup = new THREE.Group();
@@ -185,10 +189,11 @@ class MapManager {
 
   /**
    * Creates individual Mesh objects for each star.
-   * For the True Coordinates map we compute the position using computeStarTruePosition().
+   * For the True Coordinates map we re-compute the position using our spherical conversion
+   * so that the angular coordinates (RA and dec) match those used for the constellations.
    */
   addStars(stars) {
-    // Remove any existing star meshes.
+    // Remove any existing star meshes
     while (this.starGroup.children.length > 0) {
       const child = this.starGroup.children[0];
       this.starGroup.remove(child);
@@ -197,6 +202,7 @@ class MapManager {
     }
 
     stars.forEach(star => {
+      // Use a default size if displaySize is not set.
       const size = star.displaySize || 1;
       const sphereGeometry = new THREE.SphereGeometry(size * 0.2, 12, 12);
       const material = new THREE.MeshBasicMaterial({
@@ -208,7 +214,7 @@ class MapManager {
 
       let pos;
       if (this.mapType === 'TrueCoordinates') {
-        // Use our updated conversion: simply flip x and z.
+        // Instead of using raw coordinates, re-calc the spherical coordinates
         pos = computeStarTruePosition(star);
       } else {
         // Globe map: use our fixed projection onto a sphere of radius 100.
@@ -217,6 +223,7 @@ class MapManager {
       starMesh.position.copy(pos);
       this.starGroup.add(starMesh);
     });
+    // Keep a reference to the star data for interactions.
     this.starObjects = stars;
   }
 
@@ -446,7 +453,7 @@ function buildAndApplyFilters() {
   currentGlobeFilteredStars = globeFilteredStars;
   currentGlobeConnections = globeConnections;
 
-  // For the Globe map we update the spherePosition using projectStarGlobe.
+  // Update sphere positions for Globe map stars using our projection function.
   currentGlobeFilteredStars.forEach(star => {
     star.spherePosition = projectStarGlobe(star);
   });
