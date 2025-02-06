@@ -188,22 +188,27 @@
     // Fullscreen button event listeners
     document.querySelectorAll('.fullscreen-btn').forEach(btn => {
       btn.addEventListener('click', function() {
-        // Find the map container element (the parent element)
+        // Find the canvas within the same map container
         const mapContainer = this.parentElement;
+        const canvas = mapContainer.querySelector('canvas');
         if (document.fullscreenElement) {
           document.exitFullscreen();
         } else {
-          // Request fullscreen on the map container element
-          mapContainer.requestFullscreen().catch(err => {
+          // Request true fullscreen on the canvas element
+          canvas.requestFullscreen().catch(err => {
             console.error("Error attempting to enable full-screen mode:", err);
           });
         }
       });
     });
 
-    // When exiting fullscreen, dispatch a window resize event so that maps re-layout properly.
+    // When exiting fullscreen, clear any inline sizing on the canvases and dispatch a resize event.
     document.addEventListener("fullscreenchange", function() {
       if (!document.fullscreenElement) {
+        document.querySelectorAll('.map-container canvas').forEach(canvas => {
+          canvas.style.width = "";
+          canvas.style.height = "";
+        });
         window.dispatchEvent(new Event('resize'));
       }
     });
