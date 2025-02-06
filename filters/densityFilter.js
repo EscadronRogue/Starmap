@@ -6,8 +6,8 @@ let densityGrid = null;
 
 /* --------------------------------------------------------------------------
    Helper: getDoubleSidedLabelMaterial
-   (This is used for Globe labels so they are rendered double–sided,
-    following the same style as constellation labels.)
+   (Used for Globe labels so that they render double-sided, matching the
+    orientation logic of our other labels.)
 -------------------------------------------------------------------------- */
 function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
   return new THREE.ShaderMaterial({
@@ -47,9 +47,9 @@ class DensityGridOverlay {
     this.cubesData = [];
     this.adjacentLines = [];
     this.regionClusters = []; // Final regions (independent basins and branches)
-    // Groups to hold region labels
-    this.regionLabelsGroupTC = new THREE.Group(); // TrueCoordinates map
-    this.regionLabelsGroupGlobe = new THREE.Group(); // Globe map
+    // Groups for region labels for each map type.
+    this.regionLabelsGroupTC = new THREE.Group(); // For TrueCoordinates map
+    this.regionLabelsGroupGlobe = new THREE.Group(); // For Globe map
   }
 
   createGrid(stars) {
@@ -62,7 +62,7 @@ class DensityGridOverlay {
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
           
-          // TrueCoordinates: create a cube.
+          // Create cube for TrueCoordinates.
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -73,7 +73,7 @@ class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
           
-          // Globe: use a plane.
+          // For Globe: use a plane.
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -202,17 +202,19 @@ class DensityGridOverlay {
   /* ------------------------------------------------------------------------
      SEGMENTATION & CLASSIFICATION
      
-     1. Flood-fill: group active cells into clusters.
-     2. For clusters with ≤2 cells → Lake.
-     3. For clusters with >2 cells, perform iterative erosion (remove cells with <3 neighbors)
-        to produce a core. Compute connected components of the core (if more than one, treat each as independent).
-     4. Group removed cells into branches. For each branch, determine which core component(s)
-        it touches. If it touches at least 2 distinct cores (i.e. different independent basins),
-        and only then, it is a Strait; otherwise, it is a Gulf.
-     5. For clusters with no branches, treat the entire cluster as an independent basin.
-     6. Among independent basins, those with volume ≥50% of the maximum are Ocean; others are Sea.
-     7. For naming, determine the dominant constellation from the cells in each region.
-     8. For label placement, use the "best cell" – the cell with the highest connectivity within the region.
+     1. Flood-fill active cells into clusters.
+     2. Clusters with ≤2 cells → Lake.
+     3. For clusters >2 cells:
+         a. Iteratively erode cells with fewer than 3 neighbors to form the "core".
+         b. Compute connected components of the core (if >1, treat each separately as an independent basin).
+         c. Group removed cells into branches.
+         d. For each branch, determine which distinct core components it contacts.
+            • If a branch contacts ≥2 different cores, and they are from different basins, label it as a Strait.
+            • Otherwise, label it as a Gulf.
+     4. For clusters that yield no branches, treat the whole cluster as an independent basin.
+     5. Among independent basins, label as Ocean if volume ≥50% of the largest independent basin; else, Sea.
+     6. For each region, compute the dominant constellation from its cells.
+     7. For label placement, use the cell with the highest connectivity ("best cell") instead of the centroid.
   ------------------------------------------------------------------------ */
   classifyEmptyRegions() {
     // Flood-fill: group active cells.
@@ -272,7 +274,6 @@ class DensityGridOverlay {
       } else {
         // Segment the cluster.
         const seg = this.segmentCluster(cells);
-        // If there are multiple core components, treat each as an independent basin.
         if (seg.cores.length > 1) {
           seg.cores.forEach(coreComp => {
             regions.push({
@@ -294,10 +295,8 @@ class DensityGridOverlay {
             bestCell: computeInterconnectedCell(seg.cores.length > 0 ? seg.cores[0] : cells)
           });
         }
-        // Process branches.
         seg.branches.forEach(branch => {
-          // A branch is labeled as Strait only if it touches at least 2 different core components;
-          // otherwise, it is a Gulf.
+          // Ensure that if the branch is to be classified as Strait, it touches two distinct independent basins.
           let bType = (branch.touchedCores.size >= 2) ? 'Strait' : 'Gulf';
           regions.push({
             clusterId: idx + '_branch',
@@ -319,7 +318,6 @@ class DensityGridOverlay {
       r.type = (r.volume >= 0.5 * maxVolume) ? 'Ocean' : 'Sea';
     });
     
-    // Finally, assign labels.
     regions.forEach(r => {
       r.label = `${r.type} ${r.dominantConst}`;
     });
@@ -330,13 +328,12 @@ class DensityGridOverlay {
 
   /**
    * SEGMENT CLUSTER:
-   * Given a cluster (array of cells), iteratively erode cells with fewer than 3 neighbors
+   * Given a cluster (array of cells), perform iterative erosion (removing cells with fewer than 3 neighbors)
    * to determine the core (main body) and group the removed cells into branch components.
-   * For each branch, also compute a set of indices for core components it contacts.
+   * For each branch, compute the set of distinct core components (by index) that it touches.
    *
-   * Returns an object:
-   *   { cores: Array of core cell arrays, branches: Array of branch objects }
-   * Each branch object is { cells: [cells], touchedCores: Set }.
+   * Returns an object: { cores: Array of core cell arrays, branches: Array of branch objects }.
+   * Each branch object has the form: { cells: [cells], touchedCores: Set }.
    */
   segmentCluster(cells) {
     let coreCells = cells.slice();
@@ -386,7 +383,7 @@ class DensityGridOverlay {
       }
       cores.push(comp);
     }
-    // Branches: cells in the original cluster that are not in coreCells.
+    // Branches: cells in the original cluster that are not in the core.
     let removedCells = cells.filter(c => !coreCells.includes(c));
     let branches = [];
     let visitedBranch = new Set();
@@ -426,22 +423,25 @@ class DensityGridOverlay {
     }
     return { cores, branches };
   }
-
+  
   /**
-   * Creates a region label using the same rules and formatting as star/constellation labels.
-   * We now use a larger base font size (matching the constellation labels) and a scaling factor
-   * so that the text appears clear and appropriately sized.
+   * Creates a region label using the same formatting as star/constellation labels.
+   * For the TrueCoordinates map the label is a Sprite; for the Globe map it is a plane
+   * with a double-sided shader. The base font size and scaling are set to produce a large,
+   * clear label.
+   *
+   * For TrueCoordinates, we now use a much larger base font size.
    *
    * @param {string} text - The label text.
-   * @param {THREE.Vector3} position - The 3D position.
+   * @param {THREE.Vector3} position - The position for the label.
    * @param {string} mapType - "Globe" or "TrueCoordinates".
    * @returns {THREE.Sprite|THREE.Mesh} - The label object.
    */
   createRegionLabel(text, position, mapType) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    // Use a very large base font size (similar to constellation labels)
-    const baseFontSize = (mapType === 'Globe' ? 300 : 150);
+    // Use a very large base font size for TrueCoordinates to make labels "way bigger"
+    const baseFontSize = (mapType === 'Globe' ? 300 : 400);
     ctx.font = `${baseFontSize}px Arial`;
     const textWidth = ctx.measureText(text).width;
     canvas.width = textWidth + 20;
@@ -459,6 +459,15 @@ class DensityGridOverlay {
       const material = getDoubleSidedLabelMaterial(texture, 1.0);
       labelObj = new THREE.Mesh(planeGeom, material);
       labelObj.renderOrder = 1;
+      // Orientation: make the label tangent to the sphere.
+      const normal = labelObj.position.clone().normalize();
+      const globalUp = new THREE.Vector3(0, 1, 0);
+      let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
+      if (desiredUp.lengthSq() < 1e-6) desiredUp = new THREE.Vector3(0, 0, 1);
+      else desiredUp.normalize();
+      const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
+      const matrix = new THREE.Matrix4().makeBasis(desiredRight, desiredUp, normal);
+      labelObj.setRotationFromMatrix(matrix);
     } else {
       const spriteMaterial = new THREE.SpriteMaterial({
         map: texture,
@@ -467,8 +476,8 @@ class DensityGridOverlay {
         transparent: true,
       });
       labelObj = new THREE.Sprite(spriteMaterial);
-      // Increase the scale factor so that labels are larger.
-      const scaleFactor = 0.12;
+      // Increase scale factor for TrueCoordinates.
+      const scaleFactor = 0.18;
       labelObj.scale.set((canvas.width / 100) * scaleFactor, (canvas.height / 100) * scaleFactor, 1);
     }
     labelObj.position.copy(position);
@@ -493,7 +502,8 @@ class DensityGridOverlay {
 
   /**
    * Removes any existing region label group from the scene and adds new labels.
-   * The label is placed at the position of the "best cell" (most interconnected) rather than the centroid.
+   * The label for each region is placed at the "best cell" (the most interconnected cell)
+   * rather than at the arithmetic centroid.
    */
   addRegionLabelsToScene(scene, mapType) {
     if (mapType === 'TrueCoordinates') {
