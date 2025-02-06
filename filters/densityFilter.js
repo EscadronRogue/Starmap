@@ -6,8 +6,8 @@ let densityGrid = null;
 
 /* --------------------------------------------------------------------------
    Helper: getDoubleSidedLabelMaterial
-   (Used for Globe labels so that they render double-sided and follow the same
-    orientation logic as our star/constellation labels.)
+   (Used for Globe labels so they render double–sided and follow the same
+    orientation as our star/constellation labels.)
 -------------------------------------------------------------------------- */
 function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
   return new THREE.ShaderMaterial({
@@ -47,7 +47,7 @@ class DensityGridOverlay {
     this.cubesData = [];
     this.adjacentLines = [];
     this.regionClusters = []; // Final regions (independent basins and branches)
-    // Groups for region labels (for TrueCoordinates and Globe maps)
+    // Groups for region labels
     this.regionLabelsGroupTC = new THREE.Group();
     this.regionLabelsGroupGlobe = new THREE.Group();
   }
@@ -65,7 +65,7 @@ class DensityGridOverlay {
           // TrueCoordinates: create a cube.
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
-            color: 0x0000ff, // Temporary default; will be updated by updateRegionColors()
+            color: 0x0000ff, // Temporary; will be overwritten by updateRegionColors()
             transparent: true,
             opacity: 1.0,
             depthWrite: false
@@ -92,7 +92,7 @@ class DensityGridOverlay {
             );
           }
           squareGlobe.position.copy(projectedPos);
-          // For Globe orientation, set the square tangent to the sphere.
+          // For Globe, orient the square tangent to the sphere.
           const normal = projectedPos.clone().normalize();
           squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
           
@@ -145,10 +145,26 @@ class DensityGridOverlay {
         const neighborKey = `${cell.grid.ix + dir.dx},${cell.grid.iy + dir.dy},${cell.grid.iz + dir.dz}`;
         if (cellMap.has(neighborKey)) {
           const neighbor = cellMap.get(neighborKey);
+          // Generate a series of points along a great-circle between the two cells.
           const points = getGreatCirclePoints(cell.globeMesh.position, neighbor.globeMesh.position, 100, 16);
-          const geom = new THREE.BufferGeometry().setFromPoints(points);
+          // Create a BufferGeometry with vertex positions and vertex colors (gradient from cell1 to cell2).
+          const positions = [];
+          const colors = [];
+          const c1 = cell.globeMesh.material.color;
+          const c2 = neighbor.globeMesh.material.color;
+          for (let i = 0; i < points.length; i++) {
+            positions.push(points[i].x, points[i].y, points[i].z);
+            let t = i / (points.length - 1);
+            let r = THREE.MathUtils.lerp(c1.r, c2.r, t);
+            let g = THREE.MathUtils.lerp(c1.g, c2.g, t);
+            let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
+            colors.push(r, g, b);
+          }
+          const geom = new THREE.BufferGeometry();
+          geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+          geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
           const mat = new THREE.LineBasicMaterial({
-            color: 0x0000ff,
+            vertexColors: true,
             transparent: true,
             opacity: 0.3,
             linewidth: 1
@@ -179,7 +195,6 @@ class DensityGridOverlay {
       let ratio = cell.tcPos.length() / this.maxDistance;
       if (ratio > 1) ratio = 1;
       const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
-      
       cell.tcMesh.visible = showSquare;
       cell.tcMesh.material.opacity = alpha;
       cell.globeMesh.visible = showSquare;
@@ -188,11 +203,27 @@ class DensityGridOverlay {
       cell.globeMesh.scale.set(scale, scale, 1);
     });
     
+    // Update adjacent lines with new positions and gradient colors.
     this.adjacentLines.forEach(obj => {
       const { line, cell1, cell2 } = obj;
       if (cell1.globeMesh.visible && cell2.globeMesh.visible) {
         const points = getGreatCirclePoints(cell1.globeMesh.position, cell2.globeMesh.position, 100, 16);
-        line.geometry.setFromPoints(points);
+        const positions = [];
+        const colors = [];
+        const c1 = cell1.globeMesh.material.color;
+        const c2 = cell2.globeMesh.material.color;
+        for (let i = 0; i < points.length; i++) {
+          positions.push(points[i].x, points[i].y, points[i].z);
+          let t = i / (points.length - 1);
+          let r = THREE.MathUtils.lerp(c1.r, c2.r, t);
+          let g = THREE.MathUtils.lerp(c1.g, c2.g, t);
+          let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
+          colors.push(r, g, b);
+        }
+        line.geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        line.geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        line.geometry.attributes.position.needsUpdate = true;
+        line.geometry.attributes.color.needsUpdate = true;
         line.visible = true;
       } else {
         line.visible = false;
@@ -207,18 +238,19 @@ class DensityGridOverlay {
      2. Clusters with ≤2 cells are Lakes.
      3. For clusters with >2 cells:
          a. Iteratively erode cells with fewer than 3 neighbors to produce the "core".
-         b. Compute connected components of the core. (If more than one, treat each as an independent basin.)
-         c. Group the removed cells into branch components.
-         d. For each branch, compute which distinct core components it touches.
+         b. Compute connected components of the core. (If >1, treat each as an independent basin.)
+         c. Group the removed cells (cells not in core) into branch components.
+         d. For each branch, compute the set of distinct core components it touches.
             – If a branch touches ≥2 different cores (i.e. connects two different independent basins), classify it as a Strait.
             – Otherwise, classify it as a Gulf.
+            – Also, ignore branches that are too short (e.g. fewer than 5 cells or maximum branch length < 3×gridSize).
          e. If no branch is detected, treat the entire cluster as an independent basin.
      4. Among independent basins, label as Ocean if volume ≥50% of the largest independent basin; otherwise, as Sea.
-     5. For each region, compute the dominant constellation using only that region’s cells.
-     6. For label placement, choose the "best cell" (the most interconnected cell) rather than the centroid.
+     5. For each region, compute the dominant constellation (using only that region’s cells).
+     6. For label placement, choose the "best cell" (the cell with the highest connectivity) instead of the centroid.
   ------------------------------------------------------------------------ */
   classifyEmptyRegions() {
-    // Flood-fill active cells.
+    // Flood-fill: group active cells.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -274,6 +306,10 @@ class DensityGridOverlay {
         });
       } else {
         const seg = this.segmentCluster(cells);
+        // Merge branch components with identical touchedCores.
+        let mergedBranches = mergeBranches(seg.branches);
+        // Only include branches that are significant.
+        mergedBranches = mergedBranches.filter(branch => branch.cells.length >= 5 && computeBranchLength(branch.cells) >= 3 * this.gridSize);
         if (seg.cores.length > 1) {
           seg.cores.forEach(coreComp => {
             regions.push({
@@ -295,13 +331,7 @@ class DensityGridOverlay {
             bestCell: computeInterconnectedCell(seg.cores.length > 0 ? seg.cores[0] : cells)
           });
         }
-        seg.branches.forEach(branch => {
-          // Ignore very small branches.
-          if (branch.cells.length < 5) return;
-          // Compute branch length.
-          let branchLength = computeBranchLength(branch.cells);
-          // Only consider branches longer than 3 * gridSize as significant.
-          if (branchLength < 3 * this.gridSize) return;
+        mergedBranches.forEach(branch => {
           let bType = (branch.touchedCores.size >= 2) ? 'Strait' : 'Gulf';
           regions.push({
             clusterId: idx + '_branch',
@@ -335,11 +365,11 @@ class DensityGridOverlay {
   /**
    * SEGMENT CLUSTER:
    * Given a cluster (array of cells), iteratively erode cells with fewer than 3 neighbors
-   * to produce the "core". Then group removed cells into branch components and determine
-   * which distinct core components each branch touches.
+   * to form the core, then group the removed cells into branch components. For each branch,
+   * compute the set of distinct core indices it touches.
    *
-   * Returns an object: { cores: Array of core arrays, branches: Array of branch objects }.
-   * Each branch object has the form: { cells: [cells], touchedCores: Set }.
+   * Returns: { cores: Array of core arrays, branches: Array of branch objects }.
+   * Each branch object is { cells: [cells], touchedCores: Set }.
    */
   segmentCluster(cells) {
     let coreCells = cells.slice();
@@ -389,7 +419,7 @@ class DensityGridOverlay {
       }
       cores.push(comp);
     }
-    // Branches: cells that are in the original cluster but not in the core.
+    // Branches: cells not in the core.
     let removedCells = cells.filter(c => !coreCells.includes(c));
     let branches = [];
     let visitedBranch = new Set();
@@ -432,40 +462,34 @@ class DensityGridOverlay {
   
   /**
    * updateRegionColors:
-   * Updates the material color of each cell based on its region.
-   * Independent regions (Ocean, Sea, Lake) are assigned distinct colors per region.
-   * Branch regions (Gulf, Strait) receive a gradient based on the parent's color(s).
+   * Updates each cell's material color based on its region.
+   * Independent regions (Ocean, Sea, Lake) are assigned distinct colors.
+   * Branch regions (Gulf, Strait) are given a gradient from the parent's color(s) to white.
    */
   updateRegionColors() {
-    // First, classify regions.
     const regions = this.classifyEmptyRegions();
-    // Build a mapping for independent regions (Ocean, Sea, Lake) by region.clusterId.
+    // Assign distinct colors to independent regions.
     const independentRegions = regions.filter(r => r.type === 'Ocean' || r.type === 'Sea' || r.type === 'Lake');
     const colorMap = assignDistinctColorsToIndependent(independentRegions);
-    // Now, update colors for all cells.
+    // Update cell colors.
     regions.forEach(region => {
       if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
-        let col = region.color; // Assigned by assignDistinctColorsToIndependent
+        let col = region.color; // from assignDistinctColorsToIndependent
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(col);
           cell.globeMesh.material.color.set(col);
         });
       } else if (region.type === 'Gulf' || region.type === 'Strait') {
-        // For branch regions, compute gradient.
-        // For Gulf, we expect touchedCores size == 1.
-        // For Strait, touchedCores size should be >= 2.
-        let parentColor = new THREE.Color('#0099FF'); // default sea color.
+        // For branch regions, use a gradient.
+        let parentColor = new THREE.Color('#0099FF');
         if (region.type === 'Gulf' && region.touchedCores && region.touchedCores.size === 1) {
-          // Look up parent's color.
           let coreIndex = Array.from(region.touchedCores)[0];
-          // Try to find an independent region with clusterId equal to coreIndex.
           independentRegions.forEach(r => {
             if (r.clusterId == coreIndex) {
               parentColor = r.color;
             }
           });
         } else if (region.type === 'Strait' && region.touchedCores && region.touchedCores.size >= 2) {
-          // Average the colors from the two different independent regions.
           let cols = [];
           region.touchedCores.forEach(coreIndex => {
             independentRegions.forEach(r => {
@@ -475,19 +499,18 @@ class DensityGridOverlay {
             });
           });
           if (cols.length > 0) {
-            let sum = new THREE.Color(0,0,0);
+            let sumR = 0, sumG = 0, sumB = 0;
             cols.forEach(c => {
-              sum.r += c.r;
-              sum.g += c.g;
-              sum.b += c.b;
+              sumR += c.r;
+              sumG += c.g;
+              sumB += c.b;
             });
-            sum.r /= cols.length;
-            sum.g /= cols.length;
-            sum.b /= cols.length;
-            parentColor = sum;
+            sumR /= cols.length;
+            sumG /= cols.length;
+            sumB /= cols.length;
+            parentColor = new THREE.Color(sumR, sumG, sumB);
           }
         }
-        // For each cell in the branch region, compute a gradient factor based on distance from region.bestCell.
         let maxDist = 0;
         region.cells.forEach(cell => {
           let d = cell.tcPos.distanceTo(region.bestCell.tcPos);
@@ -496,7 +519,6 @@ class DensityGridOverlay {
         region.cells.forEach(cell => {
           let d = cell.tcPos.distanceTo(region.bestCell.tcPos);
           let factor = maxDist > 0 ? d / maxDist : 0;
-          // Lerp from parent's color to white.
           let col = parentColor.clone().lerp(new THREE.Color('#ffffff'), factor);
           cell.tcMesh.material.color.set(col);
           cell.globeMesh.material.color.set(col);
@@ -508,14 +530,10 @@ class DensityGridOverlay {
   /**
    * createRegionLabel:
    * Creates a region label using the same formatting as star/constellation labels.
-   * For TrueCoordinates, we use a very large base font size (400) so labels are huge.
-   * For the Globe map, after creating a plane, the label is oriented so that its "up" vector
-   * is the projection of the global up (0,1,0) onto the tangent plane at its position—just like the other labels.
-   *
-   * @param {string} text - The label text.
-   * @param {THREE.Vector3} position - The label position.
-   * @param {string} mapType - "Globe" or "TrueCoordinates".
-   * @returns {THREE.Sprite|THREE.Mesh} - The label object.
+   * For TrueCoordinates the base font size is 400 (so labels are huge).
+   * For the Globe map, after creating a plane, the label is oriented so that its "up"
+   * vector is the projection of the global up (0,1,0) onto the tangent plane at its position,
+   * exactly as in our star/constellation labels.
    */
   createRegionLabel(text, position, mapType) {
     const canvas = document.createElement('canvas');
@@ -538,7 +556,7 @@ class DensityGridOverlay {
       const material = getDoubleSidedLabelMaterial(texture, 1.0);
       labelObj = new THREE.Mesh(planeGeom, material);
       labelObj.renderOrder = 1;
-      // Orientation: the label's up should be the projection of global up onto the tangent plane.
+      // Orient the label: its up should be the projection of global up onto the tangent plane.
       const normal = position.clone().normalize();
       const globalUp = new THREE.Vector3(0, 1, 0);
       let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
@@ -581,8 +599,8 @@ class DensityGridOverlay {
   /**
    * addRegionLabelsToScene:
    * Removes any existing region label group from the scene and adds new labels.
-   * The label for each region is placed at the "best cell" (the most interconnected cell),
-   * ensuring that for crescent-shaped regions the label appears over an actual part of the region.
+   * The label for each region is placed at the position of the "best cell" (the most interconnected cell)
+   * rather than at the arithmetic centroid.
    */
   addRegionLabelsToScene(scene, mapType) {
     if (mapType === 'TrueCoordinates') {
@@ -708,6 +726,21 @@ function computeBranchLength(cells) {
 }
 
 /**
+ * Merges branch objects that have the same set of touchedCores.
+ */
+function mergeBranches(branches) {
+  let merged = {};
+  branches.forEach(branch => {
+    let key = Array.from(branch.touchedCores).sort().join(',');
+    if (!merged[key]) {
+      merged[key] = { cells: [], touchedCores: new Set(branch.touchedCores) };
+    }
+    merged[key].cells = merged[key].cells.concat(branch.cells);
+  });
+  return Object.values(merged);
+}
+
+/**
  * assignDistinctColorsToIndependent:
  * Given an array of independent regions (of type Ocean, Sea, or Lake),
  * assign each a distinct color by distributing hues evenly.
@@ -721,7 +754,6 @@ function assignDistinctColorsToIndependent(regions) {
     const group = regions.filter(r => r.type === type);
     const count = group.length;
     group.forEach((region, i) => {
-      // Evenly distribute hues over [0,360) and offset by a base hue per type.
       let hue = (360 * i / count) % 360;
       if (type === 'Ocean') hue = (hue + 240) % 360;   // Blue tones.
       else if (type === 'Sea') hue = (hue + 200) % 360;  // Lighter blue.
