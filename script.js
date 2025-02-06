@@ -333,10 +333,9 @@ window.onload = async () => {
 
     buildAndApplyFilters();
 
-    // For the Globe map, compute each star’s spherePosition.
+    // Compute positions for Globe and TrueCoordinates maps.
     cachedStars.forEach(star => {
       star.spherePosition = projectStarGlobe(star);
-      // For the True Coordinates map, compute truePosition.
       star.truePosition = getStarTruePosition(star);
     });
 
@@ -384,7 +383,7 @@ function getCurrentFilters() {
 }
 
 /**
- * Adds region labels from the density overlay to both maps.
+ * Add region labels (from densityOverlay) to both maps.
  */
 function addRegionLabels() {
   if (densityOverlay && densityOverlay.regionLabels) {
@@ -400,7 +399,7 @@ function addRegionLabels() {
 }
 
 /**
- * Removes region labels from both maps.
+ * Remove region labels from both maps.
  */
 function removeRegionLabels() {
   if (densityOverlay && densityOverlay.regionLabels) {
@@ -412,7 +411,8 @@ function removeRegionLabels() {
 }
 
 /**
- * Main function that re-applies all filters, updates maps, and creates lines.
+ * Main function that re-applies all filters, updates maps, and (if enabled)
+ * initializes and updates density mapping, including region labels.
  */
 function buildAndApplyFilters() {
   if (!cachedStars) return;
