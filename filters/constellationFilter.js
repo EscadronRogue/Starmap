@@ -179,10 +179,17 @@ function degToRad(d) {
   return d * Math.PI / 180;
 }
 
+/**
+ * radToSphere converts RA and Dec (in radians) to a position on a sphere of radius R.
+ * 
+ * --- UPDATED: Horizontal reversal applied ---
+ * We flip the X coordinate (by negating it) so that the constellation features are reversed horizontally.
+ */
 function radToSphere(ra, dec, R) {
   const phi = (Math.PI / 2) - dec;
   const theta = ra;
-  const x = R * Math.sin(phi) * Math.cos(theta);
+  // Note the negation on the X coordinate for horizontal reversal.
+  const x = -R * Math.sin(phi) * Math.cos(theta);
   const y = R * Math.cos(phi);
   const z = R * Math.sin(phi) * Math.sin(theta);
   return new THREE.Vector3(x, y, z);
