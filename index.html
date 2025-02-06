@@ -205,6 +205,10 @@
     // When exiting fullscreen, force a resize so that the maps return to their proper size.
     document.addEventListener("fullscreenchange", function() {
       if (!document.fullscreenElement) {
+        // Reset any left offsets on the canvases
+        document.querySelectorAll('canvas').forEach(canvas => {
+          canvas.style.left = '0';
+        });
         // Call the resize routines for both maps
         if (window.trueCoordinatesMap && window.trueCoordinatesMap.onResize) {
           window.trueCoordinatesMap.onResize();
