@@ -1,7 +1,7 @@
 // filters/colorFilter.js
 
 import { getStellarClassData } from './stellarClassData.js';
-import { generateConstellationColors } from './constellationFilter.js';
+import { generateConstellationColors } from '../utils.js';
 
 /**
  * Applies the selected color filter to the star objects.
