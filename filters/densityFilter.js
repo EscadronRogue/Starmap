@@ -87,10 +87,17 @@ class DensityGridOverlay {
 
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
+      // For each star, if a re‑projected true position exists, use it; otherwise, fallback.
       const dArr = stars.map(star => {
-        const dx = cell.tcPos.x - star.x_coordinate;
-        const dy = cell.tcPos.y - star.y_coordinate;
-        const dz = cell.tcPos.z - star.z_coordinate;
+        let starPos;
+        if (star.truePosition) {
+          starPos = star.truePosition;
+        } else {
+          starPos = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+        }
+        const dx = cell.tcPos.x - starPos.x;
+        const dy = cell.tcPos.y - starPos.y;
+        const dz = cell.tcPos.z - starPos.z;
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
       });
       dArr.sort((a, b) => a - b);
