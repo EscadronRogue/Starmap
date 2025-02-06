@@ -115,19 +115,16 @@ class MapManager {
 
   /**
    * Creates an InstancedMesh for the given stars.
-   * Each star’s displaySize, displayColor, and displayOpacity are set by filters.
+   * Each star’s displaySize, displayColor, and displayOpacity come from the filters.
    *
-   * We explicitly create an instanceColor attribute and write each star’s color into it.
-   * We also force the material’s base color to white.
-   * Because per‑instance opacity isn’t supported in stock MeshBasicMaterial,
-   * we compute the average opacity and set it uniformly.
+   * We force the material’s base color to white and use the built‑in setColorAt() method.
+   * Because per‑instance opacity isn’t supported, we compute the average opacity.
    */
   addStars(stars) {
     if (this.instancedStars) {
       this.scene.remove(this.instancedStars);
       this.instancedStars = null;
     }
-
     const instanceCount = stars.length;
     if (instanceCount === 0) return;
 
@@ -136,26 +133,15 @@ class MapManager {
       vertexColors: true,
       transparent: true,
       opacity: 1.0,
-      color: 0xffffff // force base color to white so that vertex colors are not tinted
+      color: 0xffffff // ensure base color is white so vertex colors show correctly
     });
 
     const instanced = new THREE.InstancedMesh(starGeometry, starMaterial, instanceCount);
     instanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
-    // Create instanceColor attribute explicitly.
-    instanced.instanceColor = new THREE.InstancedBufferAttribute(
-      new Float32Array(instanceCount * 3),
-      3,
-      false
-    );
-
-    const dummy = new THREE.Object3D();
-    const colorObj = new THREE.Color();
-
-    let opacitySum = 0;
+    // Use the built-in setColorAt() method.
     for (let i = 0; i < instanceCount; i++) {
       const star = stars[i];
-
       let px, py, pz;
       if (this.mapType === 'TrueCoordinates') {
         px = star.x_coordinate;
@@ -166,21 +152,27 @@ class MapManager {
         py = star.spherePosition?.y ?? 0;
         pz = star.spherePosition?.z ?? 0;
       }
+      const dummy = new THREE.Object3D();
       dummy.position.set(px, py, pz);
       dummy.scale.setScalar(star.displaySize * 0.2);
       dummy.updateMatrix();
       instanced.setMatrixAt(i, dummy.matrix);
 
-      // Manually update the instanceColor attribute.
-      colorObj.set(star.displayColor || '#ffffff');
-      instanced.instanceColor.setXYZ(i, colorObj.r, colorObj.g, colorObj.b);
-
-      opacitySum += star.displayOpacity || 1.0;
+      // Use setColorAt() to store each star's color.
+      const colorObj = new THREE.Color(star.displayColor || '#ffffff');
+      instanced.setColorAt(i, colorObj);
     }
-    starMaterial.opacity = opacitySum / instanceCount;
-
     instanced.instanceMatrix.needsUpdate = true;
-    instanced.instanceColor.needsUpdate = true;
+    if (instanced.instanceColor !== null) {
+      instanced.instanceColor.needsUpdate = true;
+    }
+
+    // Compute average opacity (fallback to 1.0).
+    let opacitySum = 0;
+    stars.forEach(star => {
+      opacitySum += star.displayOpacity || 1.0;
+    });
+    starMaterial.opacity = opacitySum / instanceCount;
 
     this.instancedStars = instanced;
     this.scene.add(instanced);
@@ -189,8 +181,6 @@ class MapManager {
 
   /**
    * Creates connection lines.
-   * For Globe maps, uses great‑circle arcs (createConnectionLines).
-   * For TrueCoordinates maps, merges straight segments (mergeConnectionLines).
    */
   updateConnections(stars, connectionObjs) {
     if (this.connectionLines) {
@@ -230,7 +220,7 @@ class MapManager {
 }
 
 // ---------------------------------------------------------
-// Raycasting (hover/click) for tooltips
+// Raycasting for tooltips
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
@@ -287,7 +277,7 @@ function initStarInteractions(map) {
 }
 
 function updateSelectedStarHighlight() {
-  // Placeholder for any selected-star highlight logic.
+  // Placeholder for selected-star highlight logic.
   [trueCoordinatesMap, globeMap].forEach(map => {
     // no-op
   });
@@ -376,7 +366,7 @@ function getCurrentFilters() {
 }
 
 /**
- * Main function that re‑applies all filters, updates both maps, and re‑creates lines.
+ * Main function that re-applies all filters, updates both maps, and re-creates lines.
  */
 function buildAndApplyFilters() {
   if (!cachedStars) return;
