@@ -51,17 +51,16 @@ class DensityGridOverlay {
           if (distFromCenter < 1e-6) {
             projectedPos = new THREE.Vector3(0, 0, 0);
           } else {
-            // --- UPDATED CONVERSION --- 
-            // Use a consistent spherical conversion:
-            //   Let θ = atan2(z, x) and φ = arccos(y / distFromCenter)
-            // then projectedPos = (R*sin(φ)*cos(θ), R*cos(φ), R*sin(φ)*sin(θ))
-            const theta = Math.atan2(posTC.z, posTC.x);
-            const phi = Math.acos(posTC.y / distFromCenter);
+            // Use our consistent conversion:
+            //   Compute RA = atan2(-z, -x) and dec = asin(y / distFromCenter)
+            // then projectedPos = radToSphere(ra, dec, R) with R=100.
+            const ra = Math.atan2(-posTC.z, -posTC.x);
+            const dec = Math.asin(posTC.y / distFromCenter);
             const radius = 100;
             projectedPos = new THREE.Vector3(
-              radius * Math.sin(phi) * Math.cos(theta),
-              radius * Math.cos(phi),
-              radius * Math.sin(phi) * Math.sin(theta)
+              -radius * Math.cos(dec) * Math.cos(ra),
+               radius * Math.sin(dec),
+              -radius * Math.cos(dec) * Math.sin(ra)
             );
           }
           squareGlobe.position.copy(projectedPos);
