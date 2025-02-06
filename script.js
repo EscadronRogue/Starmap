@@ -57,7 +57,7 @@ function debounce(func, wait) {
 }
 
 /**
- * Projects a star's (x, y, z) position onto a sphere of radius 100.
+ * Projects a star's (x,y,z) position onto a sphere of radius 100.
  */
 function projectStarGlobe(star) {
   const v = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
@@ -117,9 +117,10 @@ class MapManager {
    * Creates an InstancedMesh for the given stars.
    * Each star’s displaySize, displayColor, and displayOpacity are set by filters.
    *
-   * For per‑instance color we create an instanceColor attribute.
-   * Because we cannot have per‑instance opacity with a stock MeshBasicMaterial,
-   * we compute the average opacity and assign it uniformly.
+   * We explicitly create an instanceColor attribute and write each star’s color into it.
+   * We also force the material’s base color to white.
+   * Because per‑instance opacity isn’t supported in stock MeshBasicMaterial,
+   * we compute the average opacity and set it uniformly.
    */
   addStars(stars) {
     if (this.instancedStars) {
@@ -134,7 +135,8 @@ class MapManager {
     const starMaterial = new THREE.MeshBasicMaterial({
       vertexColors: true,
       transparent: true,
-      opacity: 1.0
+      opacity: 1.0,
+      color: 0xffffff // force base color to white so that vertex colors are not tinted
     });
 
     const instanced = new THREE.InstancedMesh(starGeometry, starMaterial, instanceCount);
@@ -169,13 +171,12 @@ class MapManager {
       dummy.updateMatrix();
       instanced.setMatrixAt(i, dummy.matrix);
 
-      // Set instance color from star.displayColor.
+      // Manually update the instanceColor attribute.
       colorObj.set(star.displayColor || '#ffffff');
-      instanced.setColorAt(i, colorObj);
+      instanced.instanceColor.setXYZ(i, colorObj.r, colorObj.g, colorObj.b);
 
       opacitySum += star.displayOpacity || 1.0;
     }
-    // Use the average opacity.
     starMaterial.opacity = opacitySum / instanceCount;
 
     instanced.instanceMatrix.needsUpdate = true;
@@ -229,7 +230,7 @@ class MapManager {
 }
 
 // ---------------------------------------------------------
-// Raycasting for tooltips
+// Raycasting (hover/click) for tooltips
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
@@ -286,7 +287,7 @@ function initStarInteractions(map) {
 }
 
 function updateSelectedStarHighlight() {
-  // Placeholder for selected-star highlight logic.
+  // Placeholder for any selected-star highlight logic.
   [trueCoordinatesMap, globeMap].forEach(map => {
     // no-op
   });
@@ -397,7 +398,7 @@ function buildAndApplyFilters() {
   currentGlobeFilteredStars = globeFilteredStars;
   currentGlobeConnections = globeConnections;
 
-  // Ensure each globe star has spherePosition.
+  // Ensure each star in the globe set has spherePosition.
   currentGlobeFilteredStars.forEach(star => {
     star.spherePosition = projectStarGlobe(star);
   });
