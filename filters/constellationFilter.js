@@ -181,17 +181,20 @@ function degToRad(d) {
 
 /**
  * Converts RA and DEC (in radians) into a position on the sphere of radius R.
- * Note that this conversion is done as seen from Earth (from inside the globe)
- * with north at +Y.
+ * This conversion is done as seen from Earth (from inside the globe) so that:
  *
- * x = R · cos(dec) · cos(ra)
- * y = R · sin(dec)
- * z = R · cos(dec) · sin(ra)
+ *   x = -R · cos(dec) · cos(ra)
+ *   y =  R · sin(dec)
+ *   z = -R · cos(dec) · sin(ra)
+ *
+ * In other words, the x and z coordinates are reversed compared to the standard formula.
+ * This ensures that the celestial north (DEC = +90°) appears at (0,R,0) and stars fall into
+ * their proper constellations when viewed from inside.
  */
 function radToSphere(ra, dec, R) {
-  const x = R * Math.cos(dec) * Math.cos(ra);
+  const x = -R * Math.cos(dec) * Math.cos(ra);
   const y = R * Math.sin(dec);
-  const z = R * Math.cos(dec) * Math.sin(ra);
+  const z = -R * Math.cos(dec) * Math.sin(ra);
   return new THREE.Vector3(x, y, z);
 }
 
