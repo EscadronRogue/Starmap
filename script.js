@@ -34,8 +34,10 @@ let globeSurfaceSphere = null;
 let densityOverlay = null;
 let globeGrid = null;
 
-// ---------------------------------------------------------
-// Helper: Convert (ra, dec, R) to a position on the sphere using our standard convention.
+/**
+ * Converts (ra, dec, R) to a position on the sphere.
+ * (Note: same as used for the Globe map.)
+ */
 function radToSphere(ra, dec, R) {
   return new THREE.Vector3(
     -R * Math.cos(dec) * Math.cos(ra),
@@ -45,16 +47,17 @@ function radToSphere(ra, dec, R) {
 }
 
 /**
- * For the True Coordinates map, we simply use the star’s x, y, and z coordinates.
+ * For the True Coordinates map, we now compute the star’s position by re‑projecting
+ * its RA_in_radian and DEC_in_radian onto a sphere whose radius is the star’s true distance.
  */
 function getStarTruePosition(star) {
-  return new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+  // Use the star’s real distance (e.g. Distance_from_the_Sun)
+  const R = star.Distance_from_the_Sun;
+  return radToSphere(star.RA_in_radian, star.DEC_in_radian, R);
 }
 
 /**
  * For the Globe map, we “project” the star onto a sphere of radius 100.
- * Instead of re‑computing RA and DEC from the (x, y, z) values (which seem to use a different convention),
- * we use the provided RA_in_radian and DEC_in_radian.
  */
 function projectStarGlobe(star) {
   const R = 100;
@@ -62,8 +65,7 @@ function projectStarGlobe(star) {
 }
 
 /**
- * Creates a grid overlay on the inside surface of a sphere (radius 100) to help verify coordinates.
- * We draw lines of constant RA (meridians) and constant DEC (parallels) using subtle gray lines.
+ * Creates a grid overlay on the inside surface of a sphere (radius 100).
  */
 function createGlobeGrid(R = 100, options = {}) {
   const gridGroup = new THREE.Group();
@@ -110,7 +112,7 @@ function createGlobeGrid(R = 100, options = {}) {
 }
 
 // ---------------------------------------------------------
-// MapManager class (unchanged except for our new star position functions)
+// MapManager class (only modified in the star‑adding code)
 class MapManager {
   constructor({ canvasId, mapType }) {
     this.canvas = document.getElementById(canvasId);
@@ -161,7 +163,7 @@ class MapManager {
 
   /**
    * Creates individual Mesh objects for each star.
-   * For the True Coordinates map we use the true (x,y,z) data.
+   * For the True Coordinates map we now use the computed truePosition.
    * For the Globe map we use the precomputed spherePosition.
    */
   addStars(stars) {
@@ -186,7 +188,7 @@ class MapManager {
 
       let pos;
       if (this.mapType === 'TrueCoordinates') {
-        pos = getStarTruePosition(star);
+        pos = star.truePosition ? star.truePosition.clone() : getStarTruePosition(star);
       } else {
         pos = star.spherePosition || new THREE.Vector3(0, 0, 0);
       }
@@ -359,6 +361,8 @@ window.onload = async () => {
     // For the Globe map, compute each star’s sphere position using RA_in_radian/DEC_in_radian.
     cachedStars.forEach(star => {
       star.spherePosition = projectStarGlobe(star);
+      // For the True Coordinates map, compute the new truePosition using our updated technique.
+      star.truePosition = getStarTruePosition(star);
     });
 
     // Create and add the globe grid.
@@ -431,6 +435,10 @@ function buildAndApplyFilters() {
   // For the Globe map, update each star’s spherePosition using the provided RA/dec.
   currentGlobeFilteredStars.forEach(star => {
     star.spherePosition = projectStarGlobe(star);
+  });
+  // For the True Coordinates map, update the truePosition using our new technique.
+  currentFilteredStars.forEach(star => {
+    star.truePosition = getStarTruePosition(star);
   });
 
   trueCoordinatesMap.updateMap(currentFilteredStars, currentConnections);
