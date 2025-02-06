@@ -188,14 +188,13 @@
     // Fullscreen button event listeners
     document.querySelectorAll('.fullscreen-btn').forEach(btn => {
       btn.addEventListener('click', function() {
-        // Find the canvas within the same map container
+        // Find the map container element (the parent element)
         const mapContainer = this.parentElement;
-        const canvas = mapContainer.querySelector('canvas');
         if (document.fullscreenElement) {
           document.exitFullscreen();
         } else {
-          // Request fullscreen on the canvas element
-          canvas.requestFullscreen().catch(err => {
+          // Request fullscreen on the map container element
+          mapContainer.requestFullscreen().catch(err => {
             console.error("Error attempting to enable full-screen mode:", err);
           });
         }
