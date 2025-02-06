@@ -10,6 +10,22 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 let densityGrid = null;
 
 /**
+ * Helper conversion function.
+ * Given a right ascension (ra in radians), declination (dec in radians) and radius R,
+ * returns the corresponding THREE.Vector3 using our standard convention:
+ *   x = -R · cos(dec) · cos(ra)
+ *   y =  R · sin(dec)
+ *   z = -R · cos(dec) · sin(ra)
+ */
+function radToSphere(ra, dec, R) {
+  return new THREE.Vector3(
+    -R * Math.cos(dec) * Math.cos(ra),
+     R * Math.sin(dec),
+    -R * Math.cos(dec) * Math.sin(ra)
+  );
+}
+
+/**
  * Internal class to handle the grid and 2D squares for density mapping.
  */
 class DensityGridOverlay {
@@ -27,11 +43,12 @@ class DensityGridOverlay {
     for (let x = -halfExt; x <= halfExt; x += this.gridSize) {
       for (let y = -halfExt; y <= halfExt; y += this.gridSize) {
         for (let z = -halfExt; z <= halfExt; z += this.gridSize) {
+          // Compute the center of this cell in true-coordinate space.
           const posTC = new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5);
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
           
-          // TrueCoordinates cube (unchanged)
+          // Create the cube (for the True Coordinates map) as before.
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -42,7 +59,7 @@ class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
           
-          // Globe: use a flat square (plane) instead of a cube.
+          // For the Globe map, use a flat square (plane).
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -51,15 +68,13 @@ class DensityGridOverlay {
           if (distFromCenter < 1e-6) {
             projectedPos = new THREE.Vector3(0, 0, 0);
           } else {
-            // Compute RA = atan2(-z, -x) and dec = asin(y / distFromCenter)
-            const ra = Math.atan2(-posTC.z, -posTC.x);
+            // NEW METHOD:
+            // Compute dec and ra for the cell center.
             const dec = Math.asin(posTC.y / distFromCenter);
+            // Use the same "flip" as for the Globe star projection:
+            const ra = Math.atan2(-posTC.z, -posTC.x);
             const radius = 100;
-            projectedPos = new THREE.Vector3(
-              -radius * Math.cos(dec) * Math.cos(ra),
-               radius * Math.sin(dec),
-              -radius * Math.cos(dec) * Math.sin(ra)
-            );
+            projectedPos = radToSphere(ra, dec, radius);
           }
           squareGlobe.position.copy(projectedPos);
           // Orient the square so that it is tangent to the sphere.
@@ -99,12 +114,15 @@ class DensityGridOverlay {
   }
   
   computeAdjacentLines() {
+    // Clear previous adjacent lines.
     this.adjacentLines = [];
+    // Build a lookup map for cells using grid indices.
     const cellMap = new Map();
     this.cubesData.forEach(cell => {
       const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
       cellMap.set(key, cell);
     });
+    // Only check positive directions to avoid duplicates.
     const directions = [
       { dx: 1, dy: 0, dz: 0 },
       { dx: 0, dy: 1, dz: 0 },
@@ -115,6 +133,7 @@ class DensityGridOverlay {
         const neighborKey = `${cell.grid.ix + dir.dx},${cell.grid.iy + dir.dy},${cell.grid.iz + dir.dz}`;
         if (cellMap.has(neighborKey)) {
           const neighbor = cellMap.get(neighborKey);
+          // Create a geodesic (great-circle) line connecting the two globeMesh positions.
           const points = getGreatCirclePoints(cell.globeMesh.position, neighbor.globeMesh.position, 100, 16);
           const geom = new THREE.BufferGeometry().setFromPoints(points);
           const mat = new THREE.LineBasicMaterial({
@@ -153,10 +172,12 @@ class DensityGridOverlay {
       cell.tcMesh.material.opacity = alpha;
       cell.globeMesh.visible = showSquare;
       cell.globeMesh.material.opacity = alpha;
+      // Scale: closer cells appear larger.
       const scale = THREE.MathUtils.lerp(1.5, 0.5, ratio);
       cell.globeMesh.scale.set(scale, scale, 1);
     });
     
+    // Update adjacent lines: only show if both connected cells are visible.
     this.adjacentLines.forEach(obj => {
       const { line, cell1, cell2 } = obj;
       if (cell1.globeMesh.visible && cell2.globeMesh.visible) {
@@ -170,6 +191,9 @@ class DensityGridOverlay {
   }
 }
 
+/**
+ * Returns an array of points along the great-circle path between two points on a sphere.
+ */
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
   const start = p1.clone().normalize().multiplyScalar(R);
@@ -185,12 +209,19 @@ function getGreatCirclePoints(p1, p2, R, segments) {
   return points;
 }
 
+/**
+ * Creates the density overlay once, based on the final star set.
+ * Returns the density overlay object (with cubesData and adjacentLines).
+ */
 export function initDensityOverlay(maxDistance, starArray) {
   densityGrid = new DensityGridOverlay(maxDistance, 2);
   densityGrid.createGrid(starArray);
   return densityGrid;
 }
 
+/**
+ * Called after user changes the slider, or filters change the star set.
+ */
 export function updateDensityMapping(starArray) {
   if (!densityGrid) return;
   densityGrid.update(starArray);
