@@ -1,4 +1,4 @@
-// connectionsFilter.js
+// filters/connectionsFilter.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { calculateDistance } from '../utils.js';
@@ -42,13 +42,15 @@ export function mergeConnectionLines(connectionObjs) {
   connectionObjs.forEach(pair => {
     const { starA, starB } = pair;
     
-    // For TrueCoordinates, we use the stars' x, y, z positions.
+    // Use the stars' 3D positions (TrueCoordinates)
     positions.push(starA.x_coordinate, starA.y_coordinate, starA.z_coordinate);
     positions.push(starB.x_coordinate, starB.y_coordinate, starB.z_coordinate);
     
-    // Use white color for both vertices.
-    colors.push(1, 1, 1);
-    colors.push(1, 1, 1);
+    // Use each star’s displayColor (convert hex to THREE.Color components)
+    const cA = new THREE.Color(starA.displayColor || '#ffffff');
+    const cB = new THREE.Color(starB.displayColor || '#ffffff');
+    colors.push(cA.r, cA.g, cA.b);
+    colors.push(cB.r, cB.g, cB.b);
   });
   
   const geometry = new THREE.BufferGeometry();
@@ -86,9 +88,7 @@ export function createConnectionLines(stars, pairs, mapType) {
     const { starA, starB, distance } = pair;
     let posA, posB;
     if (mapType === 'Globe') {
-      if (!starA.spherePosition || !starB.spherePosition) {
-        return;
-      }
+      if (!starA.spherePosition || !starB.spherePosition) return;
       posA = new THREE.Vector3(starA.spherePosition.x, starA.spherePosition.y, starA.spherePosition.z);
       posB = new THREE.Vector3(starB.spherePosition.x, starB.spherePosition.y, starB.spherePosition.z);
     } else {
@@ -108,7 +108,6 @@ export function createConnectionLines(stars, pairs, mapType) {
     
     let points;
     if (mapType === 'Globe') {
-      // For the globe, compute great-circle points.
       const R = 100;
       const curve = new THREE.CatmullRomCurve3(getGreatCirclePoints(posA, posB, R, 32));
       points = curve.getPoints(32);
