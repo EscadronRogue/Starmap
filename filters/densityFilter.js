@@ -51,8 +51,12 @@ class DensityGridOverlay {
           if (distFromCenter < 1e-6) {
             projectedPos = new THREE.Vector3(0, 0, 0);
           } else {
-            const theta = Math.atan2(posTC.y, posTC.x);
-            const phi = Math.acos(posTC.z / distFromCenter);
+            // --- UPDATED CONVERSION --- 
+            // Use a consistent spherical conversion:
+            //   Let θ = atan2(z, x) and φ = arccos(y / distFromCenter)
+            // then projectedPos = (R*sin(φ)*cos(θ), R*cos(φ), R*sin(φ)*sin(θ))
+            const theta = Math.atan2(posTC.z, posTC.x);
+            const phi = Math.acos(posTC.y / distFromCenter);
             const radius = 100;
             projectedPos = new THREE.Vector3(
               radius * Math.sin(phi) * Math.cos(theta),
@@ -117,7 +121,7 @@ class DensityGridOverlay {
         const neighborKey = `${cell.grid.ix + dir.dx},${cell.grid.iy + dir.dy},${cell.grid.iz + dir.dz}`;
         if (cellMap.has(neighborKey)) {
           const neighbor = cellMap.get(neighborKey);
-          // Create a geodesic (great‐circle) line connecting the two globeMesh positions.
+          // Create a geodesic (great‑circle) line connecting the two globeMesh positions.
           const points = getGreatCirclePoints(cell.globeMesh.position, neighbor.globeMesh.position, 100, 16);
           const geom = new THREE.BufferGeometry().setFromPoints(points);
           const mat = new THREE.LineBasicMaterial({
