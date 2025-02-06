@@ -53,8 +53,14 @@ class DensityGridOverlay {
             projectedPos = new THREE.Vector3(0, 0, 0);
           } else {
             // NEW METHOD:
-            // Instead of computing RA/dec from posTC, simply use:
-            projectedPos = posTC.clone().normalize().multiplyScalar(100);
+            // Instead of computing RA/dec from posTC,
+            // we simply project posTC onto the sphere using the same rotation used for stars.
+            // That is, we normalize posTC, then apply the rotation (window.rotationQuaternion),
+            // then multiply by 100.
+            projectedPos = posTC.clone()
+              .normalize()
+              .applyQuaternion(window.rotationQuaternion || new THREE.Quaternion())
+              .multiplyScalar(100);
           }
           squareGlobe.position.copy(projectedPos);
           // Orient the square so that it is tangent to the sphere.
@@ -113,7 +119,7 @@ class DensityGridOverlay {
         const neighborKey = `${cell.grid.ix + dir.dx},${cell.grid.iy + dir.dy},${cell.grid.iz + dir.dz}`;
         if (cellMap.has(neighborKey)) {
           const neighbor = cellMap.get(neighborKey);
-          // Create a geodesic (great-circle) line connecting the two globeMesh positions.
+          // Create a geodesic (great‑circle) line connecting the two globeMesh positions.
           const points = getGreatCirclePoints(cell.globeMesh.position, neighbor.globeMesh.position, 100, 16);
           const geom = new THREE.BufferGeometry().setFromPoints(points);
           const mat = new THREE.LineBasicMaterial({
@@ -172,7 +178,7 @@ class DensityGridOverlay {
 }
 
 /**
- * Returns an array of points along the great-circle path between two points on a sphere.
+ * Returns an array of points along the great‑circle path between two points on a sphere.
  */
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
