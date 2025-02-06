@@ -55,7 +55,7 @@ header {
   left: 10px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 36px;
+  font-size: 32px;
   background: none;
   border: none;
   color: #ff6f61;
@@ -138,6 +138,12 @@ header h1 {
   max-height: 1000px;
 }
 
+/* Scrollable container for subcategories */
+.scrollable-category {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 /* Collapsible subcategory for stellar classes */
 .stellar-class-subcategory {
   margin-bottom: 15px;
@@ -145,10 +151,11 @@ header h1 {
   padding-bottom: 10px;
 }
 
+/* Subcategory header */
 .subcategory-header {
   font-size: 16px;
   margin-bottom: 5px;
-  color: #ff6f61;
+  color: #ff6f61; 
   user-select: none;
   cursor: pointer;
   background-color: #2a2a2a;
@@ -160,6 +167,7 @@ header h1 {
   background-color: rgba(60, 60, 60, 0.8);
 }
 
+/* Subcategory content */
 .subcategory-content {
   padding: 5px 10px;
   background-color: #333;
@@ -296,13 +304,6 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
   z-index: 10;
 }
 
-/* Fullscreen styling: when an element is in fullscreen mode, force full width/height */
-:fullscreen,
-:-webkit-full-screen {
-  width: 100%;
-  height: 100%;
-}
-
 /* Tooltip */
 #tooltip {
   position: absolute;
@@ -358,6 +359,16 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
   box-shadow: 0 0 3px rgba(0,0,0,0.5);
 }
 
+/* Fullscreen CSS so that the element in fullscreen fills the viewport */
+:fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
+:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+}
+
 /* Responsive */
 @media (max-width:1200px) {
   .map-container canvas {
@@ -372,7 +383,7 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
     max-width: 100%;
   }
   .map-container canvas {
-    height: 600px;
+    height:600px;
   }
   header h1 {
     font-size: 20px;
@@ -384,16 +395,16 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
     font-size: 20px;
   }
   .sidebar fieldset {
-    padding: 12px;
+    padding:12px;
   }
   .filter-item label {
-    font-size: 13px;
+    font-size:13px;
   }
   #tooltip {
-    font-size: 13px;
-    max-width: 200px;
+    font-size:13px;
+    max-width:200px;
   }
   .label-container .label {
-    font-size: 11px;
+    font-size:11px;
   }
 }
