@@ -57,14 +57,33 @@ function debounce(func, wait) {
 }
 
 /**
- * Projects a star's (x,y,z) position onto a sphere of radius 100.
+ * Projects a star's (x,y,z) true coordinate onto a sphere of radius 100,
+ * using a conversion consistent with our constellation conversion.
+ *
+ * Instead of merely normalizing the star’s position vector,
+ * we compute spherical angles as:
+ *   φ = arccos(y / r)   [polar angle measured from +Y]
+ *   θ = atan2(z, x)
+ * and then set:
+ *   x = R · sin(φ) · cos(θ)
+ *   y = R · cos(φ)
+ *   z = R · sin(φ) · sin(θ)
+ *
+ * This ensures that the north pole is at (0,100,0).
  */
 function projectStarGlobe(star) {
   const v = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
-  if (v.lengthSq() > 0) {
-    v.normalize().multiplyScalar(100);
-  }
-  return { x: v.x, y: v.y, z: v.z };
+  const r = v.length();
+  if (r === 0) return new THREE.Vector3(0, 0, 0);
+  const phi = Math.acos(v.y / r); // polar angle from +Y axis
+  const theta = Math.atan2(v.z, v.x);
+  const R = 100;
+  const sinPhi = Math.sin(phi);
+  return new THREE.Vector3(
+    R * sinPhi * Math.cos(theta),
+    R * Math.cos(phi),
+    R * sinPhi * Math.sin(theta)
+  );
 }
 
 // ---------------------------------------------------------
