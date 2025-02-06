@@ -42,11 +42,11 @@ export function mergeConnectionLines(connectionObjs) {
   connectionObjs.forEach(pair => {
     const { starA, starB } = pair;
     
-    // Use the stars' 3D positions (TrueCoordinates)
+    // For TrueCoordinates, we use the stars' x, y, z positions.
     positions.push(starA.x_coordinate, starA.y_coordinate, starA.z_coordinate);
     positions.push(starB.x_coordinate, starB.y_coordinate, starB.z_coordinate);
     
-    // Use each star’s displayColor (convert hex to THREE.Color components)
+    // Set each vertex's color from the star's displayColor.
     const cA = new THREE.Color(starA.displayColor || '#ffffff');
     const cB = new THREE.Color(starB.displayColor || '#ffffff');
     colors.push(cA.r, cA.g, cA.b);
