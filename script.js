@@ -117,8 +117,7 @@ class MapManager {
    * Creates an InstancedMesh for the given stars.
    * Each star’s displaySize, displayColor, and displayOpacity come from the filters.
    *
-   * We force the material’s base color to white and use the built‑in setColorAt() method.
-   * Because per‑instance opacity isn’t supported, we compute the average opacity.
+   * We force the material’s opacity to 1.0 so that the per‑instance vertex colors show correctly.
    */
   addStars(stars) {
     if (this.instancedStars) {
@@ -132,14 +131,13 @@ class MapManager {
     const starMaterial = new THREE.MeshBasicMaterial({
       vertexColors: true,
       transparent: true,
-      opacity: 1.0,
-      color: 0xffffff // ensure base color is white so vertex colors show correctly
+      opacity: 1.0, // Force full opacity regardless of per-star displayOpacity
+      color: 0xffffff // base color white so vertex colors show properly
     });
 
     const instanced = new THREE.InstancedMesh(starGeometry, starMaterial, instanceCount);
     instanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
-    // Use the built-in setColorAt() method.
     for (let i = 0; i < instanceCount; i++) {
       const star = stars[i];
       let px, py, pz;
@@ -158,7 +156,7 @@ class MapManager {
       dummy.updateMatrix();
       instanced.setMatrixAt(i, dummy.matrix);
 
-      // Use setColorAt() to store each star's color.
+      // Create a THREE.Color from the star's displayColor (defaulting to white)
       const colorObj = new THREE.Color(star.displayColor || '#ffffff');
       instanced.setColorAt(i, colorObj);
     }
@@ -166,13 +164,6 @@ class MapManager {
     if (instanced.instanceColor !== null) {
       instanced.instanceColor.needsUpdate = true;
     }
-
-    // Compute average opacity (fallback to 1.0).
-    let opacitySum = 0;
-    stars.forEach(star => {
-      opacitySum += star.displayOpacity || 1.0;
-    });
-    starMaterial.opacity = opacitySum / instanceCount;
 
     this.instancedStars = instanced;
     this.scene.add(instanced);
@@ -354,7 +345,6 @@ window.onload = async () => {
   }
 };
 
-// ---------------------------------------------------------
 function getCurrentFilters() {
   const form = document.getElementById('filters-form');
   if (!form) return { enableConnections: false, enableDensityMapping: false };
