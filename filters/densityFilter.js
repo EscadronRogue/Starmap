@@ -3,134 +3,156 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 
 /**
- * We no longer import { currentFilteredStars } from ../script.js.
- * Instead, we'll accept the star array as a parameter in initDensityOverlay() and updateDensityMapping().
+ * Instead of subdividing a 3D cube and projecting its centers,
+ * we now build a grid directly on the sphere.
+ * We choose an angular step (in degrees) for RA and DEC.
+ *
+ * Each grid cell is defined by a (ra, dec) pair and lies exactly on the sphere of radius 100.
+ *
+ * We also compute, for each cell, a sorted array of distances (in Euclidean space) 
+ * from the cell’s center to all stars’ projected positions (star.spherePosition).
+ *
+ * The grid overlay can then be updated (e.g. by hiding cells with too-low density).
  */
 
 let densityGrid = null;
 
-/**
- * Unified helper for projecting a true-coordinate position to the Globe map.
- * This function normalizes the vector, applies the fixed rotation,
- * scales by the sphere’s radius (100) and then adds a correction offset.
- */
-function projectToGlobe(pos) {
-  const R = 100;
-  let p = pos.clone().normalize();
-  if (window.rotationQuaternion) {
-    p.applyQuaternion(window.rotationQuaternion);
-  }
-  p.multiplyScalar(R);
-  if (window.globeOffset) {
-    p.add(window.globeOffset);
-  }
-  return p;
-}
-
-/**
- * Internal class to handle the grid and 2D squares for density mapping.
- */
 class DensityGridOverlay {
-  constructor(maxDistance, gridSize = 2) {
-    this.maxDistance = maxDistance;
-    this.gridSize = gridSize;
-    this.cubesData = [];
-    // Each adjacent line object will store { line, cell1, cell2 }
-    this.adjacentLines = [];
+  /**
+   * @param {number} angularStepDeg – the angular step in degrees for both RA and DEC
+   */
+  constructor(angularStepDeg = 10) {
+    // Convert the step into radians.
+    this.angularStep = THREE.Math.degToRad(angularStepDeg);
+    this.cells = [];       // Array of grid cells (each corresponds to a (ra,dec) center)
+    this.adjacentLines = []; // For drawing connections between neighboring cells
   }
 
+  /**
+   * Creates a grid on the sphere.
+   * We will cover DEC from -80° to +80° (to avoid extreme distortions at the poles)
+   * and RA from 0° to 360°.
+   * For each (ra, dec) pair, we compute the cell’s center using the standard conversion.
+   * We also create a flat plane (a square) at that center (oriented tangent to the sphere).
+   *
+   * @param {Array} stars – the full star array; each star must already have star.spherePosition set.
+   */
   createGrid(stars) {
-    const halfExt = Math.ceil(this.maxDistance / this.gridSize) * this.gridSize;
-    this.cubesData = [];
-    for (let x = -halfExt; x <= halfExt; x += this.gridSize) {
-      for (let y = -halfExt; y <= halfExt; y += this.gridSize) {
-        for (let z = -halfExt; z <= halfExt; z += this.gridSize) {
-          // Compute the center of this cell in true-coordinate space.
-          const posTC = new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5);
-          const distFromCenter = posTC.length();
-          if (distFromCenter > this.maxDistance) continue;
-          
-          // Create the cube (for the True Coordinates map).
-          const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
-          const material = new THREE.MeshBasicMaterial({
-            color: 0x0000ff,
-            transparent: true,
-            opacity: 1.0,
-            depthWrite: false
-          });
-          const cubeTC = new THREE.Mesh(geometry, material);
-          cubeTC.position.copy(posTC);
-          
-          // For the Globe map, use a flat square (plane) instead of a cube.
-          const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
-          const material2 = material.clone();
-          const squareGlobe = new THREE.Mesh(planeGeom, material2);
-          
-          // Project the cell center using the unified helper.
-          let projectedPos = (distFromCenter < 1e-6) 
-                             ? new THREE.Vector3(0, 0, 0) 
-                             : projectToGlobe(posTC);
-          
-          squareGlobe.position.copy(projectedPos);
-          // Orient the square so that it is tangent to the sphere.
-          const normal = projectedPos.clone().normalize();
-          squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-          
-          const cell = {
-            tcMesh: cubeTC,
-            globeMesh: squareGlobe,
-            tcPos: posTC,
-            distances: [],
-            grid: {
-              ix: Math.round(x / this.gridSize),
-              iy: Math.round(y / this.gridSize),
-              iz: Math.round(z / this.gridSize)
-            }
-          };
-          this.cubesData.push(cell);
-        }
+    this.cells = [];
+    const R = 100;
+    const decMin = THREE.Math.degToRad(-80);
+    const decMax = THREE.Math.degToRad(80);
+    const raMin = 0;
+    const raMax = 2 * Math.PI;
+    // Loop over DEC and RA.
+    for (let dec = decMin; dec <= decMax; dec += this.angularStep) {
+      for (let ra = raMin; ra < raMax; ra += this.angularStep) {
+        // Compute the cell center on the sphere.
+        const center = new THREE.Vector3(
+          -R * Math.cos(dec) * Math.cos(ra),
+           R * Math.sin(dec),
+          -R * Math.cos(dec) * Math.sin(ra)
+        );
+        // Create a plane geometry for the cell.
+        // We choose the cell’s size proportional to the angular step.
+        // (Here we use a scaling factor so that the cell covers roughly the angular area.)
+        const cellSize = R * this.angularStep * 0.8; // 0.8 is an arbitrary scale to avoid overlap
+        const planeGeom = new THREE.PlaneGeometry(cellSize, cellSize);
+        const material = new THREE.MeshBasicMaterial({
+          color: 0x0000ff,
+          transparent: true,
+          opacity: 0.2,
+          depthWrite: false
+        });
+        const plane = new THREE.Mesh(planeGeom, material);
+        plane.position.copy(center);
+        // Orient the plane so that it is tangent to the sphere.
+        const normal = center.clone().normalize();
+        plane.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+        // Save the cell.
+        this.cells.push({
+          ra: ra,
+          dec: dec,
+          center: center,
+          planeMesh: plane,
+          distances: []  // to be computed below
+        });
       }
     }
+    // Once all cells are created, compute their distances to the stars.
     this.computeDistances(stars);
+    // (Optionally, you can compute adjacent lines if desired.)
     this.computeAdjacentLines();
   }
 
+  /**
+   * For each cell, compute the Euclidean distances (in 3D) between its center and every star’s spherePosition.
+   * Then sort the distances.
+   * @param {Array} stars – the full star array; each star should have star.spherePosition.
+   */
   computeDistances(stars) {
-    this.cubesData.forEach(cell => {
+    this.cells.forEach(cell => {
       const dArr = stars.map(star => {
-        const dx = cell.tcPos.x - star.x_coordinate;
-        const dy = cell.tcPos.y - star.y_coordinate;
-        const dz = cell.tcPos.z - star.z_coordinate;
-        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+        return cell.center.distanceTo(star.spherePosition);
       });
       dArr.sort((a, b) => a - b);
       cell.distances = dArr;
     });
   }
-  
+
+  /**
+   * Computes adjacent lines between grid cells so that a grid mesh can be drawn.
+   * For our spherical grid, we connect each cell to its neighbor in RA and also to one neighbor in DEC.
+   */
   computeAdjacentLines() {
-    // Clear previous adjacent lines.
     this.adjacentLines = [];
-    // Build a lookup map for cells using grid indices.
-    const cellMap = new Map();
-    this.cubesData.forEach(cell => {
-      const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
-      cellMap.set(key, cell);
+    // Group cells by their dec index.
+    const groups = {};
+    this.cells.forEach(cell => {
+      // Compute an index for dec; use the rounded value.
+      const decIdx = Math.round((cell.dec - THREE.Math.degToRad(-80)) / this.angularStep);
+      if (!groups[decIdx]) groups[decIdx] = [];
+      groups[decIdx].push(cell);
     });
-    // Only check positive directions to avoid duplicates.
-    const directions = [
-      { dx: 1, dy: 0, dz: 0 },
-      { dx: 0, dy: 1, dz: 0 },
-      { dx: 0, dy: 0, dz: 1 }
-    ];
-    directions.forEach(dir => {
-      this.cubesData.forEach(cell => {
-        const neighborKey = `${cell.grid.ix + dir.dx},${cell.grid.iy + dir.dy},${cell.grid.iz + dir.dz}`;
-        if (cellMap.has(neighborKey)) {
-          const neighbor = cellMap.get(neighborKey);
-          // Create a geodesic (great-circle) line connecting the two globeMesh positions.
-          const points = getGreatCirclePoints(cell.globeMesh.position, neighbor.globeMesh.position, 100, 16);
-          const geom = new THREE.BufferGeometry().setFromPoints(points);
+    // For each dec row, sort the cells by RA.
+    for (const decIdx in groups) {
+      groups[decIdx].sort((a, b) => a.ra - b.ra);
+    }
+    // Connect cells within each row (wrap-around).
+    for (const decIdx in groups) {
+      const row = groups[decIdx];
+      for (let i = 0; i < row.length; i++) {
+        const cell = row[i];
+        const nextCell = row[(i + 1) % row.length];
+        const geom = new THREE.BufferGeometry().setFromPoints([cell.center, nextCell.center]);
+        const mat = new THREE.LineBasicMaterial({
+          color: 0x0000ff,
+          transparent: true,
+          opacity: 0.3,
+          linewidth: 1
+        });
+        const line = new THREE.Line(geom, mat);
+        this.adjacentLines.push({ line: line, cell1: cell, cell2: nextCell });
+      }
+    }
+    // Connect cells in adjacent rows.
+    const decIndices = Object.keys(groups).map(Number).sort((a, b) => a - b);
+    for (let i = 0; i < decIndices.length - 1; i++) {
+      const rowA = groups[decIndices[i]];
+      const rowB = groups[decIndices[i + 1]];
+      // For each cell in rowA, connect it to the cell in rowB with the closest RA.
+      rowA.forEach(cellA => {
+        let closest = null;
+        let minDiff = Infinity;
+        rowB.forEach(cellB => {
+          const diff = Math.abs(cellA.ra - cellB.ra);
+          if (diff < minDiff) {
+            minDiff = diff;
+            closest = cellB;
+          }
+        });
+        if (closest) {
+          const geom = new THREE.BufferGeometry().setFromPoints([cellA.center, closest.center]);
           const mat = new THREE.LineBasicMaterial({
             color: 0x0000ff,
             transparent: true,
@@ -138,13 +160,20 @@ class DensityGridOverlay {
             linewidth: 1
           });
           const line = new THREE.Line(geom, mat);
-          line.renderOrder = 1;
-          this.adjacentLines.push({ line, cell1: cell, cell2: neighbor });
+          this.adjacentLines.push({ line: line, cell1: cellA, cell2: closest });
         }
       });
-    });
+    }
   }
-  
+
+  /**
+   * Updates the grid overlay.
+   * For each cell, based on the isolation value (from a slider) and the number of nearby stars,
+   * adjust the cell’s visibility and opacity.
+   * (The details of the mapping from distance to opacity are adjustable.)
+   *
+   * @param {Array} stars – the full star array.
+   */
   update(stars) {
     const densitySlider = document.getElementById('density-slider');
     const toleranceSlider = document.getElementById('tolerance-slider');
@@ -153,70 +182,33 @@ class DensityGridOverlay {
     const isolationVal = parseFloat(densitySlider.value) || 1;
     const toleranceVal = parseInt(toleranceSlider.value) || 0;
     
-    this.cubesData.forEach(cell => {
+    this.cells.forEach(cell => {
       let isoDist = Infinity;
       if (cell.distances.length > toleranceVal) {
         isoDist = cell.distances[toleranceVal];
       }
-      const showSquare = isoDist >= isolationVal;
-      let ratio = cell.tcPos.length() / this.maxDistance;
-      if (ratio > 1) ratio = 1;
-      const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
-      
-      cell.tcMesh.visible = showSquare;
-      cell.tcMesh.material.opacity = alpha;
-      cell.globeMesh.visible = showSquare;
-      cell.globeMesh.material.opacity = alpha;
-      // Scale: closer cells appear larger.
-      const scale = THREE.MathUtils.lerp(1.5, 0.5, ratio);
-      cell.globeMesh.scale.set(scale, scale, 1);
+      const show = isoDist >= isolationVal;
+      cell.planeMesh.visible = show;
+      // Set opacity based on the isolation distance (tune as needed)
+      const alpha = THREE.MathUtils.clamp(isoDist / 50, 0.1, 0.3);
+      cell.planeMesh.material.opacity = alpha;
     });
     
-    // Update adjacent lines: only show if both connected cells are visible.
+    // Update adjacent lines so that they’re only visible if both connected cells are visible.
     this.adjacentLines.forEach(obj => {
       const { line, cell1, cell2 } = obj;
-      if (cell1.globeMesh.visible && cell2.globeMesh.visible) {
-        const points = getGreatCirclePoints(cell1.globeMesh.position, cell2.globeMesh.position, 100, 16);
-        line.geometry.setFromPoints(points);
-        line.visible = true;
-      } else {
-        line.visible = false;
-      }
+      line.visible = cell1.planeMesh.visible && cell2.planeMesh.visible;
     });
   }
 }
 
-/**
- * Returns an array of points along the great-circle path between two points on a sphere.
- */
-function getGreatCirclePoints(p1, p2, R, segments) {
-  const points = [];
-  const start = p1.clone().normalize().multiplyScalar(R);
-  const end = p2.clone().normalize().multiplyScalar(R);
-  const axis = new THREE.Vector3().crossVectors(start, end).normalize();
-  const angle = start.angleTo(end);
-  for (let i = 0; i <= segments; i++) {
-    const theta = (i / segments) * angle;
-    const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, theta);
-    const point = start.clone().applyQuaternion(quaternion);
-    points.push(point);
-  }
-  return points;
-}
-
-/**
- * Creates the density overlay once, based on the final star set.
- * Returns the density overlay object (with cubesData and adjacentLines).
- */
 export function initDensityOverlay(maxDistance, starArray) {
-  densityGrid = new DensityGridOverlay(maxDistance, 2);
+  // Here we choose an angular step of 10° (adjustable).
+  densityGrid = new DensityGridOverlay(10);
   densityGrid.createGrid(starArray);
   return densityGrid;
 }
 
-/**
- * Called after user changes the slider, or filters change the star set.
- */
 export function updateDensityMapping(starArray) {
   if (!densityGrid) return;
   densityGrid.update(starArray);
