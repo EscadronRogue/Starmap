@@ -49,7 +49,7 @@ async function loadStarData() {
 }
 
 /**
- * Simple debounce helper function.
+ * Simple debounce helper function so we don't spam expensive operations on rapid changes.
  */
 function debounce(func, wait) {
   let timeout;
@@ -60,8 +60,7 @@ function debounce(func, wait) {
 }
 
 /**
- * MapManager class for managing a Three.js scene.
- * The addStars method now creates an instanced mesh for performance.
+ * MapManager class for the 3D scenes.
  */
 class MapManager {
   constructor({ canvasId, mapType }) {
@@ -69,12 +68,16 @@ class MapManager {
     this.mapType = mapType;
     this.scene = new THREE.Scene();
 
-    // Create renderer with antialiasing and limit pixel ratio for performance.
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
+    // Basic renderer setup
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: this.canvas,
+      antialias: true
+    });
+    // Cap pixel ratio to reduce performance overhead
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
 
-    // Setup camera with different starting positions for the two map types.
+    // Camera
     this.camera = new THREE.PerspectiveCamera(
       75,
       this.canvas.clientWidth / this.canvas.clientHeight,
@@ -86,65 +89,69 @@ class MapManager {
     } else {
       this.camera.position.set(0, 0, 200);
     }
+    this.scene.add(this.camera);
 
-    // Add basic lighting.
+    // Basic lights
     const amb = new THREE.AmbientLight(0xffffff, 0.5);
     this.scene.add(amb);
     const pt = new THREE.PointLight(0xffffff, 1);
     this.scene.add(pt);
 
-    // Setup custom camera controls.
+    // Custom camera controls
     this.controls = new ThreeDControls(this.camera, this.renderer.domElement);
 
-    // Create a LabelManager instance (for updating star labels).
+    // Label manager
     this.labelManager = new LabelManager(mapType, this.scene);
 
     window.addEventListener('resize', () => this.onResize(), false);
+
+    // Begin animation loop
     this.animate();
   }
 
   /**
-   * addStars creates an instanced mesh for all stars.
-   * For TrueCoordinates, we assume each star is drawn as a low-poly sphere.
+   * Creates an instanced mesh for the given stars (TrueCoordinates only).
+   * For the globe, we typically do a different approach (but you have the same code for both here).
    */
   addStars(stars) {
-    // Remove any previously added instanced mesh.
+    // Remove previous instanced mesh if exists
     if (this.instancedStars) {
       this.scene.remove(this.instancedStars);
+      this.instancedStars = null;
     }
+
     const instanceCount = stars.length;
     const starGeometry = new THREE.SphereGeometry(1, 8, 8); // low-poly sphere
     const starMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true });
-    this.instancedStars = new THREE.InstancedMesh(starGeometry, starMaterial, instanceCount);
+    const instanced = new THREE.InstancedMesh(starGeometry, starMaterial, instanceCount);
 
     const dummy = new THREE.Object3D();
     for (let i = 0; i < instanceCount; i++) {
       const star = stars[i];
-      // For TrueCoordinates, set position using star.x_coordinate, star.y_coordinate, star.z_coordinate.
       dummy.position.set(star.x_coordinate, star.y_coordinate, star.z_coordinate);
-      // Scale based on star.displaySize (adjust multiplier as needed).
       dummy.scale.setScalar(star.displaySize * 0.2);
       dummy.updateMatrix();
-      this.instancedStars.setMatrixAt(i, dummy.matrix);
+      instanced.setMatrixAt(i, dummy.matrix);
     }
-    this.instancedStars.instanceMatrix.needsUpdate = true;
-    this.scene.add(this.instancedStars);
-    this.starObjects = stars; // Save the star data for label updates.
+    instanced.instanceMatrix.needsUpdate = true;
+    this.instancedStars = instanced;
+    this.scene.add(instanced);
+    this.starObjects = stars; // store data for reference
   }
 
   /**
-   * updateMap updates the scene by adding stars and connection lines.
-   * Connection lines are merged using the mergeConnectionLines helper.
+   * Updates the map with a new set of stars and optional connection lines.
    */
   updateMap(stars, connectionObjs) {
-    // Update star instanced mesh.
+    // Rebuild instanced star mesh
     this.addStars(stars);
 
-    // Remove old connection lines.
+    // Remove old connection lines if present
     if (this.connectionLines) {
       this.scene.remove(this.connectionLines);
       this.connectionLines = null;
     }
+    // Merge connections into a single LineSegments object if we have them
     if (connectionObjs && connectionObjs.length > 0) {
       this.connectionLines = mergeConnectionLines(connectionObjs);
       this.scene.add(this.connectionLines);
@@ -162,15 +169,12 @@ class MapManager {
   animate() {
     requestAnimationFrame(() => this.animate());
     this.renderer.render(this.scene, this.camera);
-    // Update labels (the LabelManager throttles its updates internally).
-    if (this.labelManager && this.starObjects) {
-      this.labelManager.updateLabels(this.starObjects);
-    }
+    // Note: We removed per-frame label updates here to avoid performance issues.
   }
 }
 
 /**
- * Dummy functions for projecting stars (if needed).
+ * Dummy functions for projection logic if needed.
  */
 function projectStarTrueCoordinates(star) {
   return null;
@@ -180,18 +184,21 @@ function projectStarGlobe(star) {
 }
 
 /**
- * Initialize star interactions (raycasting for tooltip and selection).
+ * Initializes raycasting for star hover/click interactions (tooltips).
  */
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
+
   map.canvas.addEventListener('mousemove', (event) => {
+    // If we have a star selected, we might skip hover highlighting (optional).
     if (selectedStarData) return;
+
     const rect = map.canvas.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, map.camera);
-    // For instanced meshes, intersect the instanced object.
+
     const intersects = raycaster.intersectObject(map.instancedStars, true);
     if (intersects.length > 0) {
       const index = intersects[0].instanceId;
@@ -205,12 +212,13 @@ function initStarInteractions(map) {
       hideTooltip();
     }
   });
-  
+
   map.canvas.addEventListener('click', (event) => {
     const rect = map.canvas.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, map.camera);
+
     const intersects = raycaster.intersectObject(map.instancedStars, true);
     if (intersects.length > 0) {
       const index = intersects[0].instanceId;
@@ -231,17 +239,20 @@ function initStarInteractions(map) {
 }
 
 /**
- * Update selected star highlight.
- * (In an instanced mesh, you might change an instanced attribute or shader flag.)
- * Here this function is a placeholder.
+ * Example placeholder for a selected star highlight.
  */
 function updateSelectedStarHighlight() {
+  // If you'd like to visually highlight the selected star in the instanced mesh,
+  // you would modify the instance color or scale for that particular instance ID.
+  // The code below is just a placeholder.
   [trueCoordinatesMap, globeMap].forEach(map => {
-    // For an instanced mesh, you would update the corresponding instance color or scale.
-    // This is a placeholder to show where the update would occur.
+    // TODO: custom highlight logic
   });
 }
 
+/**
+ * Runs on page load. Initializes UI, loads data, sets up scenes, etc.
+ */
 window.onload = async () => {
   const loader = document.getElementById('loader');
   loader.classList.remove('hidden');
@@ -250,23 +261,25 @@ window.onload = async () => {
     cachedStars = await loadStarData();
     if (!cachedStars.length) throw new Error('No star data available');
 
+    // Setup filter UI
     await setupFilterUI(cachedStars);
 
-    // Debounce heavy filter updates.
-    const debouncedBuildAndApplyFilters = debounce(buildAndApplyFilters, 150);
+    // Debounce the filter changes so we don't spam expensive ops
+    const debouncedApplyFilters = debounce(buildAndApplyFilters, 150);
     const form = document.getElementById('filters-form');
     if (form) {
-      form.addEventListener('change', debouncedBuildAndApplyFilters);
+      form.addEventListener('change', debouncedApplyFilters);
 
-      // Update slider events with debouncing.
+      // connection slider
       const cSlider = document.getElementById('connection-slider');
       const cVal = document.getElementById('connection-value');
       if (cSlider && cVal) {
         cSlider.addEventListener('input', () => {
           cVal.textContent = cSlider.value;
-          debouncedBuildAndApplyFilters();
+          debouncedApplyFilters();
         });
       }
+      // density sliders
       const dSlider = document.getElementById('density-slider');
       const dVal = document.getElementById('density-value');
       if (dSlider && dVal) {
@@ -289,10 +302,12 @@ window.onload = async () => {
       }
     }
 
+    // Precompute the max distance once
     maxDistanceFromCenter = Math.max(
-      ...cachedStars.map(s => Math.sqrt(s.x_coordinate ** 2 + s.y_coordinate ** 2 + s.z_coordinate ** 2))
+      ...cachedStars.map(s => Math.sqrt(s.x_coordinate**2 + s.y_coordinate**2 + s.z_coordinate**2))
     );
 
+    // Create the two map scenes
     trueCoordinatesMap = new MapManager({
       canvasId: 'map3D',
       mapType: 'TrueCoordinates',
@@ -303,49 +318,32 @@ window.onload = async () => {
       mapType: 'Globe',
       projectFunction: projectStarGlobe,
     });
-    // Expose maps to window for external resizing if needed.
+
+    // Set them global for debugging if wanted
     window.trueCoordinatesMap = trueCoordinatesMap;
     window.globeMap = globeMap;
 
+    // Init interactions for hover/click
     initStarInteractions(trueCoordinatesMap);
     initStarInteractions(globeMap);
 
+    // First filter run
     buildAndApplyFilters();
 
-    // Density overlay: unchanged from previous implementation.
-    const currentFilters = getCurrentFilters();
-    if (currentFilters.enableDensityMapping) {
-      densityOverlay = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars);
-      densityOverlay.cubesData.forEach(c => {
-        trueCoordinatesMap.scene.add(c.tcMesh);
-        globeMap.scene.add(c.globeMesh);
-      });
-      densityOverlay.adjacentLines.forEach(obj => {
-        globeMap.scene.add(obj.line);
-      });
-      updateDensityMapping(currentFilteredStars);
-    } else {
-      if (densityOverlay) {
-        densityOverlay.cubesData.forEach(c => {
-          trueCoordinatesMap.scene.remove(c.tcMesh);
-          globeMap.scene.remove(c.globeMesh);
-        });
-        densityOverlay.adjacentLines.forEach(obj => {
-          globeMap.scene.remove(obj.line);
-        });
-        densityOverlay = null;
-      }
-    }
+    loader.classList.add('hidden');
   } catch (err) {
     console.error('Error initializing starmap:', err);
-    alert('Initialization of starmap failed. Please check console.');
-  } finally {
+    alert('Initialization failed. Check console for details.');
     loader.classList.add('hidden');
   }
 };
 
+/**
+ * Returns the relevant booleans from our filter form.
+ */
 function getCurrentFilters() {
   const form = document.getElementById('filters-form');
+  if (!form) return { enableConnections: false, enableDensityMapping: false };
   const formData = new FormData(form);
   return {
     enableConnections: (formData.get('enable-connections') !== null),
@@ -353,9 +351,11 @@ function getCurrentFilters() {
   };
 }
 
+/**
+ * Builds filter results and applies them to both maps.
+ */
 function buildAndApplyFilters() {
   if (!cachedStars) return;
-
   const {
     filteredStars,
     connections,
@@ -368,15 +368,23 @@ function buildAndApplyFilters() {
     enableDensityMapping
   } = applyFilters(cachedStars);
 
+  // Store the results
   currentFilteredStars = filteredStars;
   currentConnections = connections;
   currentGlobeFilteredStars = globeFilteredStars;
   currentGlobeConnections = globeConnections;
 
-  // For connection lines, use our merged helper if connections are enabled.
+  // Update the TrueCoordinates map
   trueCoordinatesMap.updateMap(currentFilteredStars, currentConnections);
-  globeMap.updateMap(currentGlobeFilteredStars, currentGlobeConnections);
+  // Refresh label manager for TrueCoordinates
+  trueCoordinatesMap.labelManager.refreshLabels(currentFilteredStars);
 
+  // Update the Globe map
+  globeMap.updateMap(currentGlobeFilteredStars, currentGlobeConnections);
+  // Refresh label manager for Globe
+  globeMap.labelManager.refreshLabels(currentGlobeFilteredStars);
+
+  // Remove old constellation lines/labels from globe, re-add if needed
   removeConstellationObjectsFromGlobe();
   if (showConstellationBoundaries) {
     constellationLinesGlobe = createConstellationBoundariesForGlobe();
@@ -387,8 +395,10 @@ function buildAndApplyFilters() {
     constellationLabelsGlobe.forEach(lbl => globeMap.scene.add(lbl));
   }
 
+  // Apply globe surface (opaque/transparent)
   applyGlobeSurface(globeOpaqueSurface);
 
+  // Density mapping overlay
   if (enableDensityMapping) {
     if (!densityOverlay) {
       densityOverlay = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars);
@@ -402,6 +412,7 @@ function buildAndApplyFilters() {
     }
     updateDensityMapping(currentFilteredStars);
   } else {
+    // Remove density overlay if it exists
     if (densityOverlay) {
       densityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.remove(c.tcMesh);
@@ -415,6 +426,9 @@ function buildAndApplyFilters() {
   }
 }
 
+/**
+ * Removes any previously-added constellation lines/labels from the globe scene.
+ */
 function removeConstellationObjectsFromGlobe() {
   if (constellationLinesGlobe && constellationLinesGlobe.length > 0) {
     constellationLinesGlobe.forEach(l => globeMap.scene.remove(l));
@@ -427,6 +441,9 @@ function removeConstellationObjectsFromGlobe() {
   constellationLabelsGlobe = [];
 }
 
+/**
+ * Toggles the globe surface from transparent to opaque.
+ */
 function applyGlobeSurface(isOpaque) {
   if (globeSurfaceSphere) {
     globeMap.scene.remove(globeSurfaceSphere);
@@ -445,4 +462,25 @@ function applyGlobeSurface(isOpaque) {
     globeSurfaceSphere.renderOrder = 0;
     globeMap.scene.add(globeSurfaceSphere);
   }
+}
+
+/**
+ * Initializes the density overlay once, from your existing code in filters/densityFilter.js.
+ * We call this only if the user enabled the density mapping.
+ */
+function initDensityOverlay(maxDistance, starArray) {
+  // This function is imported from your /filters/densityFilter.js:
+  // export function initDensityOverlay(maxDistance, starArray) { ... }
+  // but we replicate it here or simply call the import. 
+  // For clarity in this code snippet, we'll assume we call the import:
+  return window.initDensityOverlay(maxDistance, starArray);
+}
+
+/**
+ * Updates the density overlay after user moves slider or filters change.
+ * Also from your /filters/densityFilter.js
+ */
+function updateDensityMapping(starArray) {
+  if (!densityOverlay) return;
+  window.updateDensityMapping(starArray);
 }
