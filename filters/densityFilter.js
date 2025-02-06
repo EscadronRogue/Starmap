@@ -5,33 +5,28 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 let densityGrid = null;
 
 /**
- * DensityGridOverlay builds a 3D grid (using cubes) covering a sphere of radius maxDistance.
- * It computes distances from stars and flags a cell as "active" if its tolerance‐indexed distance
- * is at least the isolation value. Then it groups active cells via 26‑neighbor flood‑fill.
+ * DensityGridOverlay builds a 3D grid (of cubes) inside a sphere (radius = maxDistance).
+ * It computes distances from stars, marks a cell as “active” if its tolerance‐indexed
+ * distance is at least the isolation value, and groups active cells using a 26‑neighbor flood‑fill.
  *
- * After grouping, each cluster is classified as follows:
+ * Then, for each contiguous region (cluster) the algorithm segments it into a “core”
+ * (the main body) and any “branches” (narrow outgrowths). In our segmentation we:
+ *   – Iteratively remove cells that have fewer than 3 neighbors within the cluster.
+ *   – The cells that are removed (grouped into connected components) are the candidate branches.
+ *   – For each branch, we count how many cells in the branch border a cell in the core.
+ *     If the branch touches the core at only one spot it is defined as a Gulf;
+ *     if at two or more spots it is a Strait.
  *
- * 1. If the cluster has 1–2 cubes, it is a Lake.
+ * Clusters with only 1–2 cells are labeled as Lake.
+ * Remaining (core) clusters are “independent basins” that are later subdivided: if
+ * an independent basin’s volume is at least 50% of the largest independent basin, it is an Ocean;
+ * otherwise it is a Sea.
  *
- * 2. For clusters larger than 2 cubes, we compute the bounding-box dimensions and define:
- *    - occupancy = volume / ((dx+1)*(dy+1)*(dz+1))
- *    - aspectRatio = max(dx,dy,dz) / min(dx,dy,dz) (with a fallback if min==0)
+ * Finally, each region (core or branch) is assigned a label whose text is the type plus the
+ * dominant constellation (determined by a simple RA‑based helper).
  *
- *    We then mark a cluster as “narrow” if its occupancy is less than a threshold (here 0.5)
- *    and its aspect ratio is greater than a threshold (here 2.5).
- *
- * 3. In a second pass, for each narrow cluster we build a refined neighbor set that includes only
- *    neighboring clusters that are not narrow (and that have >2 cells, i.e. are not lakes). If the
- *    refined neighbor set contains at least 2 independent basins then the narrow cluster is a Strait;
- *    otherwise it is a Gulf.
- *
- * 4. All clusters that are not narrow (and have >2 cells) are independent basins. Among these, if
- *    a basin’s volume is at least 50% of the largest independent basin, it is an Ocean; otherwise, it is a Sea.
- *
- * Finally, each cluster is assigned a label using the dominant constellation (as determined by a helper)
- * and the type. The final label is in the form "<Type> <ConstellationName>".
- *
- * The class also provides a method to add these region labels (as THREE.Sprite objects) to a scene.
+ * The class also provides a method to add these region labels (as THREE.Sprite objects)
+ * into a scene.
  */
 class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
@@ -40,11 +35,11 @@ class DensityGridOverlay {
     this.cubesData = [];
     // Each adjacent line object stores { line, cell1, cell2 }
     this.adjacentLines = [];
-    // After clustering, store cluster data here.
+    // After clustering, store region (sub)clusters here.
     this.regionClusters = [];
     // Groups for region labels for different map types.
-    this.regionLabelsGroupTC = new THREE.Group(); // TrueCoordinates
-    this.regionLabelsGroupGlobe = new THREE.Group(); // Globe
+    this.regionLabelsGroupTC = new THREE.Group(); // TrueCoordinates labels
+    this.regionLabelsGroupGlobe = new THREE.Group(); // Globe labels
   }
 
   createGrid(stars) {
@@ -57,7 +52,7 @@ class DensityGridOverlay {
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
           
-          // Create cube for TrueCoordinates map.
+          // Create a cube (TrueCoordinates map)
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -68,7 +63,7 @@ class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
           
-          // For Globe map, use a flat plane.
+          // For the Globe map, use a flat plane.
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -100,7 +95,7 @@ class DensityGridOverlay {
               iy: Math.round(y / this.gridSize),
               iz: Math.round(z / this.gridSize)
             },
-            active: false // will be set in update()
+            active: false
           };
           this.cubesData.push(cell);
         }
@@ -199,42 +194,110 @@ class DensityGridOverlay {
   }
 
   /**
-   * Performs a 26‑neighbor flood‑fill on all active cells and groups them into clusters.
-   * Then classifies each cluster as follows:
+   * SEGMENTATION HELPER:
+   * For a given cluster (array of cells), perform an iterative erosion:
+   * repeatedly remove cells with fewer than 3 neighbors (within the cluster).
+   * The remaining cells form the "core" (main body), and the removed ones,
+   * grouped by connectivity, form the branch candidates.
    *
-   * (a) If volume (number of cells) ≤ 2 → Lake.
+   * Returns an object: { core: [cells], branches: [ { cells: [cells], connectionCount } ] }.
+   */
+  segmentCluster(cells) {
+    // Make a copy.
+    let coreCells = cells.slice();
+    let removedCells = [];
+    let changed = true;
+    while (changed) {
+      changed = false;
+      let nextCore = [];
+      for (let cell of coreCells) {
+        // Count neighbors in coreCells.
+        let count = 0;
+        for (let other of coreCells) {
+          if (cell === other) continue;
+          if (Math.abs(cell.grid.ix - other.grid.ix) <= 1 &&
+              Math.abs(cell.grid.iy - other.grid.iy) <= 1 &&
+              Math.abs(cell.grid.iz - other.grid.iz) <= 1) {
+            count++;
+          }
+        }
+        if (count < 3) {
+          removedCells.push(cell);
+          changed = true;
+        } else {
+          nextCore.push(cell);
+        }
+      }
+      coreCells = nextCore;
+    }
+    // Group removed cells into connected branches.
+    let branches = [];
+    let visited = new Set();
+    for (let cell of removedCells) {
+      if (visited.has(cell.id)) continue;
+      let branch = [];
+      let stack = [cell];
+      while (stack.length > 0) {
+        let current = stack.pop();
+        if (visited.has(current.id)) continue;
+        visited.add(current.id);
+        branch.push(current);
+        for (let other of removedCells) {
+          if (visited.has(other.id)) continue;
+          if (Math.abs(current.grid.ix - other.grid.ix) <= 1 &&
+              Math.abs(current.grid.iy - other.grid.iy) <= 1 &&
+              Math.abs(current.grid.iz - other.grid.iz) <= 1) {
+            stack.push(other);
+          }
+        }
+      }
+      // For each branch, count how many cells in the branch border a core cell.
+      let connectionSet = new Set();
+      branch.forEach(bCell => {
+        cells.forEach(origCell => {
+          if (coreCells.includes(origCell)) {
+            if (Math.abs(bCell.grid.ix - origCell.grid.ix) <= 1 &&
+                Math.abs(bCell.grid.iy - origCell.grid.iy) <= 1 &&
+                Math.abs(bCell.grid.iz - origCell.grid.iz) <= 1) {
+              connectionSet.add(origCell.id);
+            }
+          }
+        });
+      });
+      branches.push({ cells: branch, connectionCount: connectionSet.size });
+    }
+    return { core: coreCells, branches };
+  }
+
+  /**
+   * CLASSIFICATION:
+   * First, group active cells into clusters using a 26‑neighbor flood‑fill.
+   * Then, for each cluster:
+   *   - If volume ≤ 2 → Lake.
+   *   - Else, if volume > 2:
+   *       • Run segmentation (see segmentCluster) on the cluster.
+   *       • If segmentation yields branches (i.e. removed cells), then:
+   *             – The remaining core is the main body (an independent basin).
+   *             – Each branch is classified:
+   *                   ▸ If branch.connectionCount === 1 → Gulf.
+   *                   ▸ Else if connectionCount ≥ 2 → Strait.
+   *       • If no branches are found, the entire cluster is an independent basin.
    *
-   * (b) For clusters with volume > 2:
-   *     Compute bounding box dimensions dx, dy, dz; then:
-   *         occupancy = volume / ((dx+1)*(dy+1)*(dz+1))
-   *         aspectRatio = max(dx,dy,dz) / (min(dx,dy,dz) || 1)
+   * Later, among independent basins (core regions), if a basin’s volume is at least 50%
+   * of the largest independent basin, label it as Ocean; otherwise as Sea.
    *
-   *     A cluster is flagged as "narrow" if (occupancy < 0.5 && aspectRatio > 2.5).
+   * For naming, choose the dominant constellation (by cell count, via getConstellationForCell)
+   * and assign the label "<Type> <ConstellationName>".
    *
-   *     After computing a neighbor set (all clusters adjacent to any cell in this cluster),
-   *     we refine the neighbor set for narrow clusters by including only those neighbors
-   *     that are not themselves narrow (and that have volume > 2).
-   *
-   *     Then:
-   *         - If a narrow cluster’s refined neighbor set has size ≥ 2, label it as Strait.
-   *         - Otherwise, label it as Gulf.
-   *
-   * (c) All non-narrow clusters (with volume > 2) are independent basins.
-   *     Among these, if volume ≥ 50% of the largest independent basin then label as Ocean,
-   *     else label as Sea.
-   *
-   * For naming, for each cluster the dominant constellation (by cell count, as determined
-   * by getConstellationForCell) is chosen and the final label is "<Type> <ConstellationName>".
-   *
-   * @returns {Array} Array of cluster objects with properties: volume, centroid, type, label, etc.
+   * @returns {Array} Array of region objects.
    */
   classifyEmptyRegions() {
-    // Reset cluster id for each cell.
+    // Reset each cell’s clusterId.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
     });
-    // Build a map for active cells.
+    // Group active cells using flood‑fill.
     const gridMap = new Map();
     this.cubesData.forEach((cell, index) => {
       if (cell.active) {
@@ -247,14 +310,13 @@ class DensityGridOverlay {
     for (let i = 0; i < this.cubesData.length; i++) {
       const cell = this.cubesData[i];
       if (!cell.active || visited.has(cell.id)) continue;
-      const clusterCells = [];
-      const stack = [cell];
+      let clusterCells = [];
+      let stack = [cell];
       while (stack.length > 0) {
-        const current = stack.pop();
+        let current = stack.pop();
         if (visited.has(current.id)) continue;
         visited.add(current.id);
         clusterCells.push(current);
-        // Check all 26 neighbors.
         for (let dx = -1; dx <= 1; dx++) {
           for (let dy = -1; dy <= 1; dy++) {
             for (let dz = -1; dz <= 1; dz++) {
@@ -273,140 +335,76 @@ class DensityGridOverlay {
       }
       clusters.push(clusterCells);
     }
-    // Compute properties for each cluster.
-    const clusterData = clusters.map((cells, clusterId) => {
-      const volume = cells.length;
-      let minX = Infinity, maxX = -Infinity;
-      let minY = Infinity, maxY = -Infinity;
-      let minZ = Infinity, maxZ = -Infinity;
-      let sumPos = new THREE.Vector3(0, 0, 0);
-      const constCount = {};
-      cells.forEach(cell => {
-        cell.clusterId = clusterId;
-        const { ix, iy, iz } = cell.grid;
-        if (ix < minX) minX = ix;
-        if (ix > maxX) maxX = ix;
-        if (iy < minY) minY = iy;
-        if (iy > maxY) maxY = iy;
-        if (iz < minZ) minZ = iz;
-        if (iz > maxZ) maxZ = iz;
-        sumPos.add(cell.tcPos);
-        const cName = getConstellationForCell(cell);
-        constCount[cName] = (constCount[cName] || 0) + 1;
-      });
-      const centroid = sumPos.divideScalar(volume);
-      const bbox = { minX, maxX, minY, maxY, minZ, maxZ };
-      const dx = maxX - minX;
-      const dy = maxY - minY;
-      const dz = maxZ - minZ;
-      const bboxVolume = (dx + 1) * (dy + 1) * (dz + 1);
-      const occupancy = volume / bboxVolume;
-      const maxDim = Math.max(dx, dy, dz);
-      const minDim = Math.min(dx, dy, dz) || 1;
-      const aspectRatio = maxDim / minDim;
-      // Compute neighbor set: all distinct cluster IDs adjacent to any cell in this cluster.
-      const neighborSet = new Set();
-      this.cubesData.forEach(cell => {
-        if (!cell.active) return;
-        if (cell.clusterId === clusterId) {
-          for (let dx = -1; dx <= 1; dx++) {
-            for (let dy = -1; dy <= 1; dy++) {
-              for (let dz = -1; dz <= 1; dz++) {
-                if (dx === 0 && dy === 0 && dz === 0) continue;
-                const neighborKey = `${cell.grid.ix + dx},${cell.grid.iy + dy},${cell.grid.iz + dz}`;
-                if (gridMap.has(neighborKey)) {
-                  const neighborIndex = gridMap.get(neighborKey);
-                  const neighborCell = this.cubesData[neighborIndex];
-                  if (neighborCell.clusterId !== clusterId) {
-                    neighborSet.add(neighborCell.clusterId);
-                  }
-                }
-              }
-            }
-          }
-        }
-      });
-      return {
-        clusterId,
-        cells,
-        volume,
-        centroid,
-        bbox,
-        neighbors: neighborSet,
-        type: null,
-        label: '',
-        constCount,
-        occupancy,
-        aspectRatio,
-        isNarrow: false // to be determined
-      };
-    });
-    
-    // First pass: mark clusters as "narrow" (if volume > 2) using chosen thresholds.
-    const narrowOccupancyThreshold = 0.5;
-    const narrowAspectThreshold = 2.5;
-    clusterData.forEach(cluster => {
-      if (cluster.volume <= 2) {
-        cluster.type = 'Lake';
-        cluster.isNarrow = false;
-      } else {
-        cluster.isNarrow = (cluster.occupancy < narrowOccupancyThreshold && cluster.aspectRatio > narrowAspectThreshold);
-        // Temporarily mark as independent basin.
-        cluster.type = 'IndependentBasin';
-      }
-    });
-    
-    // Second pass: for each narrow cluster, refine its neighbor set by including only those neighbors
-    // that are not narrow and have volume > 2 (i.e. independent basins).
-    clusterData.forEach(cluster => {
-      if (cluster.volume > 2 && cluster.isNarrow) {
-        let refinedNeighbors = new Set();
-        cluster.neighbors.forEach(neighborId => {
-          const neighbor = clusterData.find(c => c.clusterId === neighborId);
-          if (neighbor && neighbor.volume > 2 && !neighbor.isNarrow) {
-            refinedNeighbors.add(neighborId);
-          }
+    // Process each cluster.
+    let regions = [];
+    clusters.forEach((cells, idx) => {
+      if (cells.length <= 2) {
+        // Small clusters are Lakes.
+        regions.push({
+          clusterId: idx,
+          cells,
+          volume: cells.length,
+          centroid: computeCentroid(cells),
+          constCount: computeConstCount(cells),
+          type: 'Lake'
         });
-        // If the narrow cluster touches at least 2 independent basins, it is a Strait;
-        // otherwise, it is a Gulf.
-        if (refinedNeighbors.size >= 2) {
-          cluster.type = 'Strait';
+      } else {
+        // For larger clusters, try to segment.
+        const seg = this.segmentCluster(cells);
+        if (seg.branches.length > 0) {
+          // Create a region for the core (if any).
+          if (seg.core.length > 0) {
+            regions.push({
+              clusterId: idx,
+              cells: seg.core,
+              volume: seg.core.length,
+              centroid: computeCentroid(seg.core),
+              constCount: computeConstCount(seg.core),
+              type: 'IndependentBasin'
+            });
+          }
+          // For each branch, classify by its number of connections.
+          seg.branches.forEach((branch) => {
+            let bType = (branch.connectionCount === 1) ? 'Gulf' : 'Strait';
+            regions.push({
+              clusterId: idx + '_branch',
+              cells: branch.cells,
+              volume: branch.cells.length,
+              centroid: computeCentroid(branch.cells),
+              constCount: computeConstCount(branch.cells),
+              type: bType
+            });
+          });
         } else {
-          cluster.type = 'Gulf';
+          // No branches found – treat entire cluster as independent basin.
+          regions.push({
+            clusterId: idx,
+            cells,
+            volume: cells.length,
+            centroid: computeCentroid(cells),
+            constCount: computeConstCount(cells),
+            type: 'IndependentBasin'
+          });
         }
       }
     });
-    
-    // Third pass: For clusters still marked as "IndependentBasin" (i.e. not narrow and not lakes),
-    // determine the maximum volume and then label them as Ocean if volume ≥50% of maximum, else Sea.
-    const independentBasins = clusterData.filter(c => c.type === 'IndependentBasin');
+    // Among independent basins (type 'IndependentBasin'), determine max volume.
+    let independentBasins = regions.filter(r => r.type === 'IndependentBasin');
     let maxVolume = 0;
-    independentBasins.forEach(c => {
-      if (c.volume > maxVolume) maxVolume = c.volume;
+    independentBasins.forEach(r => { if (r.volume > maxVolume) maxVolume = r.volume; });
+    independentBasins.forEach(r => {
+      r.type = (r.volume >= 0.5 * maxVolume) ? 'Ocean' : 'Sea';
     });
-    independentBasins.forEach(c => {
-      c.type = (c.volume >= 0.5 * maxVolume) ? 'Ocean' : 'Sea';
+    // Assign names based on dominant constellation.
+    regions.forEach(r => {
+      r.label = `${r.type} ${getDominantConstellation(r.constCount)}`;
     });
-    
-    // Finally, for naming, choose the dominant constellation in each cluster.
-    clusterData.forEach(c => {
-      let dominantConst = 'Unknown';
-      let maxCount = 0;
-      for (const name in c.constCount) {
-        if (c.constCount[name] > maxCount) {
-          maxCount = c.constCount[name];
-          dominantConst = name;
-        }
-      }
-      c.label = `${c.type} ${dominantConst}`;
-    });
-    
-    this.regionClusters = clusterData;
-    return clusterData;
+    this.regionClusters = regions;
+    return regions;
   }
 
   /**
-   * Creates a text label (THREE.Sprite) for the given text and position.
+   * Creates a text label (THREE.Sprite) for the given text at the given position.
    *
    * @param {string} text - The label text.
    * @param {THREE.Vector3} position - The 3D position.
@@ -454,8 +452,8 @@ class DensityGridOverlay {
 
   /**
    * Removes any existing region label group from the scene and creates new labels
-   * based on the current classification. For "TrueCoordinates" the centroid is used;
-   * for "Globe" the centroid is projected.
+   * based on current classification. For "TrueCoordinates", the centroid is used;
+   * for "Globe", the centroid is projected.
    *
    * @param {THREE.Scene} scene - The scene to add labels to.
    * @param {string} mapType - "Globe" or "TrueCoordinates".
@@ -472,15 +470,15 @@ class DensityGridOverlay {
       }
       this.regionLabelsGroupGlobe = new THREE.Group();
     }
-    const clusters = this.classifyEmptyRegions();
-    clusters.forEach(cluster => {
+    const regions = this.classifyEmptyRegions();
+    regions.forEach(region => {
       let labelPos;
       if (mapType === 'TrueCoordinates') {
-        labelPos = cluster.centroid;
+        labelPos = region.centroid;
       } else if (mapType === 'Globe') {
-        labelPos = this.projectToGlobe(cluster.centroid);
+        labelPos = this.projectToGlobe(region.centroid);
       }
-      const labelSprite = this.createRegionLabel(cluster.label, labelPos, mapType);
+      const labelSprite = this.createRegionLabel(region.label, labelPos, mapType);
       if (mapType === 'TrueCoordinates') {
         this.regionLabelsGroupTC.add(labelSprite);
       } else if (mapType === 'Globe') {
@@ -491,9 +489,38 @@ class DensityGridOverlay {
   }
 }
 
+/* Helper functions for segmentation and naming */
+
+function computeCentroid(cells) {
+  let sum = new THREE.Vector3(0, 0, 0);
+  cells.forEach(c => sum.add(c.tcPos));
+  return sum.divideScalar(cells.length);
+}
+
+function computeConstCount(cells) {
+  let count = {};
+  cells.forEach(c => {
+    let name = getConstellationForCell(c);
+    count[name] = (count[name] || 0) + 1;
+  });
+  return count;
+}
+
+function getDominantConstellation(countObj) {
+  let dom = 'Unknown';
+  let max = 0;
+  for (let name in countObj) {
+    if (countObj[name] > max) {
+      max = countObj[name];
+      dom = name;
+    }
+  }
+  return dom;
+}
+
 /**
  * Helper: Returns a constellation name for a cell based on its tcPos.
- * (This simple partition by RA may be replaced with a more sophisticated method.)
+ * (This simple RA‑based partition may be replaced with your preferred method.)
  *
  * @param {Object} cell - A grid cell.
  * @returns {string} - The constellation name.
