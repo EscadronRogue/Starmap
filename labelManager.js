@@ -155,9 +155,12 @@ export class LabelManager {
       this.scene.add(lineObj);
     }
 
-    // Update positions
+    // Update positions:
+    // For TrueCoordinates map, use star.truePosition if available.
     const starPos = (this.mapType === 'TrueCoordinates')
-      ? new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate)
+      ? (star.truePosition 
+          ? new THREE.Vector3(star.truePosition.x, star.truePosition.y, star.truePosition.z)
+          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate))
       : new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z);
 
     const offset = this.computeLabelOffset(star, starPos);
