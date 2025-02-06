@@ -35,32 +35,35 @@ let densityOverlay = null;
 let globeGrid = null;
 
 // ---------------------------------------------------------
-// For the True Coordinates map, we use the x, y, z values from complete_data_stars.json directly.
+// Helper: Convert (ra, dec, R) to a position on the sphere using our standard convention.
+function radToSphere(ra, dec, R) {
+  return new THREE.Vector3(
+    -R * Math.cos(dec) * Math.cos(ra),
+     R * Math.sin(dec),
+    -R * Math.cos(dec) * Math.sin(ra)
+  );
+}
+
+/**
+ * For the True Coordinates map, we simply use the star’s x, y, and z coordinates.
+ */
 function getStarTruePosition(star) {
   return new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
 }
 
 /**
- * For the Globe map, we “project” the star’s true position onto a sphere of radius 100.
- * Since both maps are centered on the Sun (0,0,0) and the file’s coordinates are in the proper
- * 3D (with the Sun at the origin), we simply compute:
- *
- *    spherePosition = (star_true_position).normalize() * 100
+ * For the Globe map, we “project” the star onto a sphere of radius 100.
+ * Instead of re‑computing RA and DEC from the (x, y, z) values (which seem to use a different convention),
+ * we use the provided RA_in_radian and DEC_in_radian.
  */
 function projectStarGlobe(star) {
-  const pos = getStarTruePosition(star);
   const R = 100;
-  // If the star is exactly at the Sun (r = 0) then just return (0,0,0)
-  if (pos.lengthSq() === 0) return new THREE.Vector3(0, 0, 0);
-  return pos.clone().normalize().multiplyScalar(R);
+  return radToSphere(star.RA_in_radian, star.DEC_in_radian, R);
 }
 
 /**
- * Creates a grid overlay on the inside surface of the sphere (radius 100) to help verify coordinates.
+ * Creates a grid overlay on the inside surface of a sphere (radius 100) to help verify coordinates.
  * We draw lines of constant RA (meridians) and constant DEC (parallels) using subtle gray lines.
- *
- * (Note: Because we now trust the file’s coordinates for angular positions, the grid is built by
- * normalizing the star positions; here we use the same “spherical” conversion as before.)
  */
 function createGlobeGrid(R = 100, options = {}) {
   const gridGroup = new THREE.Group();
@@ -75,41 +78,28 @@ function createGlobeGrid(R = 100, options = {}) {
     linewidth: lineWidth
   });
 
-  // Draw meridians: imagine lines of constant RA every 30°.
+  // Draw meridians: constant RA lines every 30°.
   for (let raDeg = 0; raDeg < 360; raDeg += 30) {
     const ra = THREE.Math.degToRad(raDeg);
     const points = [];
-    // Let dec vary from -80° to +80°
+    // Vary dec from -80° to +80°.
     for (let decDeg = -80; decDeg <= 80; decDeg += 2) {
       const dec = THREE.Math.degToRad(decDeg);
-      // Use the standard conversion for a point on the sphere:
-      // Here we follow the convention used by your constellation data:
-      //   x = -R * cos(dec) * cos(ra)
-      //   y =  R * sin(dec)
-      //   z = -R * cos(dec) * sin(ra)
-      points.push(new THREE.Vector3(
-        -R * Math.cos(dec) * Math.cos(ra),
-         R * Math.sin(dec),
-        -R * Math.cos(dec) * Math.sin(ra)
-      ));
+      points.push(radToSphere(ra, dec, R));
     }
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     const line = new THREE.Line(geometry, material);
     gridGroup.add(line);
   }
 
-  // Draw parallels: lines of constant dec every 30° from -60° to +60°
+  // Draw parallels: constant DEC lines every 30° from -60° to +60°.
   for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
     const dec = THREE.Math.degToRad(decDeg);
     const points = [];
     const segments = 64;
     for (let i = 0; i <= segments; i++) {
       const ra = (i / segments) * 2 * Math.PI;
-      points.push(new THREE.Vector3(
-        -R * Math.cos(dec) * Math.cos(ra),
-         R * Math.sin(dec),
-        -R * Math.cos(dec) * Math.sin(ra)
-      ));
+      points.push(radToSphere(ra, dec, R));
     }
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     const line = new THREE.Line(geometry, material);
@@ -120,7 +110,7 @@ function createGlobeGrid(R = 100, options = {}) {
 }
 
 // ---------------------------------------------------------
-// MapManager class using individual meshes instead of instanced meshes
+// MapManager class (unchanged except for our new star position functions)
 class MapManager {
   constructor({ canvasId, mapType }) {
     this.canvas = document.getElementById(canvasId);
@@ -171,11 +161,11 @@ class MapManager {
 
   /**
    * Creates individual Mesh objects for each star.
-   * For the True Coordinates map we use the true position from the JSON file.
-   * For the Globe map we use the computed spherePosition (which should have been set beforehand).
+   * For the True Coordinates map we use the true (x,y,z) data.
+   * For the Globe map we use the precomputed spherePosition.
    */
   addStars(stars) {
-    // Remove any existing star meshes
+    // Remove existing star meshes.
     while (this.starGroup.children.length > 0) {
       const child = this.starGroup.children[0];
       this.starGroup.remove(child);
@@ -196,16 +186,14 @@ class MapManager {
 
       let pos;
       if (this.mapType === 'TrueCoordinates') {
-        // Use the file's x,y,z directly.
         pos = getStarTruePosition(star);
       } else {
-        // Globe map: use the precomputed spherePosition.
         pos = star.spherePosition || new THREE.Vector3(0, 0, 0);
       }
       starMesh.position.copy(pos);
       this.starGroup.add(starMesh);
     });
-    // Keep a reference to the star data for interactions.
+    // Keep a reference to the star data.
     this.starObjects = stars;
   }
 
@@ -368,13 +356,12 @@ window.onload = async () => {
 
     buildAndApplyFilters();
 
-    // For the Globe map, compute each star’s sphere position by normalizing the true coordinates.
-    // (This ensures the globe and true coordinates maps share the same angular positions.)
+    // For the Globe map, compute each star’s sphere position using RA_in_radian/DEC_in_radian.
     cachedStars.forEach(star => {
-      star.spherePosition = getStarTruePosition(star).clone().normalize().multiplyScalar(100);
+      star.spherePosition = projectStarGlobe(star);
     });
 
-    // Create and add the globe grid to the Globe map scene.
+    // Create and add the globe grid.
     globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
 
@@ -399,7 +386,7 @@ async function loadStarData() {
   }
 }
 
-// Simple debounce helper
+// Simple debounce helper.
 function debounce(func, wait) {
   let timeout;
   return function (...args) {
@@ -441,9 +428,9 @@ function buildAndApplyFilters() {
   currentGlobeFilteredStars = globeFilteredStars;
   currentGlobeConnections = globeConnections;
 
-  // For the Globe map, update each star’s spherePosition from the file’s coordinates.
+  // For the Globe map, update each star’s spherePosition using the provided RA/dec.
   currentGlobeFilteredStars.forEach(star => {
-    star.spherePosition = getStarTruePosition(star).clone().normalize().multiplyScalar(100);
+    star.spherePosition = projectStarGlobe(star);
   });
 
   trueCoordinatesMap.updateMap(currentFilteredStars, currentConnections);
