@@ -23,11 +23,10 @@
     <aside class="sidebar">
       <h2>Filters</h2>
       <form id="filters-form">
-        <!-- Static fieldsets for filters that are not dynamically added:
-             We keep only the ones that are not duplicated.
-             The updated Constellations and Globe Surface fieldsets will be added dynamically
-             (via filters/index.js), so we remove any outdated static copies.
+        <!-- Keep only the static fieldsets that are not duplicated:
+             The updated (collapsible) Constellations and Globe Surface filters will be added dynamically.
         -->
+
         <!-- Stellar Class Filter Fieldset -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Stellar Class</legend>
@@ -133,9 +132,7 @@
             </div>
           </div>
         </fieldset>
-        <!-- End of static fieldsets.
-             Note: The updated Constellations and Globe Surface filters are added dynamically by the script.
-        -->
+        <!-- End of static fieldsets. (No static duplicates for Constellations or Globe Surface.) -->
       </form>
     </aside>
 
@@ -199,12 +196,20 @@
         if (document.fullscreenElement) {
           document.exitFullscreen();
         } else {
-          // Request fullscreen on the canvas so that it occupies the entire screen
+          // Request fullscreen on the canvas so it occupies the entire screen
           canvas.requestFullscreen().catch(err => {
             console.error("Error attempting to enable full-screen mode:", err);
           });
         }
       });
+    });
+
+    // Listen for fullscreen change so that when we exit fullscreen, we trigger a resize
+    document.addEventListener("fullscreenchange", function() {
+      if (!document.fullscreenElement) {
+        // When exiting fullscreen, dispatch a resize event to restore layout
+        window.dispatchEvent(new Event('resize'));
+      }
     });
   </script>
 </body>
