@@ -3,16 +3,15 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 
 import { applyFilters, setupFilterUI } from './filters/index.js';
-import { mergeConnectionLines } from './filters/connectionsFilter.js';
+// We need both createConnectionLines() and mergeConnectionLines()
+import { createConnectionLines, mergeConnectionLines } from './filters/connectionsFilter.js';
 import {
   createConstellationBoundariesForGlobe,
   createConstellationLabelsForGlobe
 } from './filters/constellationFilter.js';
-import { globeSurfaceOpaque } from './filters/globeSurfaceFilter.js';
 
-// 1) Import these two directly from your densityFilter
 import { initDensityOverlay, updateDensityMapping } from './filters/densityFilter.js';
-
+import { globeSurfaceOpaque } from './filters/globeSurfaceFilter.js';
 import { ThreeDControls } from './cameraControls.js';
 import { LabelManager } from './labelManager.js';
 import { showTooltip, hideTooltip } from './tooltips.js';
@@ -57,6 +56,17 @@ function debounce(func, wait) {
     clearTimeout(timeout);
     timeout = setTimeout(() => { func.apply(this, args); }, wait);
   };
+}
+
+/**
+ * A small utility to place a star on a globe of radius=100.
+ */
+function projectStarGlobe(star) {
+  const v = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+  if (v.lengthSq() > 0) {
+    v.normalize().multiplyScalar(100);
+  }
+  return { x: v.x, y: v.y, z: v.z };
 }
 
 // ---------------------------------------------------------
@@ -105,55 +115,120 @@ class MapManager {
     this.animate();
   }
 
+  /**
+   * Creates an InstancedMesh for the given stars. 
+   * Each star has displaySize, displayColor, displayOpacity set by filters.
+   * We'll do per‑instance color, but a single uniform opacity (see note below).
+   */
   addStars(stars) {
+    // Remove previous instanced mesh if exists
     if (this.instancedStars) {
       this.scene.remove(this.instancedStars);
       this.instancedStars = null;
     }
 
     const instanceCount = stars.length;
+    if (instanceCount === 0) return;
+
+    // We want per-instance color => set 'vertexColors = true' and 'instancedMesh.setColorAt()'
+    // For alpha, we do a single uniform material.opacity (applies to all).
     const starGeometry = new THREE.SphereGeometry(1, 8, 8);
-    const starMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true });
+    const starMaterial = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 1.0 // we'll override below if we want a "global" alpha
+    });
+
     const instanced = new THREE.InstancedMesh(starGeometry, starMaterial, instanceCount);
+    instanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
     const dummy = new THREE.Object3D();
+    const color = new THREE.Color();
+
+    // Track the minimum opacity found (we can simply pick the average or the max)
+    let minOpacity = 1.0;
+
     for (let i = 0; i < instanceCount; i++) {
       const star = stars[i];
+
+      // For map positioning:
       let px, py, pz;
       if (this.mapType === 'TrueCoordinates') {
         px = star.x_coordinate;
         py = star.y_coordinate;
         pz = star.z_coordinate;
       } else {
-        // For the globe map, use star.spherePosition
         px = star.spherePosition?.x ?? 0;
         py = star.spherePosition?.y ?? 0;
         pz = star.spherePosition?.z ?? 0;
       }
 
+      // Position & Scale
       dummy.position.set(px, py, pz);
       dummy.scale.setScalar(star.displaySize * 0.2);
       dummy.updateMatrix();
       instanced.setMatrixAt(i, dummy.matrix);
+
+      // Color
+      color.set(star.displayColor || '#ffffff');
+      instanced.setColorAt(i, color);
+
+      // Keep track of the smallest star.displayOpacity we see
+      if (star.displayOpacity < minOpacity) {
+        minOpacity = star.displayOpacity;
+      }
     }
+
+    // Because InstancedMesh can only have one uniform opacity, let's just pick
+    // e.g. the *max* or *min* or *average* of all star.displayOpacity.
+    starMaterial.opacity = minOpacity; // or do e.g. `Math.min(1.0, someValue)`
+
     instanced.instanceMatrix.needsUpdate = true;
+    if (instanced.instanceColor) {
+      instanced.instanceColor.needsUpdate = true;
+    }
 
     this.instancedStars = instanced;
     this.scene.add(instanced);
-    this.starObjects = stars;
+    this.starObjects = stars; // store data for reference
   }
 
-  updateMap(stars, connectionObjs) {
-    this.addStars(stars);
-
+  /**
+   * Creates the connection lines for this map:
+   *   - TrueCoordinates => Straight lines (mergeConnectionLines)
+   *   - Globe => Great-circle lines (createConnectionLines w/ mapType='Globe')
+   */
+  updateConnections(stars, connectionObjs) {
+    // Remove old lines if present
     if (this.connectionLines) {
-      this.scene.remove(this.connectionLines);
+      this.connectionLines.forEach(obj => this.scene.remove(obj));
       this.connectionLines = null;
     }
-    if (connectionObjs && connectionObjs.length > 0) {
-      this.connectionLines = mergeConnectionLines(connectionObjs);
-      this.scene.add(this.connectionLines);
+
+    if (!connectionObjs || connectionObjs.length === 0) {
+      return;
     }
+
+    if (this.mapType === 'Globe') {
+      // Create array of lines with getGreatCirclePoints
+      const linesArray = createConnectionLines(stars, connectionObjs, 'Globe');
+      // linesArray is an array of THREE.Line objects
+      this.connectionLines = linesArray;
+      linesArray.forEach(line => this.scene.add(line));
+    } else {
+      // TrueCoordinates => Merge into one LineSegments
+      const merged = mergeConnectionLines(connectionObjs);
+      this.scene.add(merged);
+      this.connectionLines = [merged];
+    }
+  }
+
+  /**
+   * Full refresh of star geometry + connection lines
+   */
+  updateMap(stars, connectionObjs) {
+    this.addStars(stars);
+    this.updateConnections(stars, connectionObjs);
   }
 
   onResize() {
@@ -171,40 +246,32 @@ class MapManager {
 }
 
 // ---------------------------------------------------------
-// A function to place a star on the globe (radius=100).
-function projectStarGlobe(star) {
-  const pos = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
-  if (pos.lengthSq() > 0) {
-    pos.normalize().multiplyScalar(100);
-  }
-  return { x: pos.x, y: pos.y, z: pos.z };
-}
-
-// ---------------------------------------------------------
 // Raycasting (hover/click) for tooltips
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
 
   map.canvas.addEventListener('mousemove', (event) => {
-    if (selectedStarData) return;
+    if (selectedStarData) return; // optional: skip hover if a star is "selected"
 
     const rect = map.canvas.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, map.camera);
 
-    const intersects = raycaster.intersectObject(map.instancedStars, true);
-    if (intersects.length > 0) {
-      const index = intersects[0].instanceId;
-      if (typeof index === 'number') {
-        const star = map.starObjects[index];
-        if (star) {
-          showTooltip(event.clientX, event.clientY, star);
+    if (map.instancedStars) {
+      const intersects = raycaster.intersectObject(map.instancedStars, true);
+      if (intersects.length > 0) {
+        const index = intersects[0].instanceId;
+        if (typeof index === 'number') {
+          const star = map.starObjects[index];
+          if (star) {
+            showTooltip(event.clientX, event.clientY, star);
+          }
         }
+      } else {
+        hideTooltip();
       }
-    } else {
-      hideTooltip();
     }
   });
 
@@ -214,17 +281,21 @@ function initStarInteractions(map) {
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, map.camera);
 
-    const intersects = raycaster.intersectObject(map.instancedStars, true);
-    if (intersects.length > 0) {
-      const index = intersects[0].instanceId;
-      if (typeof index === 'number') {
-        const star = map.starObjects[index];
-        if (star) {
-          selectedStarData = star;
-          showTooltip(event.clientX, event.clientY, star);
-          updateSelectedStarHighlight();
+    let clickedStar = null;
+    if (map.instancedStars) {
+      const intersects = raycaster.intersectObject(map.instancedStars, true);
+      if (intersects.length > 0) {
+        const index = intersects[0].instanceId;
+        if (typeof index === 'number') {
+          clickedStar = map.starObjects[index];
         }
       }
+    }
+
+    if (clickedStar) {
+      selectedStarData = clickedStar;
+      showTooltip(event.clientX, event.clientY, clickedStar);
+      updateSelectedStarHighlight();
     } else {
       selectedStarData = null;
       updateSelectedStarHighlight();
@@ -233,10 +304,11 @@ function initStarInteractions(map) {
   });
 }
 
+/** Example highlight no-op */
 function updateSelectedStarHighlight() {
-  // Placeholder for highlighting logic if desired
+  // If you want to color or scale the selected star instance, do it here
   [trueCoordinatesMap, globeMap].forEach(map => {
-    // No-op
+    // no-op
   });
 }
 
@@ -250,13 +322,16 @@ window.onload = async () => {
     cachedStars = await loadStarData();
     if (!cachedStars.length) throw new Error('No star data available');
 
+    // Setup filter UI
     await setupFilterUI(cachedStars);
 
+    // Debounce the filter changes so we don't spam expensive ops
     const debouncedApplyFilters = debounce(buildAndApplyFilters, 150);
     const form = document.getElementById('filters-form');
     if (form) {
       form.addEventListener('change', debouncedApplyFilters);
 
+      // connection slider
       const cSlider = document.getElementById('connection-slider');
       const cVal = document.getElementById('connection-value');
       if (cSlider && cVal) {
@@ -266,6 +341,7 @@ window.onload = async () => {
         });
       }
 
+      // density sliders
       const dSlider = document.getElementById('density-slider');
       const dVal = document.getElementById('density-value');
       if (dSlider && dVal) {
@@ -276,7 +352,6 @@ window.onload = async () => {
           }
         });
       }
-
       const tSlider = document.getElementById('tolerance-slider');
       const tVal = document.getElementById('tolerance-value');
       if (tSlider && tVal) {
@@ -289,23 +364,34 @@ window.onload = async () => {
       }
     }
 
+    // Precompute max distance once
     maxDistanceFromCenter = Math.max(
       ...cachedStars.map(s => Math.sqrt(
         s.x_coordinate**2 + s.y_coordinate**2 + s.z_coordinate**2
       ))
     );
 
-    // Make both 3D maps
-    trueCoordinatesMap = new MapManager({ canvasId: 'map3D', mapType: 'TrueCoordinates' });
-    globeMap = new MapManager({ canvasId: 'sphereMap', mapType: 'Globe' });
+    // Create the two map scenes
+    trueCoordinatesMap = new MapManager({
+      canvasId: 'map3D',
+      mapType: 'TrueCoordinates'
+    });
+    globeMap = new MapManager({
+      canvasId: 'sphereMap',
+      mapType: 'Globe'
+    });
 
+    // Set them global if you like
     window.trueCoordinatesMap = trueCoordinatesMap;
     window.globeMap = globeMap;
 
+    // Init interactions for hover/click
     initStarInteractions(trueCoordinatesMap);
     initStarInteractions(globeMap);
 
+    // First filter run
     buildAndApplyFilters();
+
     loader.classList.add('hidden');
   } catch (err) {
     console.error('Error initializing starmap:', err);
@@ -325,9 +411,12 @@ function getCurrentFilters() {
   };
 }
 
-// ---------------------------------------------------------
+/**
+ * Main function that re‑applies all filters, updates both maps, re‑creates lines, etc.
+ */
 function buildAndApplyFilters() {
   if (!cachedStars) return;
+
   const {
     filteredStars,
     connections,
@@ -340,21 +429,22 @@ function buildAndApplyFilters() {
     enableDensityMapping
   } = applyFilters(cachedStars);
 
+  // Store the results
   currentFilteredStars = filteredStars;
   currentConnections = connections;
   currentGlobeFilteredStars = globeFilteredStars;
   currentGlobeConnections = globeConnections;
 
-  // Ensure each globe star has spherePosition
+  // Ensure each star in the globe set has .spherePosition
   currentGlobeFilteredStars.forEach(star => {
     star.spherePosition = projectStarGlobe(star);
   });
 
-  // Update TrueCoordinates
+  // Update the TrueCoordinates map
   trueCoordinatesMap.updateMap(currentFilteredStars, currentConnections);
   trueCoordinatesMap.labelManager.refreshLabels(currentFilteredStars);
 
-  // Update Globe
+  // Update the Globe map
   globeMap.updateMap(currentGlobeFilteredStars, currentGlobeConnections);
   globeMap.labelManager.refreshLabels(currentGlobeFilteredStars);
 
@@ -369,7 +459,7 @@ function buildAndApplyFilters() {
     constellationLabelsGlobe.forEach(lbl => globeMap.scene.add(lbl));
   }
 
-  // Globe surface
+  // Globe surface (opaque vs transparent)
   applyGlobeSurface(globeOpaqueSurface);
 
   // Density overlay
