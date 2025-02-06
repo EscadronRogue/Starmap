@@ -37,15 +37,14 @@ export async function setupFilterUI(allStars) {
   // Make existing legends collapsible
   const mainLegends = filterForm.querySelectorAll('legend.collapsible');
   mainLegends.forEach(legend => {
-    // Remove any existing inline maxHeight setting
     const fc = legend.nextElementSibling;
-    if (fc) fc.style.maxHeight = null;
+    if (fc) fc.style.maxHeight = '0px';
     legend.addEventListener('click', () => {
       legend.classList.toggle('active');
       const isActive = legend.classList.contains('active');
       legend.setAttribute('aria-expanded', isActive);
       if (fc) {
-        fc.style.maxHeight = isActive ? fc.scrollHeight + 'px' : null;
+        fc.style.maxHeight = isActive ? fc.scrollHeight + 'px' : '0px';
       }
     });
   });
@@ -56,9 +55,7 @@ export async function setupFilterUI(allStars) {
   // Add new fieldset for Globe Surface
   addGlobeSurfaceFieldset();
 
-  // We forcibly open the fieldsets for newly added categories so the user sees them
-  forceOpenFieldsets(['Constellations', 'Globe Surface']);
-
+  // All categories now start closed.
   // Load constellation data in background
   await loadConstellationBoundaries();
   await loadConstellationCenters();
@@ -147,24 +144,6 @@ function addGlobeSurfaceFieldset() {
   contentDiv.appendChild(surfDiv);
   fs.appendChild(contentDiv);
   filterForm.appendChild(fs);
-}
-
-/**
- * Forcibly opens fieldsets whose titles are in the provided array.
- */
-function forceOpenFieldsets(fieldsetTitles) {
-  const legends = filterForm.querySelectorAll('legend.collapsible');
-  legends.forEach(legend => {
-    const titleText = legend.textContent.trim();
-    if (fieldsetTitles.includes(titleText)) {
-      legend.classList.add('active');
-      legend.setAttribute('aria-expanded','true');
-      const fc = legend.nextElementSibling;
-      if (fc && fc.classList.contains('filter-content')) {
-        fc.style.maxHeight = fc.scrollHeight + 'px';
-      }
-    }
-  });
 }
 
 /**
