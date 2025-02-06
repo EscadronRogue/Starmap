@@ -57,35 +57,37 @@ function debounce(func, wait) {
 }
 
 /**
- * Projects a star's (x,y,z) true coordinate onto a sphere of radius 100.
- * This conversion now matches the constellation conversion by flipping the x and z axes.
- * That is, for a given star we compute:
+ * Projects a star's true (x,y,z) coordinates onto the inner surface of a sphere
+ * of radius 100 using its RA and DEC.
  *
- *   let v = (star.x_coordinate, star.y_coordinate, star.z_coordinate)
- *   r = |v|
- *   phi = arccos(v.y / r)
- *   theta = atan2(v.z, v.x)
+ * We first compute:
  *
- * Then the globe position is:
+ *   r = sqrt(x^2 + y^2 + z^2)
+ *   ra  = atan2(z, x)
+ *   dec = asin(y / r)
  *
- *   x = -R · sin(phi) · cos(theta)
- *   y =  R · cos(phi)
- *   z = -R · sin(phi) · sin(theta)
+ * Then we convert (ra, dec) to Cartesian coordinates as seen from inside the sphere
+ * using the same formula as in the constellation conversion:
  *
- * This ensures that stars fall into their proper constellations.
+ *   x = -R · cos(dec) · cos(ra)
+ *   y =  R · sin(dec)
+ *   z = -R · cos(dec) · sin(ra)
+ *
+ * This consistent conversion ensures that stars fall in the same regions as the constellation boundaries.
  */
 function projectStarGlobe(star) {
-  const v = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
-  const r = v.length();
+  const x0 = star.x_coordinate;
+  const y0 = star.y_coordinate;
+  const z0 = star.z_coordinate;
+  const r = Math.sqrt(x0 * x0 + y0 * y0 + z0 * z0);
   if (r === 0) return new THREE.Vector3(0, 0, 0);
-  const phi = Math.acos(v.y / r);
-  const theta = Math.atan2(v.z, v.x);
+  const ra = Math.atan2(z0, x0);
+  const dec = Math.asin(y0 / r);
   const R = 100;
-  return new THREE.Vector3(
-    -R * Math.sin(phi) * Math.cos(theta),
-     R * Math.cos(phi),
-    -R * Math.sin(phi) * Math.sin(theta)
-  );
+  const x = -R * Math.cos(dec) * Math.cos(ra);
+  const y =  R * Math.sin(dec);
+  const z = -R * Math.cos(dec) * Math.sin(ra);
+  return new THREE.Vector3(x, y, z);
 }
 
 // ---------------------------------------------------------
@@ -385,7 +387,7 @@ function buildAndApplyFilters() {
   currentGlobeFilteredStars = globeFilteredStars;
   currentGlobeConnections = globeConnections;
 
-  // Ensure each star in the globe set has spherePosition.
+  // Ensure each star in the globe set has spherePosition using our RA/DEC conversion.
   currentGlobeFilteredStars.forEach(star => {
     star.spherePosition = projectStarGlobe(star);
   });
