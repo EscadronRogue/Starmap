@@ -5,12 +5,24 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 let densityGrid = null;
 
 /**
- * The DensityGridOverlay class now not only builds the 3D grid of cubes but also:
- * - Computes each cell’s distance to the stars.
- * - Sets an “active” flag based on a user‐controlled isolation value.
- * - Provides methods to run a flood‑fill (26‑neighbor) on the active cells, classifying
- *   contiguous regions as Lake, Gulf, Strait, Ocean, or Sea.
- * - Creates text labels (as Sprites) for each region.
+ * The DensityGridOverlay class now builds a 3D grid of cubes,
+ * computes the distance from stars, and marks cells as active based on an isolation value.
+ *
+ * It then runs a 26‑neighbor flood‑fill on the active cells to group them into clusters,
+ * classifies each cluster according to:
+ *
+ *  - Lake: one or two cubes.
+ *  - Independent Basin: larger than two cubes.
+ *      • Among these, if the volume is at least 50% of the largest independent basin, it is an Ocean;
+ *        otherwise it is a Sea.
+ *  - Gulf: a narrow outgrowth (a cluster touching only one neighbor).
+ *  - Strait: a gulf that connects two independent basins (i.e. touches exactly two neighbors).
+ *
+ * Finally, each cluster is given a label whose text is composed of the type and the name
+ * of the constellation that contributes the most cubes to that cluster.
+ *
+ * The class also provides a method to add these region labels (as THREE.Sprite objects)
+ * into a given scene.
  */
 class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
@@ -36,7 +48,7 @@ class DensityGridOverlay {
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
           
-          // Build a cube (for the TrueCoordinates map)
+          // Create a cube for the TrueCoordinates map.
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -47,7 +59,7 @@ class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
           
-          // For the Globe map, use a flat square (plane)
+          // For the Globe map, use a flat square (plane) instead of a cube.
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -56,7 +68,7 @@ class DensityGridOverlay {
           if (distFromCenter < 1e-6) {
             projectedPos = new THREE.Vector3(0, 0, 0);
           } else {
-            // Compute RA and dec from posTC (note the reversed x/z for the Globe)
+            // Compute RA = atan2(-z, -x) and dec = asin(y / dist)
             const ra = Math.atan2(-posTC.z, -posTC.x);
             const dec = Math.asin(posTC.y / distFromCenter);
             const radius = 100;
@@ -93,6 +105,7 @@ class DensityGridOverlay {
 
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
+      // For each star, use its truePosition if available.
       const dArr = stars.map(star => {
         let starPos;
         if (star.truePosition) {
@@ -156,6 +169,7 @@ class DensityGridOverlay {
       if (cell.distances.length > toleranceVal) {
         isoDist = cell.distances[toleranceVal];
       }
+      // Mark cell as active if its tolerance-th distance is at least the isolation value.
       const showSquare = isoDist >= isolationVal;
       cell.active = showSquare;
       let ratio = cell.tcPos.length() / this.maxDistance;
@@ -183,24 +197,23 @@ class DensityGridOverlay {
   }
 
   /**
-   * Runs a flood‑fill (using 26‑neighbor connectivity) on all active (visible) cells
-   * to group them into clusters. For each cluster the method computes:
-   * – Volume (number of cells)
-   * – Bounding box (in grid coordinates)
-   * – Centroid (average of tcPos)
-   * – The set of neighboring clusters.
-   * Then, based on simple rules, each cluster is classified as:
-   *   • Lake (very small or isolated)
-   *   • Gulf (attached by only one neighbor)
-   *   • Strait (if very elongated and thin)
-   *   • Otherwise, an “independent basin” which is later re‑labeled as Ocean or Sea
-   *     (Ocean if its volume is at least 50% of the largest independent basin).
-   * Finally, a name (e.g. "Ocean 1") is assigned.
+   * Runs a 26‑neighbor flood‑fill on all active cells and groups them into clusters.
+   * Then, for each cluster:
+   *
+   * 1. If the volume (number of cubes) is 1 or 2, classify as "Lake".
+   * 2. Otherwise, if the cluster touches exactly one other cluster, classify as "Gulf".
+   * 3. Otherwise, if it touches exactly two other clusters, classify as "Strait".
+   * 4. Otherwise, classify as an independent basin.
+   *    Among independent basins, if the volume is at least 50% of the largest independent basin,
+   *    label it "Ocean"; otherwise, label it "Sea".
+   *
+   * For naming, for each cluster the constellation that “occupies” the most cells is chosen,
+   * and the final label is "<Type> <ConstellationName>".
    *
    * @returns {Array} Array of cluster objects with properties: volume, centroid, type, label, etc.
    */
   classifyEmptyRegions() {
-    // Assign unique id and reset cluster id for each cell.
+    // Reset cluster id for each cell.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -251,9 +264,11 @@ class DensityGridOverlay {
       let minY = Infinity, maxY = -Infinity;
       let minZ = Infinity, maxZ = -Infinity;
       let sumPos = new THREE.Vector3(0, 0, 0);
+      // Also count constellation occurrences.
+      const constCount = {};
       cells.forEach(cell => {
         cell.clusterId = clusterId;
-        const ix = cell.grid.ix, iy = cell.grid.iy, iz = cell.grid.iz;
+        const { ix, iy, iz } = cell.grid;
         if (ix < minX) minX = ix;
         if (ix > maxX) maxX = ix;
         if (iy < minY) minY = iy;
@@ -261,90 +276,84 @@ class DensityGridOverlay {
         if (iz < minZ) minZ = iz;
         if (iz > maxZ) maxZ = iz;
         sumPos.add(cell.tcPos);
+        // Determine constellation for this cell.
+        const constName = getConstellationForCell(cell);
+        constCount[constName] = (constCount[constName] || 0) + 1;
       });
       const centroid = sumPos.divideScalar(volume);
       const bbox = { minX, maxX, minY, maxY, minZ, maxZ };
-      return { clusterId, cells, volume, centroid, bbox, neighbors: new Set(), type: null, label: '' };
-    });
-    // Determine neighboring clusters.
-    this.cubesData.forEach(cell => {
-      if (!cell.active) return;
-      const currentClusterId = cell.clusterId;
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dz = -1; dz <= 1; dz++) {
-            if (dx === 0 && dy === 0 && dz === 0) continue;
-            const neighborKey = `${cell.grid.ix + dx},${cell.grid.iy + dy},${cell.grid.iz + dz}`;
-            if (gridMap.has(neighborKey)) {
-              const neighborIndex = gridMap.get(neighborKey);
-              const neighborCell = this.cubesData[neighborIndex];
-              if (neighborCell.clusterId !== currentClusterId) {
-                clusterData[currentClusterId].neighbors.add(neighborCell.clusterId);
+      // Determine the set of neighboring clusters.
+      const neighborSet = new Set();
+      this.cubesData.forEach(cell => {
+        if (!cell.active) return;
+        if (cell.clusterId === clusterId) {
+          for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dz = -1; dz <= 1; dz++) {
+                if (dx === 0 && dy === 0 && dz === 0) continue;
+                const neighborKey = `${cell.grid.ix + dx},${cell.grid.iy + dy},${cell.grid.iz + dz}`;
+                if (gridMap.has(neighborKey)) {
+                  const neighborIndex = gridMap.get(neighborKey);
+                  const neighborCell = this.cubesData[neighborIndex];
+                  if (neighborCell.clusterId !== clusterId) {
+                    neighborSet.add(neighborCell.clusterId);
+                  }
+                }
               }
             }
           }
         }
-      }
+      });
+      return {
+        clusterId,
+        cells,
+        volume,
+        centroid,
+        bbox,
+        neighbors: neighborSet,
+        type: null,
+        label: '',
+        constCount // for naming
+      };
     });
-    // Classify clusters:
-    const lakeThreshold = 5; // clusters smaller than this are Lakes
+    // Classify clusters according to criteria:
+    // 1. If volume <= 2 → Lake.
+    // 2. Else, if neighbor count === 1 → Gulf.
+    // 3. Else, if neighbor count === 2 → Strait.
+    // 4. Otherwise, mark as an independent basin.
     clusterData.forEach(cluster => {
-      if (cluster.volume < lakeThreshold) {
-        cluster.type = 'Lake';
-      } else if (cluster.neighbors.size === 0) {
+      if (cluster.volume <= 2) {
         cluster.type = 'Lake';
       } else if (cluster.neighbors.size === 1) {
         cluster.type = 'Gulf';
-      } else if (cluster.neighbors.size >= 2) {
-        const dx = cluster.bbox.maxX - cluster.bbox.minX + 1;
-        const dy = cluster.bbox.maxY - cluster.bbox.minY + 1;
-        const dz = cluster.bbox.maxZ - cluster.bbox.minZ + 1;
-        const minDim = Math.min(dx, dy, dz);
-        const maxDim = Math.max(dx, dy, dz);
-        if (minDim === 0) {
-          cluster.type = 'IndependentBasin';
-        } else {
-          const aspectRatio = maxDim / minDim;
-          if (aspectRatio > 3 && cluster.volume < 0.5 * (dx * dy * dz)) {
-            cluster.type = 'Strait';
-          } else {
-            cluster.type = 'IndependentBasin';
-          }
-        }
+      } else if (cluster.neighbors.size === 2) {
+        cluster.type = 'Strait';
+      } else {
+        cluster.type = 'IndependentBasin';
       }
     });
-    // Among independent basins, determine the maximum volume and then classify them as Ocean or Sea.
+    // Among independent basins, determine the maximum volume.
     const independentBasins = clusterData.filter(c => c.type === 'IndependentBasin');
     let maxVolume = 0;
     independentBasins.forEach(c => {
       if (c.volume > maxVolume) maxVolume = c.volume;
     });
+    // For each independent basin, label as Ocean if its volume is at least 50% of the maximum;
+    // otherwise, label as Sea.
     independentBasins.forEach(c => {
-      if (c.volume >= 0.5 * maxVolume) {
-        c.type = 'Ocean';
-      } else {
-        c.type = 'Sea';
-      }
+      c.type = c.volume >= 0.5 * maxVolume ? 'Ocean' : 'Sea';
     });
-    // Assign names using counters.
-    let oceanCount = 0, seaCount = 0, gulfCount = 0, lakeCount = 0, straitCount = 0;
+    // For naming, choose the constellation that occurs most within the cluster.
     clusterData.forEach(c => {
-      if (c.type === 'Ocean') {
-        oceanCount++;
-        c.label = `Ocean ${oceanCount}`;
-      } else if (c.type === 'Sea') {
-        seaCount++;
-        c.label = `Sea ${seaCount}`;
-      } else if (c.type === 'Gulf') {
-        gulfCount++;
-        c.label = `Gulf ${gulfCount}`;
-      } else if (c.type === 'Lake') {
-        lakeCount++;
-        c.label = `Lake ${lakeCount}`;
-      } else if (c.type === 'Strait') {
-        straitCount++;
-        c.label = `Strait ${straitCount}`;
+      let dominantConst = 'Unknown';
+      let maxCount = 0;
+      for (const name in c.constCount) {
+        if (c.constCount[name] > maxCount) {
+          maxCount = c.constCount[name];
+          dominantConst = name;
+        }
       }
+      c.label = `${c.type} ${dominantConst}`;
     });
     this.regionClusters = clusterData;
     return clusterData;
@@ -352,11 +361,10 @@ class DensityGridOverlay {
 
   /**
    * Creates a text label as a THREE.Sprite for the given text and position.
-   * The label’s style (font size, scale) depends on the map type.
    *
    * @param {string} text - The text to display.
-   * @param {THREE.Vector3} position - The 3D position at which to place the label.
-   * @param {string} mapType - Either "Globe" or "TrueCoordinates".
+   * @param {THREE.Vector3} position - The 3D position for the label.
+   * @param {string} mapType - "Globe" or "TrueCoordinates".
    * @returns {THREE.Sprite} - The created label sprite.
    */
   createRegionLabel(text, position, mapType) {
@@ -380,7 +388,7 @@ class DensityGridOverlay {
   }
 
   /**
-   * For the Globe map, projects a position (given in TrueCoordinates) onto the sphere of radius 100.
+   * For the Globe map, projects a position onto a sphere of radius 100.
    *
    * @param {THREE.Vector3} position
    * @returns {THREE.Vector3} - The projected position.
@@ -399,12 +407,12 @@ class DensityGridOverlay {
   }
 
   /**
-   * Removes any existing region label group from the given scene and creates new labels
-   * based on the current classification. Depending on the mapType, the cluster centroid is
-   * used directly (for TrueCoordinates) or projected (for Globe).
+   * Removes any existing region label group from the scene and creates new labels
+   * based on the current classification. For "TrueCoordinates", the cluster centroid is used;
+   * for "Globe", the centroid is projected.
    *
-   * @param {THREE.Scene} scene - The scene to add the labels to.
-   * @param {string} mapType - Either "Globe" or "TrueCoordinates".
+   * @param {THREE.Scene} scene - The scene to add labels to.
+   * @param {string} mapType - "Globe" or "TrueCoordinates".
    */
   addRegionLabelsToScene(scene, mapType) {
     if (mapType === 'TrueCoordinates') {
@@ -418,7 +426,6 @@ class DensityGridOverlay {
       }
       this.regionLabelsGroupGlobe = new THREE.Group();
     }
-    // Classify the current empty regions.
     const clusters = this.classifyEmptyRegions();
     clusters.forEach(cluster => {
       let labelPos;
@@ -434,13 +441,33 @@ class DensityGridOverlay {
         this.regionLabelsGroupGlobe.add(labelSprite);
       }
     });
-    // Add the group to the scene.
     scene.add(mapType === 'TrueCoordinates' ? this.regionLabelsGroupTC : this.regionLabelsGroupGlobe);
   }
 }
 
 /**
- * Helper function to compute points along a great‑circle path between two points on a sphere.
+ * Helper: Returns a constellation name for a given cell based on its tcPos.
+ * (A simple partition of the sphere by RA; replace with your preferred method.)
+ *
+ * @param {Object} cell - A cube cell.
+ * @returns {string} - The constellation name.
+ */
+function getConstellationForCell(cell) {
+  const pos = cell.tcPos;
+  let ra = Math.atan2(-pos.z, -pos.x);
+  if (ra < 0) ra += 2 * Math.PI;
+  const raDeg = THREE.MathUtils.radToDeg(ra);
+  // Simple partition:
+  if (raDeg < 60) return "Orion";
+  else if (raDeg < 120) return "Gemini";
+  else if (raDeg < 180) return "Taurus";
+  else if (raDeg < 240) return "Leo";
+  else if (raDeg < 300) return "Scorpius";
+  else return "Cygnus";
+}
+
+/**
+ * Computes points along a great‑circle path between two points on a sphere.
  *
  * @param {THREE.Vector3} p1 - Starting position.
  * @param {THREE.Vector3} p2 - Ending position.
@@ -473,4 +500,3 @@ export function updateDensityMapping(starArray) {
   if (!densityGrid) return;
   densityGrid.update(starArray);
 }
-
