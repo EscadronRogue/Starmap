@@ -11,7 +11,7 @@
   <!-- Loader -->
   <div id="loader" class="active">Loading Stars...</div>
 
-  <!-- Header with Menu Toggle Button -->
+  <!-- Header with Menu Toggle Button (placed at top left, separate from title) -->
   <header>
     <button id="menu-toggle" aria-label="Toggle Menu">☰</button>
     <h1>Starmap Visualization</h1>
@@ -19,15 +19,19 @@
 
   <!-- Main Container -->
   <div class="main-container">
-    <!-- Sidebar for Filters (original static fieldsets) -->
+    <!-- Sidebar for Filters (as an overlay; updated filters will be injected dynamically) -->
     <aside class="sidebar">
       <h2>Filters</h2>
       <form id="filters-form">
-        <!-- Stellar Class Parent Category -->
+        <!-- Static fieldsets for filters that are not dynamically added:
+             We keep only the ones that are not duplicated.
+             The updated Constellations and Globe Surface fieldsets will be added dynamically
+             (via filters/index.js), so we remove any outdated static copies.
+        -->
+        <!-- Stellar Class Filter Fieldset -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Stellar Class</legend>
           <div class="filter-content">
-            <!-- Dynamically populated in filters.js -->
             <div id="stellar-class-container"></div>
           </div>
         </fieldset>
@@ -96,57 +100,42 @@
           </div>
         </fieldset>
 
-        <!-- Connections Filter -->
+        <!-- Connections Filter (disabled by default) -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Connections (LY)</legend>
           <div class="filter-content">
             <div class="filter-item">
-              <input type="range" id="connection-slider" name="connections" min="1" max="50" value="7" />
+              <input type="checkbox" id="enable-connections" name="enable-connections" />
+              <label for="enable-connections">Enable Connections</label>
+            </div>
+            <div class="filter-item">
+              <input type="range" id="connection-slider" name="connections" min="1" max="50" value="7" disabled />
               <span id="connection-value">7</span> Light Years
             </div>
           </div>
         </fieldset>
 
-        <!-- Density Mapping Filter -->
+        <!-- Density Mapping Filter (disabled by default) -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Density Mapping</legend>
           <div class="filter-content">
             <div class="filter-item">
+              <input type="checkbox" id="enable-density-mapping" name="enable-density-mapping" />
+              <label for="enable-density-mapping">Enable Density Mapping</label>
+            </div>
+            <div class="filter-item">
               <label>Isolation Distance (LY): <span id="density-value">7</span> LY</label>
-              <input type="range" id="density-slider" name="density" min="1" max="20" value="7" />
+              <input type="range" id="density-slider" name="density" min="1" max="20" value="7" disabled />
             </div>
             <div class="filter-item">
               <label>Ignore this many closest stars: <span id="tolerance-value">0</span></label>
-              <input type="range" id="tolerance-slider" name="tolerance" min="0" max="10" value="0" />
+              <input type="range" id="tolerance-slider" name="tolerance" min="0" max="10" value="0" disabled />
             </div>
           </div>
         </fieldset>
-
-        <!-- Constellations Fieldset (original static version) -->
-        <fieldset>
-          <legend class="collapsible" aria-expanded="false">Constellations</legend>
-          <div class="filter-content">
-            <div class="filter-item">
-              <input type="checkbox" id="show-constellation-boundaries" name="show-constellation-boundaries" checked />
-              <label for="show-constellation-boundaries">Show Constellation Boundaries</label>
-            </div>
-            <div class="filter-item">
-              <input type="checkbox" id="show-constellation-names" name="show-constellation-names" checked />
-              <label for="show-constellation-names">Show Constellation Names</label>
-            </div>
-          </div>
-        </fieldset>
-
-        <!-- Globe Surface Fieldset (original static version) -->
-        <fieldset>
-          <legend class="collapsible" aria-expanded="false">Globe Surface</legend>
-          <div class="filter-content">
-            <div class="filter-item">
-              <input type="checkbox" id="globe-opaque-surface" name="globe-opaque-surface" />
-              <label for="globe-opaque-surface">Opaque Globe Surface</label>
-            </div>
-          </div>
-        </fieldset>
+        <!-- End of static fieldsets.
+             Note: The updated Constellations and Globe Surface filters are added dynamically by the script.
+        -->
       </form>
     </aside>
 
@@ -185,25 +174,38 @@
   <!-- Scripts -->
   <script type="module" src="script.js"></script>
   <script>
-    // Toggle sidebar menu on mobile: toggle the "open" class on the sidebar
+    // Toggle sidebar menu on mobile by toggling the "open" class
     document.getElementById('menu-toggle').addEventListener('click', function() {
       document.querySelector('.sidebar').classList.toggle('open');
     });
 
-    // Fullscreen button event listeners – request fullscreen on the map container element
+    // Enable/disable connection slider based on checkbox state
+    document.getElementById('enable-connections').addEventListener('change', function() {
+      document.getElementById('connection-slider').disabled = !this.checked;
+    });
+
+    // Enable/disable density mapping sliders based on checkbox state
+    document.getElementById('enable-density-mapping').addEventListener('change', function() {
+      document.getElementById('density-slider').disabled = !this.checked;
+      document.getElementById('tolerance-slider').disabled = !this.checked;
+    });
+    
+    // Fullscreen button event listeners
     document.querySelectorAll('.fullscreen-btn').forEach(btn => {
       btn.addEventListener('click', function() {
-        var mapContainer = this.parentElement;
-        if (!document.fullscreenElement || document.fullscreenElement !== mapContainer) {
-          mapContainer.requestFullscreen().catch(err => {
-            console.error("Error attempting to enable full-screen mode on map:", err);
-          });
-        } else {
+        // Find the canvas within the same map container
+        const mapContainer = this.parentElement;
+        const canvas = mapContainer.querySelector('canvas');
+        if (document.fullscreenElement) {
           document.exitFullscreen();
+        } else {
+          // Request fullscreen on the canvas so that it occupies the entire screen
+          canvas.requestFullscreen().catch(err => {
+            console.error("Error attempting to enable full-screen mode:", err);
+          });
         }
       });
     });
   </script>
 </body>
 </html>
-
