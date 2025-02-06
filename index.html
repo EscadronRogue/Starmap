@@ -11,7 +11,7 @@
   <!-- Loader -->
   <div id="loader" class="active">Loading Stars...</div>
 
-  <!-- Header with Menu Toggle Button (positioned top left, separate from title) -->
+  <!-- Header with Menu Toggle Button (positioned at top left, separate from title) -->
   <header>
     <button id="menu-toggle" aria-label="Toggle Menu">☰</button>
     <h1>Starmap Visualization</h1>
@@ -20,13 +20,12 @@
   <!-- Main Container -->
   <div class="main-container">
     <!-- Sidebar for Filters (as an overlay) -->
-    <!-- Note: The static fieldsets for Constellations and Globe Surface have been removed.
-         The dynamic, collapsible versions will be injected by the filters/index.js module. -->
+    <!-- Note: The outdated static fieldsets for "Constellations" and "Globe Surface" have been removed.
+         The dynamic, collapsible versions will be injected by filters/index.js. -->
     <aside class="sidebar">
       <h2>Filters</h2>
       <form id="filters-form">
-        <!-- Static fieldsets (that remain) -->
-        <!-- Stellar Class Filter -->
+        <!-- Stellar Class Filter Fieldset -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Stellar Class</legend>
           <div class="filter-content">
@@ -206,11 +205,11 @@
     // When exiting fullscreen, force a resize so that the maps return to their proper size.
     document.addEventListener("fullscreenchange", function() {
       if (!document.fullscreenElement) {
-        // Call the resize routines for both maps (attached to window in script.js)
-        if (window.trueCoordinatesMap) {
+        // Call the resize routines for both maps
+        if (window.trueCoordinatesMap && window.trueCoordinatesMap.onResize) {
           window.trueCoordinatesMap.onResize();
         }
-        if (window.globeMap) {
+        if (window.globeMap && window.globeMap.onResize) {
           window.globeMap.onResize();
         }
       }
