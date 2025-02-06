@@ -68,7 +68,7 @@ function projectStarGlobe(star) {
 }
 
 // ---------------------------------------------------------
-// MapManager class
+// MapManager class using individual meshes instead of instanced meshes
 class MapManager {
   constructor({ canvasId, mapType }) {
     this.canvas = document.getElementById(canvasId);
@@ -109,64 +109,54 @@ class MapManager {
     // Label manager
     this.labelManager = new LabelManager(mapType, this.scene);
 
+    // Group to hold individual star meshes
+    this.starGroup = new THREE.Group();
+    this.scene.add(this.starGroup);
+
     window.addEventListener('resize', () => this.onResize(), false);
     this.animate();
   }
 
   /**
-   * Creates an InstancedMesh for the given stars.
-   * Each star’s displaySize, displayColor, and displayOpacity come from the filters.
-   *
-   * We force the material’s opacity to 1.0 so that the per‑instance vertex colors show correctly.
+   * Creates individual Mesh objects for each star.
+   * Each star’s displaySize, displayColor, and position (from x,y,z or spherePosition) are used.
    */
   addStars(stars) {
-    if (this.instancedStars) {
-      this.scene.remove(this.instancedStars);
-      this.instancedStars = null;
+    // Remove any existing star meshes
+    while (this.starGroup.children.length > 0) {
+      const child = this.starGroup.children[0];
+      this.starGroup.remove(child);
+      child.geometry.dispose();
+      child.material.dispose();
     }
-    const instanceCount = stars.length;
-    if (instanceCount === 0) return;
 
-    const starGeometry = new THREE.SphereGeometry(1, 8, 8);
-    const starMaterial = new THREE.MeshBasicMaterial({
-      vertexColors: true,
-      transparent: true,
-      opacity: 1.0, // Force full opacity regardless of per-star displayOpacity
-      color: 0xffffff // base color white so vertex colors show properly
-    });
+    stars.forEach(star => {
+      // Use a default size if displaySize is not set.
+      const size = star.displaySize || 1;
+      const sphereGeometry = new THREE.SphereGeometry(size * 0.2, 12, 12);
+      // Create a material with the star's displayColor.
+      const material = new THREE.MeshBasicMaterial({
+        color: star.displayColor || '#ffffff',
+        transparent: true,
+        opacity: 1.0
+      });
+      const starMesh = new THREE.Mesh(sphereGeometry, material);
 
-    const instanced = new THREE.InstancedMesh(starGeometry, starMaterial, instanceCount);
-    instanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-
-    for (let i = 0; i < instanceCount; i++) {
-      const star = stars[i];
-      let px, py, pz;
+      let pos;
       if (this.mapType === 'TrueCoordinates') {
-        px = star.x_coordinate;
-        py = star.y_coordinate;
-        pz = star.z_coordinate;
+        pos = new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
       } else {
-        px = star.spherePosition?.x ?? 0;
-        py = star.spherePosition?.y ?? 0;
-        pz = star.spherePosition?.z ?? 0;
+        // Use spherePosition; if not available, default to origin.
+        pos = new THREE.Vector3(
+          star.spherePosition?.x || 0,
+          star.spherePosition?.y || 0,
+          star.spherePosition?.z || 0
+        );
       }
-      const dummy = new THREE.Object3D();
-      dummy.position.set(px, py, pz);
-      dummy.scale.setScalar(star.displaySize * 0.2);
-      dummy.updateMatrix();
-      instanced.setMatrixAt(i, dummy.matrix);
-
-      // Create a THREE.Color from the star's displayColor (defaulting to white)
-      const colorObj = new THREE.Color(star.displayColor || '#ffffff');
-      instanced.setColorAt(i, colorObj);
-    }
-    instanced.instanceMatrix.needsUpdate = true;
-    if (instanced.instanceColor !== null) {
-      instanced.instanceColor.needsUpdate = true;
-    }
-
-    this.instancedStars = instanced;
-    this.scene.add(instanced);
+      starMesh.position.copy(pos);
+      this.starGroup.add(starMesh);
+    });
+    // Keep a reference to the star data for interactions.
     this.starObjects = stars;
   }
 
@@ -174,21 +164,22 @@ class MapManager {
    * Creates connection lines.
    */
   updateConnections(stars, connectionObjs) {
-    if (this.connectionLines) {
-      this.connectionLines.forEach(obj => this.scene.remove(obj));
-      this.connectionLines = null;
+    // Remove previous connection lines.
+    if (this.connectionGroup) {
+      this.scene.remove(this.connectionGroup);
+      this.connectionGroup = null;
     }
     if (!connectionObjs || connectionObjs.length === 0) return;
 
+    this.connectionGroup = new THREE.Group();
     if (this.mapType === 'Globe') {
       const linesArray = createConnectionLines(stars, connectionObjs, 'Globe');
-      this.connectionLines = linesArray;
-      linesArray.forEach(line => this.scene.add(line));
+      linesArray.forEach(line => this.connectionGroup.add(line));
     } else {
       const merged = mergeConnectionLines(connectionObjs);
-      this.scene.add(merged);
-      this.connectionLines = [merged];
+      this.connectionGroup.add(merged);
     }
+    this.scene.add(this.connectionGroup);
   }
 
   updateMap(stars, connectionObjs) {
@@ -211,7 +202,7 @@ class MapManager {
 }
 
 // ---------------------------------------------------------
-// Raycasting for tooltips
+// Raycasting for tooltips (unchanged)
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
@@ -223,19 +214,16 @@ function initStarInteractions(map) {
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, map.camera);
 
-    if (map.instancedStars) {
-      const intersects = raycaster.intersectObject(map.instancedStars, true);
-      if (intersects.length > 0) {
-        const index = intersects[0].instanceId;
-        if (typeof index === 'number') {
-          const star = map.starObjects[index];
-          if (star) {
-            showTooltip(event.clientX, event.clientY, star);
-          }
-        }
-      } else {
-        hideTooltip();
+    // Use group children for raycasting.
+    const intersects = raycaster.intersectObjects(map.starGroup.children, true);
+    if (intersects.length > 0) {
+      // Find the star corresponding to the intersected mesh.
+      const index = map.starGroup.children.indexOf(intersects[0].object);
+      if (index >= 0 && map.starObjects[index]) {
+        showTooltip(event.clientX, event.clientY, map.starObjects[index]);
       }
+    } else {
+      hideTooltip();
     }
   });
 
@@ -245,14 +233,12 @@ function initStarInteractions(map) {
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, map.camera);
 
+    const intersects = raycaster.intersectObjects(map.starGroup.children, true);
     let clickedStar = null;
-    if (map.instancedStars) {
-      const intersects = raycaster.intersectObject(map.instancedStars, true);
-      if (intersects.length > 0) {
-        const index = intersects[0].instanceId;
-        if (typeof index === 'number') {
-          clickedStar = map.starObjects[index];
-        }
+    if (intersects.length > 0) {
+      const index = map.starGroup.children.indexOf(intersects[0].object);
+      if (index >= 0) {
+        clickedStar = map.starObjects[index];
       }
     }
     if (clickedStar) {
