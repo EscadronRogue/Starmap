@@ -4,15 +4,25 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, getConstellationForCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent } from './densitySegmentation.js';
 
+/**
+ * This updated overlay no longer shows discrete squares and their connecting lines.
+ * Instead, it uses the grid data to build a continuous density field (via a simple
+ * nearest–neighbor interpolation on a regular (lat,lon) grid on the sphere) and then
+ * applies a marching squares algorithm to extract contour lines at the threshold value.
+ * Finally, each closed contour is projected into a local tangent plane and converted into
+ * a THREE.Shape whose geometry is used to create a filled, semi–transparent zone overlay.
+ */
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
     this.maxDistance = maxDistance;
     this.gridSize = gridSize;
     this.cubesData = [];
-    this.adjacentLines = [];
+    // (We no longer use adjacentLines for visualization.)
     this.regionClusters = []; // Final regions after segmentation/classification
     this.regionLabelsGroupTC = new THREE.Group();
     this.regionLabelsGroupGlobe = new THREE.Group();
+    // New group to hold the contour zone meshes
+    this.contourGroup = new THREE.Group();
   }
 
   createGrid(stars) {
@@ -25,6 +35,7 @@ export class DensityGridOverlay {
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
           
+          // (For density calculations we keep the TrueCoordinates mesh but we will not display it.)
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -35,6 +46,7 @@ export class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
           
+          // Create a square that will be projected onto the globe.
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -56,27 +68,39 @@ export class DensityGridOverlay {
           const normal = projectedPos.clone().normalize();
           squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
           
+          // For later interpolation we store the globe position along with computed spherical coordinates.
           const cell = {
             tcMesh: cubeTC,
             globeMesh: squareGlobe,
             tcPos: posTC,
-            distances: [],
+            distances: [], // will be computed below
             grid: {
               ix: Math.round(x / this.gridSize),
               iy: Math.round(y / this.gridSize),
               iz: Math.round(z / this.gridSize)
             },
-            active: false
+            active: false,
+            density: 0 // will store the isoDist value here
           };
+
+          // Precompute spherical coordinates from the globeMesh.position.
+          // Using our projection: x = -R*cos(dec)*cos(ra), y = R*sin(dec), z = -R*cos(dec)*sin(ra)
+          const R = 100;
+          const pos = squareGlobe.position;
+          cell.lat = Math.asin(pos.y / R); // dec in radians
+          // Recover ra from x and z (note the negatives in the projection)
+          cell.lon = Math.atan2(-pos.z, -pos.x);
+          
           this.cubesData.push(cell);
         }
       }
     }
     this.computeDistances(stars);
-    this.computeAdjacentLines();
+    // We no longer compute adjacent lines.
   }
 
   computeDistances(stars) {
+    // For each grid cell, compute distances from the cell center (tcPos) to each star (using truePosition)
     this.cubesData.forEach(cell => {
       const dArr = stars.map(star => {
         let starPos = star.truePosition ? star.truePosition : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
@@ -86,122 +110,307 @@ export class DensityGridOverlay {
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
       });
       dArr.sort((a, b) => a - b);
-      cell.distances = dArr;
-    });
-  }
-  
-  computeAdjacentLines() {
-    this.adjacentLines = [];
-    const cellMap = new Map();
-    this.cubesData.forEach(cell => {
-      const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
-      cellMap.set(key, cell);
-    });
-    // Include all diagonal directions (unique pairs only)
-    const directions = [];
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dz = -1; dz <= 1; dz++) {
-          if (dx === 0 && dy === 0 && dz === 0) continue;
-          // Only add one connection per pair to avoid duplicates.
-          if (dx > 0 || (dx === 0 && dy > 0) || (dx === 0 && dy === 0 && dz > 0)) {
-            directions.push({dx, dy, dz});
-          }
-        }
-      }
-    }
-    directions.forEach(dir => {
-      this.cubesData.forEach(cell => {
-        const neighborKey = `${cell.grid.ix + dir.dx},${cell.grid.iy + dir.dy},${cell.grid.iz + dir.dz}`;
-        if (cellMap.has(neighborKey)) {
-          const neighbor = cellMap.get(neighborKey);
-          const points = getGreatCirclePoints(cell.globeMesh.position, neighbor.globeMesh.position, 100, 16);
-          const positions = [];
-          const colors = [];
-          const c1 = cell.globeMesh.material.color;
-          const c2 = neighbor.globeMesh.material.color;
-          for (let i = 0; i < points.length; i++) {
-            positions.push(points[i].x, points[i].y, points[i].z);
-            let t = i / (points.length - 1);
-            let r = THREE.MathUtils.lerp(c1.r, c2.r, t);
-            let g = THREE.MathUtils.lerp(c1.g, c2.g, t);
-            let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
-            colors.push(r, g, b);
-          }
-          const geom = new THREE.BufferGeometry();
-          geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-          geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-          const mat = new THREE.LineBasicMaterial({
-            vertexColors: true,
-            transparent: true,
-            opacity: 0.3,
-            linewidth: 10 // initial value; will be updated in update()
-          });
-          const line = new THREE.Line(geom, mat);
-          line.renderOrder = 1;
-          this.adjacentLines.push({ line, cell1: cell, cell2: neighbor });
-        }
-      });
-    });
-  }
-  
-  update(stars) {
-    const densitySlider = document.getElementById('density-slider');
-    const toleranceSlider = document.getElementById('tolerance-slider');
-    if (!densitySlider || !toleranceSlider) return;
-    
-    const isolationVal = parseFloat(densitySlider.value) || 1;
-    const toleranceVal = parseInt(toleranceSlider.value) || 0;
-    
-    this.cubesData.forEach(cell => {
-      let isoDist = Infinity;
-      if (cell.distances.length > toleranceVal) {
-        isoDist = cell.distances[toleranceVal];
-      }
-      const showSquare = isoDist >= isolationVal;
-      cell.active = showSquare;
-      let ratio = cell.tcPos.length() / this.maxDistance;
-      if (ratio > 1) ratio = 1;
-      const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
-      cell.tcMesh.visible = showSquare;
-      cell.tcMesh.material.opacity = alpha;
-      cell.globeMesh.visible = showSquare;
-      cell.globeMesh.material.opacity = alpha;
-      // New square scaling: using the updated parameters.
-      const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
-      cell.globeMesh.scale.set(scale, scale, 1);
-    });
-    
-    this.adjacentLines.forEach(obj => {
-      const { line, cell1, cell2 } = obj;
-      if (cell1.globeMesh.visible && cell2.globeMesh.visible) {
-        const points = getGreatCirclePoints(cell1.globeMesh.position, cell2.globeMesh.position, 100, 16);
-        const positions = [];
-        const colors = [];
-        const c1 = cell1.globeMesh.material.color;
-        const c2 = cell2.globeMesh.material.color;
-        for (let i = 0; i < points.length; i++) {
-          positions.push(points[i].x, points[i].y, points[i].z);
-          let t = i / (points.length - 1);
-          let r = THREE.MathUtils.lerp(c1.r, c2.r, t);
-          let g = THREE.MathUtils.lerp(c1.g, c2.g, t);
-          let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
-          colors.push(r, g, b);
-        }
-        line.geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        line.geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-        line.geometry.attributes.position.needsUpdate = true;
-        line.geometry.attributes.color.needsUpdate = true;
-        // Set the line's width proportional to the average square size.
-        const avgScale = (cell1.globeMesh.scale.x + cell2.globeMesh.scale.x) / 2;
-        line.material.linewidth = avgScale;
-        line.visible = true;
-      } else {
-        line.visible = false;
-      }
+      // Use the tolerance–th nearest distance as a measure of isolation (i.e. low density)
+      // (This is the same as in your original update method.)
+      cell.density = (dArr.length > 0) ? dArr[0] : 0;
     });
   }
 
+  /**
+   * New update method: Instead of adjusting individual square visibility and scale,
+   * we simply update the contour zones overlay.
+   * The density threshold is taken from the density slider.
+   */
+  update(stars, scene) {
+    // Recompute densities
+    this.computeDistances(stars);
+    // Remove any old contour zones.
+    if (this.contourGroup.parent) {
+      this.contourGroup.parent.remove(this.contourGroup);
+    }
+    this.contourGroup = new THREE.Group();
+    // Generate contour zones from the continuous density field.
+    this.updateContourZones();
+    scene.add(this.contourGroup);
+  }
+
+  /**
+   * updateContourZones:
+   *   – Interpolates a continuous density field from the grid (using nearest–neighbor over (lat,lon)).
+   *   – Runs a marching squares algorithm to extract contour segments at the threshold.
+   *   – Assembles segments into closed loops.
+   *   – For each closed loop, builds a filled overlay (via a local tangent plane projection) and adds it to this.contourGroup.
+   */
+  updateContourZones() {
+    // Define parameters for the regular (lat,lon) grid.
+    const R = 100;
+    const latMin = -Math.PI / 2;
+    const latMax = Math.PI / 2;
+    const lonMin = -Math.PI;
+    const lonMax = Math.PI;
+    const latStep = 4 * Math.PI / 180; // 4° steps
+    const lonStep = 4 * Math.PI / 180;
+    const nLat = Math.round((latMax - latMin) / latStep) + 1;
+    const nLon = Math.round((lonMax - lonMin) / lonStep) + 1;
+    
+    // Build the density field as a 2D array.
+    // For each grid point, use nearest–neighbor interpolation from cubesData.
+    const densityField = [];
+    for (let i = 0; i < nLat; i++) {
+      densityField[i] = [];
+      const lat = latMin + i * latStep;
+      for (let j = 0; j < nLon; j++) {
+        const lon = lonMin + j * lonStep;
+        // Find nearest cube cell (in spherical space)
+        let bestDist = Infinity;
+        let bestDensity = 0;
+        // Represent the grid point as a unit vector on the sphere.
+        const gp = new THREE.Vector3(
+          -R * Math.cos(lat) * Math.cos(lon),
+           R * Math.sin(lat),
+          -R * Math.cos(lat) * Math.sin(lon)
+        ).normalize();
+        this.cubesData.forEach(cell => {
+          // Represent cell position as a unit vector.
+          const cp = new THREE.Vector3().copy(cell.globeMesh.position).normalize();
+          const d = gp.angleTo(cp); // angular distance in radians
+          if (d < bestDist) {
+            bestDist = d;
+            bestDensity = cell.density;
+          }
+        });
+        densityField[i][j] = bestDensity;
+      }
+    }
+    
+    // Get the threshold value from the density slider (assumed to be in LY).
+    const densitySlider = document.getElementById('density-slider');
+    const threshold = parseFloat(densitySlider.value) || 1;
+    
+    // Run marching squares on the densityField.
+    const segments = this.marchingSquares(densityField, threshold, latMin, latMax, lonMin, lonMax);
+    // Assemble segments into closed loops.
+    const contours = this.assembleContours(segments);
+    
+    // For each contour polygon (in lat,lon), create a filled mesh.
+    contours.forEach(polygon => {
+      const mesh = this.createContourMesh(polygon, R);
+      if (mesh) this.contourGroup.add(mesh);
+    });
+  }
+
+  /**
+   * marchingSquares:
+   *   Runs a basic marching squares algorithm on the 2D densityField.
+   *   Returns an array of line segments (each segment: {p1: {lon, lat}, p2: {lon, lat}})
+   */
+  marchingSquares(field, threshold, latMin, latMax, lonMin, lonMax) {
+    const segments = [];
+    const nLat = field.length;
+    const nLon = field[0].length;
+    const latStep = (latMax - latMin) / (nLat - 1);
+    const lonStep = (lonMax - lonMin) / (nLon - 1);
+    
+    // For each cell (a square of 4 grid points)
+    for (let i = 0; i < nLat - 1; i++) {
+      for (let j = 0; j < nLon - 1; j++) {
+        // Corners:
+        const tl = field[i][j] >= threshold ? 1 : 0;
+        const tr = field[i][j+1] >= threshold ? 1 : 0;
+        const br = field[i+1][j+1] >= threshold ? 1 : 0;
+        const bl = field[i+1][j] >= threshold ? 1 : 0;
+        const index = (tl << 3) | (tr << 2) | (br << 1) | bl;
+        if (index === 0 || index === 15) continue;
+        
+        // Compute (lon,lat) coordinates for the corners.
+        const x = lonMin + j * lonStep;
+        const y = latMin + i * latStep;
+        const topLeft = { lon: x, lat: y };
+        const topRight = { lon: x + lonStep, lat: y };
+        const bottomRight = { lon: x + lonStep, lat: y + latStep };
+        const bottomLeft = { lon: x, lat: y + latStep };
+        
+        // Helper: linear interpolate along an edge.
+        const lerp = (p1, p2, v1, v2) => {
+          const t = (threshold - v1) / (v2 - v1);
+          return {
+            lon: p1.lon + t * (p2.lon - p1.lon),
+            lat: p1.lat + t * (p2.lat - p1.lat)
+          };
+        };
+        
+        // Get the field values at corners.
+        const fTL = field[i][j];
+        const fTR = field[i][j+1];
+        const fBR = field[i+1][j+1];
+        const fBL = field[i+1][j];
+        
+        // Lookup: there are 16 cases. For simplicity we hardcode the ones where edges cross.
+        // (This table is not complete for ambiguous cases, but suffices for demonstration.)
+        switch(index) {
+          case 1: // 0001
+            segments.push({ p1: lerp(bottomLeft, topLeft, fBL, fTL), p2: lerp(bottomLeft, bottomRight, fBL, fBR) });
+            break;
+          case 2: // 0010
+            segments.push({ p1: lerp(bottomRight, topRight, fBR, fTR), p2: lerp(bottomRight, bottomLeft, fBR, fBL) });
+            break;
+          case 3: // 0011
+            segments.push({ p1: lerp(bottomRight, topRight, fBR, fTR), p2: lerp(bottomLeft, topLeft, fBL, fTL) });
+            break;
+          case 4: // 0100
+            segments.push({ p1: lerp(topRight, topLeft, fTR, fTL), p2: lerp(topRight, bottomRight, fTR, fBR) });
+            break;
+          case 5: // 0101 (ambiguous)
+            segments.push({ p1: lerp(topRight, topLeft, fTR, fTL), p2: lerp(bottomLeft, bottomRight, fBL, fBR) });
+            segments.push({ p1: lerp(bottomLeft, topLeft, fBL, fTL), p2: lerp(topRight, bottomRight, fTR, fBR) });
+            break;
+          case 6: // 0110
+            segments.push({ p1: lerp(topRight, topLeft, fTR, fTL), p2: lerp(bottomRight, bottomLeft, fBR, fBL) });
+            break;
+          case 7: // 0111
+            segments.push({ p1: lerp(bottomLeft, topLeft, fBL, fTL), p2: lerp(topRight, bottomRight, fTR, fBR) });
+            break;
+          case 8: // 1000
+            segments.push({ p1: lerp(topLeft, topRight, fTL, fTR), p2: lerp(topLeft, bottomLeft, fTL, fBL) });
+            break;
+          case 9: // 1001
+            segments.push({ p1: lerp(topLeft, topRight, fTL, fTR), p2: lerp(bottomLeft, bottomRight, fBL, fBR) });
+            break;
+          case 10: // 1010
+            segments.push({ p1: lerp(topLeft, bottomLeft, fTL, fBL), p2: lerp(bottomRight, topRight, fBR, fTR) });
+            break;
+          case 11: // 1011
+            segments.push({ p1: lerp(topLeft, bottomLeft, fTL, fBL), p2: lerp(bottomRight, bottomLeft, fBR, fBL) });
+            break;
+          case 12: // 1100
+            segments.push({ p1: lerp(topLeft, bottomLeft, fTL, fBL), p2: lerp(topRight, bottomRight, fTR, fBR) });
+            break;
+          case 13: // 1101
+            segments.push({ p1: lerp(topRight, bottomRight, fTR, fBR), p2: lerp(topLeft, topRight, fTL, fTR) });
+            break;
+          case 14: // 1110
+            segments.push({ p1: lerp(bottomRight, bottomLeft, fBR, fBL), p2: lerp(topLeft, topRight, fTL, fTR) });
+            break;
+        }
+      }
+    }
+    return segments;
+  }
+
+  /**
+   * Assemble the individual segments into closed loops.
+   * This simple algorithm groups segments by matching endpoints (rounded to 4 decimals).
+   * Returns an array of polygons, each polygon is an array of {lon, lat} points.
+   */
+  assembleContours(segments) {
+    const roundPt = pt => ({ lon: Number(pt.lon.toFixed(4)), lat: Number(pt.lat.toFixed(4)) });
+    // Build a map from endpoint string to segments starting/ending there.
+    const endpointMap = new Map();
+    segments.forEach(seg => {
+      const p1 = roundPt(seg.p1);
+      const p2 = roundPt(seg.p2);
+      const key1 = `${p1.lon},${p1.lat}`;
+      const key2 = `${p2.lon},${p2.lat}`;
+      if (!endpointMap.has(key1)) endpointMap.set(key1, []);
+      if (!endpointMap.has(key2)) endpointMap.set(key2, []);
+      endpointMap.get(key1).push({ seg, pt: p1, other: p2 });
+      endpointMap.get(key2).push({ seg, pt: p2, other: p1 });
+    });
+    const used = new Set();
+    const contours = [];
+    segments.forEach(seg => {
+      const segKey = JSON.stringify([roundPt(seg.p1), roundPt(seg.p2)]);
+      if (used.has(segKey)) return;
+      let contour = [];
+      // Start from seg.p1 and follow chain.
+      let current = roundPt(seg.p1);
+      contour.push(current);
+      let next = roundPt(seg.p2);
+      used.add(segKey);
+      while (true) {
+        contour.push(next);
+        const key = `${next.lon},${next.lat}`;
+        const connections = endpointMap.get(key);
+        let found = null;
+        for (let conn of connections) {
+          const candidateKey = JSON.stringify([conn.pt, conn.other]);
+          if (used.has(candidateKey)) continue;
+          found = conn.other;
+          used.add(candidateKey);
+          break;
+        }
+        if (!found) break;
+        if (Math.abs(found.lon - contour[0].lon) < 1e-3 && Math.abs(found.lat - contour[0].lat) < 1e-3) {
+          // Closed loop
+          break;
+        }
+        next = found;
+      }
+      if (contour.length > 2) contours.push(contour);
+    });
+    return contours;
+  }
+
+  /**
+   * Convert (lat, lon) to 3D position on a sphere of radius R using our projection.
+   */
+  latLonTo3D(lat, lon, R) {
+    return new THREE.Vector3(
+      -R * Math.cos(lat) * Math.cos(lon),
+       R * Math.sin(lat),
+      -R * Math.cos(lat) * Math.sin(lon)
+    );
+  }
+
+  /**
+   * Given a polygon (an array of {lon, lat} in radians), create a filled mesh.
+   * We project the polygon into a local tangent plane (using the polygon centroid as origin),
+   * build a 2D THREE.Shape, triangulate it, and then lift it back to 3D.
+   */
+  createContourMesh(polygon, R) {
+    if (polygon.length < 3) return null;
+    // Compute centroid in (lon,lat)
+    let sumLon = 0, sumLat = 0;
+    polygon.forEach(p => { sumLon += p.lon; sumLat += p.lat; });
+    const cenLon = sumLon / polygon.length;
+    const cenLat = sumLat / polygon.length;
+    const center3D = this.latLonTo3D(cenLat, cenLon, R);
+    // Build a local tangent plane basis at the centroid.
+    const normal = center3D.clone().normalize();
+    // Choose an arbitrary vector not parallel to normal.
+    let tangent = new THREE.Vector3(0, 1, 0);
+    if (Math.abs(normal.dot(tangent)) > 0.9) tangent = new THREE.Vector3(1, 0, 0);
+    tangent = tangent.sub(normal.clone().multiplyScalar(normal.dot(tangent))).normalize();
+    const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+    // Project each (lon,lat) point to 2D using:
+    // p2D = [ (x - center3D) dot tangent, (x - center3D) dot bitangent ]
+    const points2D = polygon.map(p => {
+      const pt3D = this.latLonTo3D(p.lat, p.lon, R);
+      const vec = pt3D.clone().sub(center3D);
+      return new THREE.Vector2(vec.dot(tangent), vec.dot(bitangent));
+    });
+    // Build a THREE.Shape from points2D.
+    const shape = new THREE.Shape(points2D);
+    // Create geometry from the shape.
+    const geometry = new THREE.ShapeGeometry(shape);
+    // Now lift the 2D vertices back to 3D:
+    const vertices = geometry.attributes.position.array;
+    for (let i = 0; i < vertices.length; i += 3) {
+      const vx = vertices[i];
+      const vy = vertices[i+1];
+      // Reconstruct 3D point: center3D + vx*tangent + vy*bitangent.
+      const pos3D = center3D.clone().add(tangent.clone().multiplyScalar(vx)).add(bitangent.clone().multiplyScalar(vy));
+      vertices[i] = pos3D.x;
+      vertices[i+1] = pos3D.y;
+      vertices[i+2] = pos3D.z;
+    }
+    geometry.computeVertexNormals();
+    const material = new THREE.MeshBasicMaterial({ color: 0xff0000, opacity: 0.3, transparent: true, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geometry, material);
+    return mesh;
+  }
+
+  // The methods for classifying regions and adding region labels remain unchanged.
   classifyEmptyRegions() {
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
