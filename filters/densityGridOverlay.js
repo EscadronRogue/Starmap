@@ -197,7 +197,7 @@ export class DensityGridOverlay {
         const ratio2 = cell2.tcPos.length() / this.maxDistance;
         const avgRatio = (ratio1 + ratio2) / 2;
         // Closer to the Sun (ratio near 0) => thicker line; further away => thinner.
-        const maxThickness = 50.0; // very very thick
+        const maxThickness = 1000.0; // very very thick
         const minThickness = 0.1;
         const thickness = THREE.MathUtils.lerp(maxThickness, minThickness, avgRatio);
         line.material.linewidth = thickness;
