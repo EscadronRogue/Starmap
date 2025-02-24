@@ -70,6 +70,17 @@ function darkenColor(color, factor) {
   return newColor;
 }
 
+// --- Helper to derive a base color from a constellation name ---
+function getBaseColor(constName) {
+  // Use a hash of the constellation name to generate a hue.
+  let hash = 0;
+  for (let i = 0; i < constName.length; i++) {
+    hash = constName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = (hash % 360 + 360) % 360;
+  return new THREE.Color(`hsl(${hue}, 70%, 50%)`);
+}
+
 // --- getDoubleSidedLabelMaterial (for Globe labels) ---
 function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
   return new THREE.ShaderMaterial({
@@ -121,7 +132,7 @@ class DensityGridOverlay {
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
           
-          // Create cube for TrueCoordinates.
+          // Cube for TrueCoordinates.
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -132,7 +143,7 @@ class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
           
-          // Create plane for Globe.
+          // Plane for Globe.
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -287,16 +298,15 @@ class DensityGridOverlay {
   }
 
   // ----- Segmentation & Classification -----
-  // 1. Group active cells via 26-neighbor flood-fill.
-  // 2. Compute V_max (largest cluster volume) and classify clusters:
-  //    - Ocean: volume ≥ 50% of V_max
-  //    - Sea: volume between 10% and 50% of V_max
-  //    - Lake: volume < 10% of V_max
-  // 3. For Ocean candidates, attempt bottleneck segmentation.
-  // 4. For each region, compute its best (most connected) cell and set its label
-  //    based on the constellation nearest that cell.
+  // Group active cells via 26-neighbor flood-fill, then compute V_max (largest cluster volume).
+  // Classify clusters as:
+  //   - Ocean: volume ≥ 50% of V_max
+  //   - Sea: volume between 10% and 50% of V_max
+  //   - Lake: volume < 10% of V_max
+  // For Ocean candidates, attempt segmentation via bottleneck detection.
+  // Each region is labeled based on the constellation nearest its most-connected cell.
   classifyEmptyRegions() {
-    // Flood-fill grouping
+    // Flood-fill grouping.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -347,7 +357,7 @@ class DensityGridOverlay {
     
     const regions = [];
     clusters.forEach((cells, idx) => {
-      // Compute region’s best cell and use its constellation.
+      // For each cluster, choose its best cell and assign its constellation.
       const bestCell = computeInterconnectedCell(cells);
       const regionConst = getConstellationForCell(bestCell);
       
@@ -374,7 +384,7 @@ class DensityGridOverlay {
           bestCell
         });
       } else {
-        // Ocean candidate: attempt segmentation (bottleneck detection)
+        // Ocean candidate: attempt bottleneck segmentation.
         const segResult = segmentOceanCandidate(cells);
         if (!segResult.segmented) {
           regions.push({
@@ -388,7 +398,7 @@ class DensityGridOverlay {
             bestCell
           });
         } else {
-          // For segmented ocean, the overall cluster remains an Ocean.
+          // Overall cluster remains an Ocean.
           regions.push({
             clusterId: idx,
             cells,
@@ -399,13 +409,12 @@ class DensityGridOverlay {
             labelScale: 1.0,
             bestCell
           });
-          // For each sub-cluster from segmentation, assign a Gulf.
+          // For each sub-cluster, label as a Gulf.
           segResult.cores.forEach((core, i) => {
             const gulfBest = computeInterconnectedCell(core);
             const gulfConst = getConstellationForCell(gulfBest);
-            // Derive a uniform gulf color from the ocean’s base.
-            // For example, darken the ocean color by a factor depending on i.
-            let gulfColor = darkenColor(getBaseColor(regionConst), 0.1 * (i+1));
+            // Derive gulf color by slightly darkening the parent's base color.
+            let gulfColor = darkenColor(getBaseColor(regionConst), 0.05);
             regions.push({
               clusterId: idx + "_gulf_" + i,
               cells: core,
@@ -418,11 +427,11 @@ class DensityGridOverlay {
               color: gulfColor
             });
           });
-          // For the neck, assign a Strait.
+          // Label the neck as a Strait.
           if (segResult.neck && segResult.neck.length > 0) {
             const neckBest = computeInterconnectedCell(segResult.neck);
             const neckConst = getConstellationForCell(neckBest);
-            let straitColor = lightenColor(getBaseColor(regionConst), 0.3);
+            let straitColor = lightenColor(getBaseColor(regionConst), 0.1);
             regions.push({
               clusterId: idx + "_neck",
               cells: segResult.neck,
@@ -507,7 +516,7 @@ class DensityGridOverlay {
   }
 
   /**
-   * addRegionLabelsToScene: Remove existing labels and add new ones.
+   * addRegionLabelsToScene: Remove any existing labels and add new ones.
    */
   addRegionLabelsToScene(scene, mapType) {
     if (mapType === 'TrueCoordinates') {
@@ -541,9 +550,8 @@ class DensityGridOverlay {
   }
 
   /**
-   * updateRegionColors: Set a uniform color for each region.
-   * Independent regions (Ocean, Sea, Lake) use a base color.
-   * For Gulf and Strait regions, derive their uniform color by modifying the base.
+   * updateRegionColors: For independent regions (Ocean, Sea, Lake), use a base color.
+   * For Gulf and Strait regions, derive a uniform color by slightly modifying the parent's base color.
    */
   updateRegionColors() {
     const regions = this.classifyEmptyRegions();
@@ -552,19 +560,17 @@ class DensityGridOverlay {
     assignDistinctColorsToIndependent(independentRegions);
     regions.forEach(region => {
       if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
-        // Use the assigned base color.
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color || getBaseColor(region.constName));
           cell.globeMesh.material.color.set(region.color || getBaseColor(region.constName));
         });
       } else if (region.type === 'Gulf' || region.type === 'Strait') {
-        // For segmented regions, derive a uniform color from the parent ocean.
+        // Derive from parent's base color.
         let parentColor = getBaseColor(region.constName);
         if (region.type === 'Strait') {
-          region.color = lightenColor(parentColor, 0.3);
+          region.color = lightenColor(parentColor, 0.1);
         } else if (region.type === 'Gulf') {
-          // For Gulf, darken relative to parent (adjust factor by gulf order if desired)
-          region.color = darkenColor(parentColor, 0.1);
+          region.color = darkenColor(parentColor, 0.05);
         }
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color);
@@ -577,7 +583,7 @@ class DensityGridOverlay {
 
 // ----- Refined segmentation for Ocean Candidates -----
 function segmentOceanCandidate(cells) {
-  // Compute connectivity (26-neighbor count) for each cell.
+  // Compute connectivity for each cell.
   cells.forEach(cell => {
     let count = 0;
     cells.forEach(other => {
@@ -597,7 +603,7 @@ function segmentOceanCandidate(cells) {
     cell.thin = (cell.connectivity / C_avg) < 0.5;
   });
   
-  // Group thin cells via 26-neighbor flood-fill.
+  // Group thin cells via flood-fill.
   const thinCells = cells.filter(cell => cell.thin);
   const neckGroups = [];
   const visited = new Set();
@@ -624,7 +630,7 @@ function segmentOceanCandidate(cells) {
   
   const oceanVol = cells.length;
   let candidateNeck = null;
-  // Look for a neck group that is less than 15% of ocean volume and whose removal splits the cluster into exactly two connected components, each at least 10% of oceanVol.
+  // Look for a neck group that is less than 15% of ocean volume and whose removal splits the cluster into exactly two sub-clusters, each at least 10% of oceanVol.
   for (const group of neckGroups) {
     if (group.length >= 0.15 * oceanVol) continue;
     const neckAvgConn = group.reduce((s, cell) => s + cell.connectivity, 0) / group.length;
@@ -815,8 +821,7 @@ function mergeBranches(branches) {
 
 /**
  * assignDistinctColorsToIndependent:
- * For independent regions (Ocean, Sea, Lake), assign a base color based on an even hue distribution.
- * Here we also define a helper getBaseColor that returns a deterministic color from a given constellation name.
+ * For independent regions (Ocean, Sea, Lake), assign a base color via an even hue distribution.
  */
 function assignDistinctColorsToIndependent(regions) {
   const colorMap = {};
@@ -835,15 +840,6 @@ function assignDistinctColorsToIndependent(regions) {
     });
   });
   return colorMap;
-}
-function getBaseColor(constName) {
-  // Use a hash of the constellation name to generate a hue.
-  let hash = 0;
-  for (let i = 0; i < constName.length; i++) {
-    hash = constName.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const hue = (hash % 360 + 360) % 360;
-  return new THREE.Color(`hsl(${hue}, 70%, 50%)`);
 }
 
 export function initDensityOverlay(maxDistance, starArray) {
