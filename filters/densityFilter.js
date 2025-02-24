@@ -592,9 +592,9 @@ function segmentOceanCandidate(cells) {
   });
   const C_avg = cells.reduce((sum, cell) => sum + cell.connectivity, 0) / cells.length;
   
-  // Mark cells as thin if connectivity < 0.7 * C_avg.
+  // Mark cells as thin if connectivity < 0.3 * C_avg.
   cells.forEach(cell => {
-    cell.thin = (cell.connectivity / C_avg) < 0.7;
+    cell.thin = (cell.connectivity / C_avg) < 0.3;
   });
   
   // Group thin cells via 26-neighbor flood-fill.
