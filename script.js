@@ -47,8 +47,7 @@ function radToSphere(ra, dec, R) {
 }
 
 /**
- * For the TrueCoordinates map, we now compute the star’s position by re‑projecting
- * its RA_in_radian and DEC_in_radian onto a sphere whose radius is the star’s true distance.
+ * For the TrueCoordinates map, compute the star’s true position.
  */
 function getStarTruePosition(star) {
   const R = star.Distance_from_the_Sun;
@@ -56,7 +55,7 @@ function getStarTruePosition(star) {
 }
 
 /**
- * For the Globe map, we “project” the star onto a sphere of radius 100.
+ * For the Globe map, project the star onto a sphere of radius 100.
  */
 function projectStarGlobe(star) {
   const R = 100;
@@ -143,7 +142,6 @@ class MapManager {
     this.scene.add(pt);
 
     this.controls = new ThreeDControls(this.camera, this.renderer.domElement);
-
     this.labelManager = new LabelManager(mapType, this.scene);
 
     this.starGroup = new THREE.Group();
@@ -445,12 +443,10 @@ function buildAndApplyFilters() {
         trueCoordinatesMap.scene.add(c.tcMesh);
         globeMap.scene.add(c.globeMesh);
       });
-      densityOverlay.adjacentLines.forEach(obj => {
-        globeMap.scene.add(obj.line);
-      });
+      // Note: The old adjacentLines system is removed.
     }
     updateDensityMapping(currentFilteredStars);
-    // Add region labels (based on our classification) to both maps.
+    // The updated density overlay now manages contour zones internally.
     densityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
     densityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
   } else {
@@ -459,9 +455,9 @@ function buildAndApplyFilters() {
         trueCoordinatesMap.scene.remove(c.tcMesh);
         globeMap.scene.remove(c.globeMesh);
       });
-      densityOverlay.adjacentLines.forEach(obj => {
-        globeMap.scene.remove(obj.line);
-      });
+      if (densityOverlay.contourGroup && densityOverlay.contourGroup.parent) {
+        densityOverlay.contourGroup.parent.remove(densityOverlay.contourGroup);
+      }
       densityOverlay = null;
     }
   }
@@ -498,4 +494,3 @@ function applyGlobeSurface(isOpaque) {
     globeMap.scene.add(globeSurfaceSphere);
   }
 }
-
