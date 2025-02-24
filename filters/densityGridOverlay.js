@@ -155,7 +155,8 @@ export class DensityGridOverlay {
       cell.tcMesh.material.opacity = alpha;
       cell.globeMesh.visible = showSquare;
       cell.globeMesh.material.opacity = alpha;
-      const scale = THREE.MathUtils.lerp(1.5, 0.5, ratio);
+      // Updated scale: make squares bigger and exaggerate the size difference.
+      const scale = THREE.MathUtils.lerp(3.0, 0.3, ratio);
       cell.globeMesh.scale.set(scale, scale, 1);
     });
     
