@@ -135,7 +135,7 @@ export class DensityGridOverlay {
             vertexColors: true,
             transparent: true,
             opacity: 0.3,
-            linewidth: 1 // initial value; will be updated in update()
+            linewidth: 10 // initial value; will be updated in update()
           });
           const line = new THREE.Line(geom, mat);
           line.renderOrder = 1;
