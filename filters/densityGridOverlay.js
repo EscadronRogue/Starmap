@@ -97,13 +97,12 @@ export class DensityGridOverlay {
       const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
       cellMap.set(key, cell);
     });
-    // Include all diagonal directions (unique pairs only)
+    // Include all 26 neighboring directions (only one direction per unique pair)
     const directions = [];
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dz = -1; dz <= 1; dz++) {
           if (dx === 0 && dy === 0 && dz === 0) continue;
-          // Only add one connection per pair to avoid duplicates.
           if (dx > 0 || (dx === 0 && dy > 0) || (dx === 0 && dy === 0 && dz > 0)) {
             directions.push({dx, dy, dz});
           }
@@ -135,7 +134,7 @@ export class DensityGridOverlay {
             vertexColors: true,
             transparent: true,
             opacity: 0.3,
-            linewidth: 10 // initial value; will be updated in update()
+            linewidth: 1 // initial value; will be updated in update()
           });
           const line = new THREE.Line(geom, mat);
           line.renderOrder = 1;
@@ -160,21 +159,16 @@ export class DensityGridOverlay {
       }
       const showSquare = isoDist >= isolationVal;
       cell.active = showSquare;
-      let ratio = cell.tcPos.length() / this.maxDistance;
-      if (ratio > 1) ratio = 1;
-      const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
-      cell.tcMesh.visible = showSquare;
-      cell.tcMesh.material.opacity = alpha;
-      cell.globeMesh.visible = showSquare;
-      cell.globeMesh.material.opacity = alpha;
-      // New square scaling: using the updated parameters.
-      const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
-      cell.globeMesh.scale.set(scale, scale, 1);
+      // Even if the cell is "active", we no longer show its square meshes.
+      cell.tcMesh.visible = false;
+      cell.globeMesh.visible = false;
+      // (We still use their positions for computing connections.)
     });
     
     this.adjacentLines.forEach(obj => {
       const { line, cell1, cell2 } = obj;
-      if (cell1.globeMesh.visible && cell2.globeMesh.visible) {
+      // Update line geometry only if both connected cells are active.
+      if (cell1.active && cell2.active) {
         const points = getGreatCirclePoints(cell1.globeMesh.position, cell2.globeMesh.position, 100, 16);
         const positions = [];
         const colors = [];
@@ -192,9 +186,13 @@ export class DensityGridOverlay {
         line.geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
         line.geometry.attributes.position.needsUpdate = true;
         line.geometry.attributes.color.needsUpdate = true;
-        // Set the line's width proportional to the average square size.
-        const avgScale = (cell1.globeMesh.scale.x + cell2.globeMesh.scale.x) / 2;
-        line.material.linewidth = avgScale;
+        // Compute normalized distances (ratio = cell.tcPos.length() / maxDistance) for both cells.
+        const ratio1 = cell1.tcPos.length() / this.maxDistance;
+        const ratio2 = cell2.tcPos.length() / this.maxDistance;
+        const avgRatio = (ratio1 + ratio2) / 2;
+        // Map such that closer cells (ratio 0) yield a very thick line (50) and far cells (ratio 1) yield a thin line (1).
+        const thickness = THREE.MathUtils.lerp(50, 1, avgRatio);
+        line.material.linewidth = thickness;
         line.visible = true;
       } else {
         line.visible = false;
