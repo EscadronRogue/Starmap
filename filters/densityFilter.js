@@ -686,17 +686,57 @@ function computeInterconnectedCell(cells) {
   return bestCell;
 }
 
+/**
+ * Improved function that assigns a constellation name to a cell
+ * based on its true coordinates. It computes both RA and DEC and then
+ * selects the nearest constellation center.
+ */
 function getConstellationForCell(cell) {
   const pos = cell.tcPos;
-  let ra = Math.atan2(-pos.z, -pos.x);
+  const r = pos.length();
+  const ra = Math.atan2(-pos.z, -pos.x);
   if (ra < 0) ra += 2 * Math.PI;
   const raDeg = THREE.MathUtils.radToDeg(ra);
-  if (raDeg < 60) return "Orion";
-  else if (raDeg < 120) return "Gemini";
-  else if (raDeg < 180) return "Taurus";
-  else if (raDeg < 240) return "Leo";
-  else if (raDeg < 300) return "Scorpius";
-  else return "Cygnus";
+  const dec = Math.asin(pos.y / r);
+  const decDeg = THREE.MathUtils.radToDeg(dec);
+
+  // Define approximate centers for selected constellations.
+  const centers = [
+    { name: "Orion", ra: 83, dec: -5 },
+    { name: "Gemini", ra: 100, dec: 20 },
+    { name: "Taurus", ra: 65, dec: 15 },
+    { name: "Leo", ra: 152, dec: 12 },
+    { name: "Scorpius", ra: 255, dec: -30 },
+    { name: "Cygnus", ra: 310, dec: 40 },
+    { name: "Pegasus", ra: 330, dec: 20 }
+  ];
+
+  let best = centers[0];
+  let bestDist = angularDistance(raDeg, decDeg, best.ra, best.dec);
+  for (let i = 1; i < centers.length; i++) {
+    const center = centers[i];
+    const d = angularDistance(raDeg, decDeg, center.ra, center.dec);
+    if (d < bestDist) {
+      bestDist = d;
+      best = center;
+    }
+  }
+  return best.name;
+}
+
+/**
+ * Helper to compute angular distance (in degrees) between two points on a sphere
+ * given in RA and DEC (both in degrees).
+ */
+function angularDistance(ra1, dec1, ra2, dec2) {
+  const r1 = THREE.Math.degToRad(ra1);
+  const d1 = THREE.Math.degToRad(dec1);
+  const r2 = THREE.Math.degToRad(ra2);
+  const d2 = THREE.Math.degToRad(dec2);
+  const cosDist = Math.sin(d1) * Math.sin(d2) + Math.cos(d1) * Math.cos(d2) * Math.cos(r1 - r2);
+  const clamped = Math.min(Math.max(cosDist, -1), 1);
+  const dist = Math.acos(clamped);
+  return THREE.Math.radToDeg(dist);
 }
 
 function getGreatCirclePoints(p1, p2, R, segments) {
