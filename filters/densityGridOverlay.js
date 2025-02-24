@@ -5,7 +5,7 @@ import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor } 
 import { getGreatCirclePoints, computeInterconnectedCell, getConstellationForCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent } from './densitySegmentation.js';
 
 export class DensityGridOverlay {
-  constructor(maxDistance, gridSize = 10) {
+  constructor(maxDistance, gridSize = 2) {
     this.maxDistance = maxDistance;
     this.gridSize = gridSize;
     this.cubesData = [];
