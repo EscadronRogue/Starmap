@@ -694,11 +694,14 @@ function computeInterconnectedCell(cells) {
 function getConstellationForCell(cell) {
   const pos = cell.tcPos;
   const r = pos.length();
+  if (r < 1e-6) return "Orion"; // Fallback for center cells
   const ra = Math.atan2(-pos.z, -pos.x);
-  if (ra < 0) ra += 2 * Math.PI;
-  const raDeg = THREE.MathUtils.radToDeg(ra);
+  let normRa = ra;
+  if (normRa < 0) normRa += 2 * Math.PI;
+  const raDeg = THREE.MathUtils.radToDeg(normRa);
   const dec = Math.asin(pos.y / r);
   const decDeg = THREE.MathUtils.radToDeg(dec);
+  if (isNaN(decDeg)) return "Orion";
 
   // Define approximate centers for selected constellations.
   const centers = [
