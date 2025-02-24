@@ -1,9 +1,9 @@
 // filters/densityGridOverlay.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { Line2 } from 'https://threejs.org/examples/jsm/lines/Line2.js';
-import { LineGeometry } from 'https://threejs.org/examples/jsm/lines/LineGeometry.js';
-import { LineMaterial } from 'https://threejs.org/examples/jsm/lines/LineMaterial.js';
+import { Line2 } from './threejs/lines/Line2.js';
+import { LineGeometry } from './threejs/lines/LineGeometry.js';
+import { LineMaterial } from './threejs/lines/LineMaterial.js';
 import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, getConstellationForCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent } from './densitySegmentation.js';
 
@@ -132,7 +132,7 @@ export class DensityGridOverlay {
             let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
             colors.push(r, g, b);
           }
-          // Use fat lines for the globe map connections
+          // Create a fat-line geometry and material
           const geometry = new LineGeometry();
           geometry.setPositions(positions);
           geometry.setColors(colors);
@@ -195,7 +195,6 @@ export class DensityGridOverlay {
           let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
           colors.push(r, g, b);
         }
-        // Update fat line geometry
         obj.line.geometry.setPositions(positions);
         obj.line.geometry.setColors(colors);
         // Compute each cell's distance ratio from the Sun (using tcPos)
