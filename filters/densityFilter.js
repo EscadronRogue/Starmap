@@ -4,6 +4,61 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 
 let densityGrid = null;
 
+// --- New: Load constellation center data ---
+// We use a synchronous XMLHttpRequest to load "constellation_center.txt" so that
+// the density filter can assign constellation names consistent with the globe labels.
+let densityCenterData = null;
+
+function loadDensityCenterData() {
+  if (densityCenterData !== null) return;
+  densityCenterData = [];
+  try {
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", "constellation_center.txt", false); // synchronous request
+    xhr.send(null);
+    if (xhr.status === 200) {
+      const raw = xhr.responseText;
+      const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
+      for (const line of lines) {
+        const parts = line.split(/\s+/);
+        if (parts.length < 5) continue;
+        const raStr = parts[2];
+        const decStr = parts[3];
+        const matchName = line.match(/"([^"]+)"/);
+        const name = matchName ? matchName[1] : 'Unknown';
+        const raVal = parseRA(raStr);
+        const decVal = parseDec(decStr);
+        densityCenterData.push({ ra: raVal, dec: decVal, name });
+      }
+      console.log(`[DensityFilter] Loaded ${densityCenterData.length} constellation centers.`);
+    }
+  } catch (err) {
+    console.error("Error loading constellation_center.txt synchronously:", err);
+  }
+}
+
+// --- Helper conversion functions (copied from constellationFilter.js) ---
+function degToRad(d) {
+  return d * Math.PI / 180;
+}
+
+function parseRA(raStr) {
+  const [hh, mm, ss] = raStr.split(':').map(x => parseFloat(x));
+  const hours = hh + mm / 60 + ss / 3600;
+  const deg = hours * 15;
+  return degToRad(deg);
+}
+
+function parseDec(decStr) {
+  const sign = decStr.startsWith('-') ? -1 : 1;
+  const stripped = decStr.replace('+', '').replace('-', '');
+  const [dd, mm, ss] = stripped.split(':').map(x => parseFloat(x));
+  const degVal = (dd + mm / 60 + ss / 3600) * sign;
+  return degToRad(degVal);
+}
+
+// --- End new constellation center loading ---
+
 /* --------------------------------------------------------------------------
    Helper: getDoubleSidedLabelMaterial
    (Used for Globe labels so they render double–sided and follow the same
@@ -687,44 +742,61 @@ function computeInterconnectedCell(cells) {
 }
 
 /**
- * Improved function that assigns a constellation name to a cell
- * based on its true coordinates. It computes both RA and DEC and then
- * selects the nearest constellation center.
+ * Updated getConstellationForCell:
+ * Now it first loads constellation center data from "constellation_center.txt"
+ * (using the same logic as in the constellation filter). If available, it uses
+ * those centers (converted from radians to degrees) to compute the angular
+ * distance from the cell’s position (converted to RA/DEC in degrees).
+ * If no center data is available, it falls back to a hardcoded list.
  */
 function getConstellationForCell(cell) {
+  loadDensityCenterData();
   const pos = cell.tcPos;
   const r = pos.length();
-  if (r < 1e-6) return "Orion"; // Fallback for center cells
+  if (r < 1e-6) return "Unknown";
   const ra = Math.atan2(-pos.z, -pos.x);
   let normRa = ra;
   if (normRa < 0) normRa += 2 * Math.PI;
   const raDeg = THREE.MathUtils.radToDeg(normRa);
   const dec = Math.asin(pos.y / r);
   const decDeg = THREE.MathUtils.radToDeg(dec);
-  if (isNaN(decDeg)) return "Orion";
+  if (isNaN(decDeg)) return "Unknown";
 
-  // Define approximate centers for selected constellations.
-  const centers = [
-    { name: "Orion", ra: 83, dec: -5 },
-    { name: "Gemini", ra: 100, dec: 20 },
-    { name: "Taurus", ra: 65, dec: 15 },
-    { name: "Leo", ra: 152, dec: 12 },
-    { name: "Scorpius", ra: 255, dec: -30 },
-    { name: "Cygnus", ra: 310, dec: 40 },
-    { name: "Pegasus", ra: 330, dec: 20 }
-  ];
-
-  let best = centers[0];
-  let bestDist = angularDistance(raDeg, decDeg, best.ra, best.dec);
-  for (let i = 1; i < centers.length; i++) {
-    const center = centers[i];
-    const d = angularDistance(raDeg, decDeg, center.ra, center.dec);
-    if (d < bestDist) {
-      bestDist = d;
-      best = center;
+  if (densityCenterData && densityCenterData.length > 0) {
+    let best = densityCenterData[0];
+    let bestDist = angularDistance(raDeg, decDeg, THREE.Math.radToDeg(best.ra), THREE.Math.radToDeg(best.dec));
+    for (let i = 1; i < densityCenterData.length; i++) {
+      const center = densityCenterData[i];
+      const d = angularDistance(raDeg, decDeg, THREE.Math.radToDeg(center.ra), THREE.Math.radToDeg(center.dec));
+      if (d < bestDist) {
+        bestDist = d;
+        best = center;
+      }
     }
+    return best.name;
+  } else {
+    // Fallback hardcoded list (values in degrees)
+    const centers = [
+      { name: "Orion", ra: 83, dec: -5 },
+      { name: "Gemini", ra: 100, dec: 20 },
+      { name: "Taurus", ra: 65, dec: 15 },
+      { name: "Leo", ra: 152, dec: 12 },
+      { name: "Scorpius", ra: 255, dec: -30 },
+      { name: "Cygnus", ra: 310, dec: 40 },
+      { name: "Pegasus", ra: 330, dec: 20 }
+    ];
+    let best = centers[0];
+    let bestDist = angularDistance(raDeg, decDeg, best.ra, best.dec);
+    for (let i = 1; i < centers.length; i++) {
+      const center = centers[i];
+      const d = angularDistance(raDeg, decDeg, center.ra, center.dec);
+      if (d < bestDist) {
+        bestDist = d;
+        best = center;
+      }
+    }
+    return best.name;
   }
-  return best.name;
 }
 
 /**
