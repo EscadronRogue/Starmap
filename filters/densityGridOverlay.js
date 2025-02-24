@@ -1,6 +1,9 @@
 // filters/densityGridOverlay.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
+import { Line2 } from 'https://threejs.org/examples/jsm/lines/Line2.js';
+import { LineGeometry } from 'https://threejs.org/examples/jsm/lines/LineGeometry.js';
+import { LineMaterial } from 'https://threejs.org/examples/jsm/lines/LineMaterial.js';
 import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, getConstellationForCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent } from './densitySegmentation.js';
 
@@ -25,6 +28,7 @@ export class DensityGridOverlay {
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
           
+          // For the TrueCoordinates map, we still create the cube.
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -35,6 +39,7 @@ export class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
           
+          // For the Globe map, we create a square that will be hidden.
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -97,7 +102,7 @@ export class DensityGridOverlay {
       const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
       cellMap.set(key, cell);
     });
-    // Include all 26 neighboring directions (unique per pair)
+    // Loop over all 26 neighbor directions (unique pairs only)
     const directions = [];
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
@@ -127,16 +132,19 @@ export class DensityGridOverlay {
             let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
             colors.push(r, g, b);
           }
-          const geom = new THREE.BufferGeometry();
-          geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-          geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-          const mat = new THREE.LineBasicMaterial({
+          // Use fat lines for the globe map connections
+          const geometry = new LineGeometry();
+          geometry.setPositions(positions);
+          geometry.setColors(colors);
+          const material = new LineMaterial({
             vertexColors: true,
             transparent: true,
             opacity: 0.3,
-            linewidth: 1 // initial value; updated in update()
+            linewidth: 1, // initial value; updated in update()
+            resolution: new THREE.Vector2(window.innerWidth, window.innerHeight)
           });
-          const line = new THREE.Line(geom, mat);
+          const line = new Line2(geometry, material);
+          line.computeLineDistances();
           line.renderOrder = 1;
           this.adjacentLines.push({ line, cell1: cell, cell2: neighbor });
         }
@@ -163,17 +171,16 @@ export class DensityGridOverlay {
       let ratio = cell.tcPos.length() / this.maxDistance;
       if (ratio > 1) ratio = 1;
       const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
-      // For the 3D (TrueCoordinates) map, show the square:
+      // For the TrueCoordinates map, show the cube.
       cell.tcMesh.visible = showSquare;
       cell.tcMesh.material.opacity = alpha;
-      // For the Globe map, do not display the square:
+      // For the Globe map, hide the square.
       cell.globeMesh.visible = false;
     });
     
-    // Update adjacent connection lines
+    // Update adjacent connection lines (for the Globe map fat lines)
     this.adjacentLines.forEach(obj => {
       const { line, cell1, cell2 } = obj;
-      // For globe map, if both cells are active, update the line geometry
       if (cell1.active && cell2.active) {
         const points = getGreatCirclePoints(cell1.globeMesh.position, cell2.globeMesh.position, 100, 16);
         const positions = [];
@@ -188,22 +195,22 @@ export class DensityGridOverlay {
           let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
           colors.push(r, g, b);
         }
-        line.geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        line.geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-        line.geometry.attributes.position.needsUpdate = true;
-        line.geometry.attributes.color.needsUpdate = true;
-        // Compute each cell's distance ratio from the Sun (using the tcPos)
+        // Update fat line geometry
+        obj.line.geometry.setPositions(positions);
+        obj.line.geometry.setColors(colors);
+        // Compute each cell's distance ratio from the Sun (using tcPos)
         const ratio1 = cell1.tcPos.length() / this.maxDistance;
         const ratio2 = cell2.tcPos.length() / this.maxDistance;
         const avgRatio = (ratio1 + ratio2) / 2;
-        // Closer to the Sun (ratio near 0) => thicker line; further away => thinner.
-        const maxThickness = 1000.0; // very very thick
+        // Closer to the Sun (avgRatio near 0) => thicker; further (near 1) => thinner.
+        const maxThickness = 50.0;
         const minThickness = 0.1;
         const thickness = THREE.MathUtils.lerp(maxThickness, minThickness, avgRatio);
-        line.material.linewidth = thickness;
-        line.visible = true;
+        obj.line.material.linewidth = thickness;
+        obj.line.material.needsUpdate = true;
+        obj.line.visible = true;
       } else {
-        line.visible = false;
+        obj.line.visible = false;
       }
     });
   }
