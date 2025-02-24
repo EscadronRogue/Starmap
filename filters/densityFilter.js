@@ -622,7 +622,7 @@ function segmentOceanCandidate(cells) {
   const oceanVol = cells.length;
   let candidateNeck = null;
   for (const group of neckGroups) {
-    if (group.length < 0.15 * oceanVol) {
+    if (group.length < 0.40 * oceanVol) {
       // Also require that average connectivity in the group is < 0.5 * C_avg
       const neckConn = group.reduce((sum, cell) => sum + cell.connectivity, 0) / group.length;
       if (neckConn < 0.5 * C_avg) {
