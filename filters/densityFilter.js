@@ -4,14 +4,16 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 
 let densityGrid = null;
 
-// --- Load constellation center data for naming ---
+// ---------------------------------------------------------------------
+// 1. Constellation Center Loading (for naming)
+// ---------------------------------------------------------------------
 let densityCenterData = null;
 function loadDensityCenterData() {
   if (densityCenterData !== null) return;
   densityCenterData = [];
   try {
     const xhr = new XMLHttpRequest();
-    xhr.open("GET", "constellation_center.txt", false); // synchronous
+    xhr.open("GET", "constellation_center.txt", false); // synchronous load
     xhr.send(null);
     if (xhr.status === 200) {
       const raw = xhr.responseText;
@@ -34,7 +36,9 @@ function loadDensityCenterData() {
   }
 }
 
-// --- Conversion Helpers (from constellationFilter.js) ---
+// ---------------------------------------------------------------------
+// 2. Conversion Helpers (same as used in constellationFilter.js)
+// ---------------------------------------------------------------------
 function degToRad(d) {
   return d * Math.PI / 180;
 }
@@ -52,7 +56,9 @@ function parseDec(decStr) {
   return degToRad(degVal);
 }
 
-// --- Helper color adjustment functions ---
+// ---------------------------------------------------------------------
+// 3. Color Adjustment Helpers
+// ---------------------------------------------------------------------
 function lightenColor(color, factor) {
   let hsl = { h: 0, s: 0, l: 0 };
   color.getHSL(hsl);
@@ -69,8 +75,19 @@ function darkenColor(color, factor) {
   newColor.setHSL(hsl.h, hsl.s, hsl.l);
   return newColor;
 }
+function getBaseColor(constName) {
+  // Deterministically compute a base color from the constellation name.
+  let hash = 0;
+  for (let i = 0; i < constName.length; i++) {
+    hash = constName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = (hash % 360 + 360) % 360;
+  return new THREE.Color(`hsl(${hue}, 70%, 50%)`);
+}
 
-// --- getDoubleSidedLabelMaterial (for Globe labels) ---
+// ---------------------------------------------------------------------
+// 4. Label Material Helper (for Globe)
+// ---------------------------------------------------------------------
 function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
   return new THREE.ShaderMaterial({
     uniforms: {
@@ -99,7 +116,9 @@ function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
   });
 }
 
-// --- DensityGridOverlay Class ---
+// ---------------------------------------------------------------------
+// 5. The DensityGridOverlay Class
+// ---------------------------------------------------------------------
 class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
     this.maxDistance = maxDistance;
@@ -120,8 +139,7 @@ class DensityGridOverlay {
           const posTC = new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5);
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
-          
-          // Create cube for TrueCoordinates.
+          // TrueCoordinates: cube.
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -131,12 +149,10 @@ class DensityGridOverlay {
           });
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
-          
-          // Create plane for Globe.
+          // Globe: plane.
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
-          
           let projectedPos;
           if (distFromCenter < 1e-6) {
             projectedPos = new THREE.Vector3(0, 0, 0);
@@ -153,7 +169,6 @@ class DensityGridOverlay {
           squareGlobe.position.copy(projectedPos);
           const normal = projectedPos.clone().normalize();
           squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-          
           const cell = {
             tcMesh: cubeTC,
             globeMesh: squareGlobe,
@@ -237,10 +252,8 @@ class DensityGridOverlay {
     const densitySlider = document.getElementById('density-slider');
     const toleranceSlider = document.getElementById('tolerance-slider');
     if (!densitySlider || !toleranceSlider) return;
-    
     const isolationVal = parseFloat(densitySlider.value) || 1;
     const toleranceVal = parseInt(toleranceSlider.value) || 0;
-    
     this.cubesData.forEach(cell => {
       let isoDist = Infinity;
       if (cell.distances.length > toleranceVal) {
@@ -258,7 +271,6 @@ class DensityGridOverlay {
       const scale = THREE.MathUtils.lerp(1.5, 0.5, ratio);
       cell.globeMesh.scale.set(scale, scale, 1);
     });
-    
     this.adjacentLines.forEach(obj => {
       const { line, cell1, cell2 } = obj;
       if (cell1.globeMesh.visible && cell2.globeMesh.visible) {
@@ -286,17 +298,22 @@ class DensityGridOverlay {
     });
   }
 
-  // ----- Segmentation & Classification -----
-  // 1. Group active cells via 26-neighbor flood-fill.
-  // 2. Compute V_max (largest cluster volume) and classify clusters:
-  //    - Ocean: volume ≥ 50% of V_max
-  //    - Sea: volume between 10% and 50% of V_max
-  //    - Lake: volume < 10% of V_max
-  // 3. For Ocean candidates, attempt bottleneck segmentation.
-  // 4. For each region, compute its best (most connected) cell and set its label
-  //    based on the constellation nearest that cell.
+  // -------------------------------------------------------------------
+  // 6. Segmentation & Classification
+  //
+  // First, the active cells (from cubesData) are grouped via flood‑fill.
+  // Then clusters are classified relative to V_max:
+  //   • Ocean: volume ≥ 50% of V_max
+  //   • Sea: volume between 10% and 50% of V_max
+  //   • Lake: volume < 10% of V_max
+  // For Ocean (and for large Sea or Gulf) regions, we run recursive segmentation
+  // to detect one or more bottlenecks. Each accepted neck is removed and becomes
+  // a Strait, while the remaining connected components become Gulfs.
+  // The color for each sub-region is derived from the parent region’s base color.
+  // Each region’s label is computed based on the constellation of its most‐connected cell.
+  // -------------------------------------------------------------------
   classifyEmptyRegions() {
-    // Flood-fill grouping
+    // Group active cells using 26-neighbor flood-fill.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -339,7 +356,7 @@ class DensityGridOverlay {
       clusters.push(clusterCells);
     }
     
-    // Determine V_max.
+    // Determine maximum volume among clusters.
     let V_max = 0;
     clusters.forEach(cells => {
       if (cells.length > V_max) V_max = cells.length;
@@ -347,10 +364,11 @@ class DensityGridOverlay {
     
     const regions = [];
     clusters.forEach((cells, idx) => {
-      // Compute region’s best cell and use its constellation.
+      // For each cluster, use its most connected cell to determine the dominant constellation.
       const bestCell = computeInterconnectedCell(cells);
       const regionConst = getConstellationForCell(bestCell);
       
+      // Classify by relative volume.
       if (cells.length < 0.1 * V_max) {
         regions.push({
           clusterId: idx,
@@ -363,48 +381,35 @@ class DensityGridOverlay {
           bestCell
         });
       } else if (cells.length < 0.5 * V_max) {
-        regions.push({
-          clusterId: idx,
-          cells,
-          volume: cells.length,
-          constName: regionConst,
-          type: "Sea",
-          label: `Sea ${regionConst}`,
-          labelScale: 0.9,
-          bestCell
-        });
-      } else {
-        // Ocean candidate: attempt segmentation (bottleneck detection)
-        const segResult = segmentOceanCandidate(cells);
+        // Also check if a Sea has internal bottlenecks.
+        let segResult = recursiveSegmentRegion(cells, "Sea");
         if (!segResult.segmented) {
           regions.push({
             clusterId: idx,
             cells,
             volume: cells.length,
             constName: regionConst,
-            type: "Ocean",
-            label: `Ocean ${regionConst}`,
-            labelScale: 1.0,
+            type: "Sea",
+            label: `Sea ${regionConst}`,
+            labelScale: 0.9,
             bestCell
           });
         } else {
-          // For segmented ocean, the overall cluster remains an Ocean.
+          // Parent remains Sea.
           regions.push({
             clusterId: idx,
             cells,
             volume: cells.length,
             constName: regionConst,
-            type: "Ocean",
-            label: `Ocean ${regionConst}`,
-            labelScale: 1.0,
+            type: "Sea",
+            label: `Sea ${regionConst}`,
+            labelScale: 0.9,
             bestCell
           });
-          // For each sub-cluster from segmentation, assign a Gulf.
           segResult.cores.forEach((core, i) => {
             const gulfBest = computeInterconnectedCell(core);
             const gulfConst = getConstellationForCell(gulfBest);
-            // Derive a uniform gulf color from the ocean’s base.
-            // For example, darken the ocean color by a factor depending on i.
+            // Derive gulf color as a slight darkening of parent's base.
             let gulfColor = darkenColor(getBaseColor(regionConst), 0.1 * (i+1));
             regions.push({
               clusterId: idx + "_gulf_" + i,
@@ -418,7 +423,65 @@ class DensityGridOverlay {
               color: gulfColor
             });
           });
-          // For the neck, assign a Strait.
+          if (segResult.neck && segResult.neck.length > 0) {
+            const neckBest = computeInterconnectedCell(segResult.neck);
+            const neckConst = getConstellationForCell(neckBest);
+            let straitColor = lightenColor(getBaseColor(regionConst), 0.3);
+            regions.push({
+              clusterId: idx + "_neck",
+              cells: segResult.neck,
+              volume: segResult.neck.length,
+              constName: neckConst,
+              type: "Strait",
+              label: `Strait ${neckConst}`,
+              labelScale: 0.7,
+              bestCell: neckBest,
+              color: straitColor
+            });
+          }
+        }
+      } else {
+        // Ocean candidate – run recursive segmentation.
+        let segResult = recursiveSegmentRegion(cells, "Ocean");
+        if (!segResult.segmented) {
+          regions.push({
+            clusterId: idx,
+            cells,
+            volume: cells.length,
+            constName: regionConst,
+            type: "Ocean",
+            label: `Ocean ${regionConst}`,
+            labelScale: 1.0,
+            bestCell
+          });
+        } else {
+          // The overall cluster remains Ocean.
+          regions.push({
+            clusterId: idx,
+            cells,
+            volume: cells.length,
+            constName: regionConst,
+            type: "Ocean",
+            label: `Ocean ${regionConst}`,
+            labelScale: 1.0,
+            bestCell
+          });
+          segResult.cores.forEach((core, i) => {
+            const gulfBest = computeInterconnectedCell(core);
+            const gulfConst = getConstellationForCell(gulfBest);
+            let gulfColor = darkenColor(getBaseColor(regionConst), 0.1 * (i+1));
+            regions.push({
+              clusterId: idx + "_gulf_" + i,
+              cells: core,
+              volume: core.length,
+              constName: gulfConst,
+              type: "Gulf",
+              label: `Gulf ${gulfConst}`,
+              labelScale: 0.85,
+              bestCell: gulfBest,
+              color: gulfColor
+            });
+          });
           if (segResult.neck && segResult.neck.length > 0) {
             const neckBest = computeInterconnectedCell(segResult.neck);
             const neckConst = getConstellationForCell(neckBest);
@@ -443,141 +506,21 @@ class DensityGridOverlay {
     return regions;
   }
 
-  /**
-   * createRegionLabel: Create a uniform canvas-based label.
-   */
-  createRegionLabel(text, position, mapType) {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const baseFontSize = (mapType === 'Globe' ? 300 : 400);
-    ctx.font = `${baseFontSize}px Arial`;
-    const textWidth = ctx.measureText(text).width;
-    canvas.width = textWidth + 20;
-    canvas.height = baseFontSize * 1.2;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.font = `${baseFontSize}px Arial`;
-    ctx.fillStyle = '#ffffff';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, 10, canvas.height / 2);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-    let labelObj;
-    if (mapType === 'Globe') {
-      const planeGeom = new THREE.PlaneGeometry(canvas.width / 100, canvas.height / 100);
-      const material = getDoubleSidedLabelMaterial(texture, 1.0);
-      labelObj = new THREE.Mesh(planeGeom, material);
-      labelObj.renderOrder = 1;
-      const normal = position.clone().normalize();
-      const globalUp = new THREE.Vector3(0, 1, 0);
-      let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
-      if (desiredUp.lengthSq() < 1e-6) desiredUp = new THREE.Vector3(0, 0, 1);
-      else desiredUp.normalize();
-      const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
-      const matrix = new THREE.Matrix4().makeBasis(desiredRight, desiredUp, normal);
-      labelObj.setRotationFromMatrix(matrix);
-    } else {
-      const spriteMaterial = new THREE.SpriteMaterial({
-        map: texture,
-        depthWrite: true,
-        depthTest: true,
-        transparent: true,
-      });
-      labelObj = new THREE.Sprite(spriteMaterial);
-      const scaleFactor = 0.22;
-      labelObj.scale.set((canvas.width / 100) * scaleFactor, (canvas.height / 100) * scaleFactor, 1);
-    }
-    labelObj.position.copy(position);
-    return labelObj;
-  }
-
-  /**
-   * projectToGlobe: Project a position onto a sphere of radius 100.
-   */
-  projectToGlobe(position) {
-    const dist = position.length();
-    if (dist < 1e-6) return new THREE.Vector3(0, 0, 0);
-    const ra = Math.atan2(-position.z, -position.x);
-    const dec = Math.asin(position.y / dist);
-    const radius = 100;
-    return new THREE.Vector3(
-      -radius * Math.cos(dec) * Math.cos(ra),
-       radius * Math.sin(dec),
-      -radius * Math.cos(dec) * Math.sin(ra)
-    );
-  }
-
-  /**
-   * addRegionLabelsToScene: Remove existing labels and add new ones.
-   */
-  addRegionLabelsToScene(scene, mapType) {
-    if (mapType === 'TrueCoordinates') {
-      if (this.regionLabelsGroupTC.parent) scene.remove(this.regionLabelsGroupTC);
-      this.regionLabelsGroupTC = new THREE.Group();
-    } else if (mapType === 'Globe') {
-      if (this.regionLabelsGroupGlobe.parent) scene.remove(this.regionLabelsGroupGlobe);
-      this.regionLabelsGroupGlobe = new THREE.Group();
-    }
-    this.updateRegionColors();
-    const regions = this.classifyEmptyRegions();
-    regions.forEach(region => {
-      let labelPos;
-      if (region.bestCell) {
-        labelPos = region.bestCell.tcPos;
-      } else {
-        labelPos = computeCentroid(region.cells);
-      }
-      if (mapType === 'Globe') {
-        labelPos = this.projectToGlobe(labelPos);
-      }
-      const labelSprite = this.createRegionLabel(region.label, labelPos, mapType);
-      labelSprite.userData.labelScale = region.labelScale;
-      if (mapType === 'TrueCoordinates') {
-        this.regionLabelsGroupTC.add(labelSprite);
-      } else if (mapType === 'Globe') {
-        this.regionLabelsGroupGlobe.add(labelSprite);
-      }
-    });
-    scene.add(mapType === 'TrueCoordinates' ? this.regionLabelsGroupTC : this.regionLabelsGroupGlobe);
-  }
-
-  /**
-   * updateRegionColors: Set a uniform color for each region.
-   * Independent regions (Ocean, Sea, Lake) use a base color.
-   * For Gulf and Strait regions, derive their uniform color by modifying the base.
-   */
-  updateRegionColors() {
-    const regions = this.classifyEmptyRegions();
-    // Assign base colors for independent regions.
-    const independentRegions = regions.filter(r => r.type === 'Ocean' || r.type === 'Sea' || r.type === 'Lake');
-    assignDistinctColorsToIndependent(independentRegions);
-    regions.forEach(region => {
-      if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
-        // Use the assigned base color.
-        region.cells.forEach(cell => {
-          cell.tcMesh.material.color.set(region.color || getBaseColor(region.constName));
-          cell.globeMesh.material.color.set(region.color || getBaseColor(region.constName));
-        });
-      } else if (region.type === 'Gulf' || region.type === 'Strait') {
-        // For segmented regions, derive a uniform color from the parent ocean.
-        let parentColor = getBaseColor(region.constName);
-        if (region.type === 'Strait') {
-          region.color = lightenColor(parentColor, 0.3);
-        } else if (region.type === 'Gulf') {
-          // For Gulf, darken relative to parent (adjust factor by gulf order if desired)
-          region.color = darkenColor(parentColor, 0.1);
-        }
-        region.cells.forEach(cell => {
-          cell.tcMesh.material.color.set(region.color);
-          cell.globeMesh.material.color.set(region.color);
-        });
-      }
-    });
-  }
+  // -------------------------------------------------------------------
+  // 7. Recursive Segmentation Function
+  //
+  // This function attempts to segment a given region (cells) by detecting
+  // one or more thin bottlenecks. It returns an object:
+  // { segmented: Boolean, cores: [array of sub-clusters], neck: [union of neck cells] }.
+  // The parameter "parentType" is passed (e.g. "Ocean" or "Sea" or "Gulf") so that
+  // subregions can be re-labeled appropriately.
+  // -------------------------------------------------------------------
+  // (We define this as a standalone function below.)
 }
 
-// ----- Refined segmentation for Ocean Candidates -----
-function segmentOceanCandidate(cells) {
-  // Compute connectivity (26-neighbor count) for each cell.
+// Recursive segmentation: works on an array of cells; returns segmentation result.
+function recursiveSegmentRegion(cells, parentType) {
+  // Compute connectivity for each cell (26-neighbor count within 'cells').
   cells.forEach(cell => {
     let count = 0;
     cells.forEach(other => {
@@ -591,13 +534,11 @@ function segmentOceanCandidate(cells) {
     cell.connectivity = count;
   });
   const C_avg = cells.reduce((sum, cell) => sum + cell.connectivity, 0) / cells.length;
-  
-  // Mark cells as thin if connectivity < 0.5 * C_avg.
+  // Mark cells as "thin" if their connectivity is less than 0.5 * C_avg.
   cells.forEach(cell => {
-    cell.thin = (cell.connectivity / C_avg) < 0.5;
+    cell.thin = (cell.connectivity < 0.5 * C_avg);
   });
-  
-  // Group thin cells via 26-neighbor flood-fill.
+  // Group thin cells using flood-fill.
   const thinCells = cells.filter(cell => cell.thin);
   const neckGroups = [];
   const visited = new Set();
@@ -621,47 +562,63 @@ function segmentOceanCandidate(cells) {
     }
     neckGroups.push(group);
   });
-  
-  const oceanVol = cells.length;
-  let candidateNeck = null;
-  // Look for a neck group that is less than 15% of ocean volume and whose removal splits the cluster into exactly two connected components, each at least 10% of oceanVol.
-  for (const group of neckGroups) {
-    if (group.length >= 0.15 * oceanVol) continue;
-    const neckAvgConn = group.reduce((s, cell) => s + cell.connectivity, 0) / group.length;
-    if (neckAvgConn >= 0.5 * C_avg) continue;
-    const remaining = cells.filter(cell => !group.includes(cell));
-    const subClusters = [];
-    const remVisited = new Set();
-    remaining.forEach(cell => {
-      if (remVisited.has(cell.id)) return;
-      const comp = [];
-      const stack = [cell];
-      while (stack.length > 0) {
-        const curr = stack.pop();
-        if (remVisited.has(curr.id)) continue;
-        remVisited.add(curr.id);
-        comp.push(curr);
-        remaining.forEach(other => {
-          if (!remVisited.has(other.id) &&
-              Math.abs(curr.grid.ix - other.grid.ix) <= 1 &&
-              Math.abs(curr.grid.iy - other.grid.iy) <= 1 &&
-              Math.abs(curr.grid.iz - other.grid.iz) <= 1) {
-            stack.push(other);
-          }
-        });
-      }
-      subClusters.push(comp);
-    });
-    if (subClusters.length === 2 &&
-        subClusters.every(comp => comp.length >= 0.1 * oceanVol)) {
-      candidateNeck = group;
-      return { segmented: true, cores: subClusters, neck: candidateNeck };
+  // Accept neck groups that are less than 15% of the region volume and have low average connectivity.
+  const acceptedNecks = [];
+  neckGroups.forEach(group => {
+    if (group.length < 0.15 * cells.length) {
+      const groupConn = group.reduce((s, cell) => s + cell.connectivity, 0) / group.length;
+      if (groupConn < 0.5 * C_avg) acceptedNecks.push(group);
     }
+  });
+  if (acceptedNecks.length === 0) return { segmented: false, cores: [cells] };
+  // Combine all accepted neck groups into one set.
+  let neckUnion = [];
+  acceptedNecks.forEach(group => {
+    neckUnion = neckUnion.concat(group);
+  });
+  // Remove duplicates from neckUnion.
+  neckUnion = Array.from(new Set(neckUnion));
+  // Remove neckUnion cells from the region.
+  const remaining = cells.filter(cell => !neckUnion.includes(cell));
+  // Partition the remaining cells into connected components.
+  const subClusters = [];
+  const remVisited = new Set();
+  remaining.forEach(cell => {
+    if (remVisited.has(cell.id)) return;
+    const comp = [];
+    const stack = [cell];
+    while (stack.length > 0) {
+      const curr = stack.pop();
+      if (remVisited.has(curr.id)) continue;
+      remVisited.add(curr.id);
+      comp.push(curr);
+      remaining.forEach(other => {
+        if (!remVisited.has(other.id) &&
+            Math.abs(curr.grid.ix - other.grid.ix) <= 1 &&
+            Math.abs(curr.grid.iy - other.grid.iy) <= 1 &&
+            Math.abs(curr.grid.iz - other.grid.iz) <= 1) {
+          stack.push(other);
+        }
+      });
+    }
+    subClusters.push(comp);
+  });
+  // Accept segmentation only if there are at least 2 sub-clusters and each has at least 10% of the original volume.
+  if (subClusters.length < 2 || subClusters.some(comp => comp.length < 0.1 * cells.length)) {
+    return { segmented: false, cores: [cells] };
   }
-  return { segmented: false, cores: [cells] };
+  // Recursively check each sub-cluster for further bottlenecks.
+  let finalCores = [];
+  subClusters.forEach(comp => {
+    const result = recursiveSegmentRegion(comp, (parentType === "Ocean" ? "Gulf" : parentType));
+    finalCores = finalCores.concat(result.cores);
+  });
+  return { segmented: true, cores: finalCores, neck: neckUnion };
 }
 
-// ----- Helper functions for segmentation naming -----
+// ---------------------------------------------------------------------
+// 8. Additional Helper Functions for Naming & Geometry
+// ---------------------------------------------------------------------
 function computeCentroid(cells) {
   let sum = new THREE.Vector3(0, 0, 0);
   cells.forEach(c => sum.add(c.tcPos));
@@ -708,7 +665,7 @@ function computeInterconnectedCell(cells) {
 }
 
 /**
- * Updated getConstellationForCell: Uses loaded constellation centers.
+ * getConstellationForCell: Uses loaded constellation centers.
  */
 function getConstellationForCell(cell) {
   loadDensityCenterData();
@@ -759,7 +716,7 @@ function getConstellationForCell(cell) {
 }
 
 /**
- * Helper: Angular distance (in degrees) between two points.
+ * angularDistance: Computes angular distance (in degrees) between two points given in degrees.
  */
 function angularDistance(ra1, dec1, ra2, dec2) {
   const r1 = THREE.Math.degToRad(ra1);
@@ -771,7 +728,6 @@ function angularDistance(ra1, dec1, ra2, dec2) {
   const dist = Math.acos(clamped);
   return THREE.Math.radToDeg(dist);
 }
-
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
   const start = p1.clone().normalize().multiplyScalar(R);
@@ -786,7 +742,6 @@ function getGreatCirclePoints(p1, p2, R, segments) {
   }
   return points;
 }
-
 function computeBranchLength(cells) {
   let maxDist = 0;
   for (let i = 0; i < cells.length; i++) {
@@ -797,10 +752,6 @@ function computeBranchLength(cells) {
   }
   return maxDist;
 }
-
-/**
- * Merges branch objects with identical touchedCores.
- */
 function mergeBranches(branches) {
   let merged = {};
   branches.forEach(branch => {
@@ -812,12 +763,6 @@ function mergeBranches(branches) {
   });
   return Object.values(merged);
 }
-
-/**
- * assignDistinctColorsToIndependent:
- * For independent regions (Ocean, Sea, Lake), assign a base color based on an even hue distribution.
- * Here we also define a helper getBaseColor that returns a deterministic color from a given constellation name.
- */
 function assignDistinctColorsToIndependent(regions) {
   const colorMap = {};
   const types = ['Ocean', 'Sea', 'Lake'];
@@ -836,23 +781,213 @@ function assignDistinctColorsToIndependent(regions) {
   });
   return colorMap;
 }
-function getBaseColor(constName) {
-  // Use a hash of the constellation name to generate a hue.
-  let hash = 0;
-  for (let i = 0; i < constName.length; i++) {
-    hash = constName.charCodeAt(i) + ((hash << 5) - hash);
+
+// ---------------------------------------------------------------------
+// 9. Scene Labeling & Projection
+// ---------------------------------------------------------------------
+function createRegionLabel(text, position, mapType) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const baseFontSize = (mapType === 'Globe' ? 300 : 400);
+  ctx.font = `${baseFontSize}px Arial`;
+  const textWidth = ctx.measureText(text).width;
+  canvas.width = textWidth + 20;
+  canvas.height = baseFontSize * 1.2;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.font = `${baseFontSize}px Arial`;
+  ctx.fillStyle = '#ffffff';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 10, canvas.height / 2);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  let labelObj;
+  if (mapType === 'Globe') {
+    const planeGeom = new THREE.PlaneGeometry(canvas.width / 100, canvas.height / 100);
+    const material = getDoubleSidedLabelMaterial(texture, 1.0);
+    labelObj = new THREE.Mesh(planeGeom, material);
+    labelObj.renderOrder = 1;
+    const normal = position.clone().normalize();
+    const globalUp = new THREE.Vector3(0, 1, 0);
+    let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
+    if (desiredUp.lengthSq() < 1e-6) desiredUp = new THREE.Vector3(0, 0, 1);
+    else desiredUp.normalize();
+    const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
+    const matrix = new THREE.Matrix4().makeBasis(desiredRight, desiredUp, normal);
+    labelObj.setRotationFromMatrix(matrix);
+  } else {
+    const spriteMaterial = new THREE.SpriteMaterial({
+      map: texture,
+      depthWrite: true,
+      depthTest: true,
+      transparent: true,
+    });
+    labelObj = new THREE.Sprite(spriteMaterial);
+    const scaleFactor = 0.22;
+    labelObj.scale.set((canvas.width / 100) * scaleFactor, (canvas.height / 100) * scaleFactor, 1);
   }
-  const hue = (hash % 360 + 360) % 360;
-  return new THREE.Color(`hsl(${hue}, 70%, 50%)`);
+  labelObj.position.copy(position);
+  return labelObj;
+}
+function projectToGlobe(position) {
+  const dist = position.length();
+  if (dist < 1e-6) return new THREE.Vector3(0, 0, 0);
+  const ra = Math.atan2(-position.z, -position.x);
+  const dec = Math.asin(position.y / dist);
+  const radius = 100;
+  return new THREE.Vector3(
+    -radius * Math.cos(dec) * Math.cos(ra),
+     radius * Math.sin(dec),
+    -radius * Math.cos(dec) * Math.sin(ra)
+  );
 }
 
+// ---------------------------------------------------------------------
+// 10. Exports for Initialization and Update
+// ---------------------------------------------------------------------
 export function initDensityOverlay(maxDistance, starArray) {
   densityGrid = new DensityGridOverlay(maxDistance, 2);
   densityGrid.createGrid(starArray);
   return densityGrid;
 }
-
 export function updateDensityMapping(starArray) {
   if (!densityGrid) return;
   densityGrid.update(starArray);
+}
+
+// ---------------------------------------------------------------------
+// 11. Adding Region Labels to the Scene
+// ---------------------------------------------------------------------
+/**
+ * addRegionLabelsToScene:
+ * Removes any existing region label group from the scene and adds new labels.
+ */
+export function addRegionLabelsToScene(scene, mapType) {
+  if (mapType === 'TrueCoordinates') {
+    if (densityGrid.regionLabelsGroupTC.parent) scene.remove(densityGrid.regionLabelsGroupTC);
+    densityGrid.regionLabelsGroupTC = new THREE.Group();
+  } else if (mapType === 'Globe') {
+    if (densityGrid.regionLabelsGroupGlobe.parent) scene.remove(densityGrid.regionLabelsGroupGlobe);
+    densityGrid.regionLabelsGroupGlobe = new THREE.Group();
+  }
+  densityGrid.updateRegionColors();
+  const regions = densityGrid.classifyEmptyRegions();
+  regions.forEach(region => {
+    let labelPos;
+    if (region.bestCell) {
+      labelPos = region.bestCell.tcPos;
+    } else {
+      labelPos = computeCentroid(region.cells);
+    }
+    if (mapType === 'Globe') {
+      labelPos = projectToGlobe(labelPos);
+    }
+    const labelSprite = createRegionLabel(region.label, labelPos, mapType);
+    labelSprite.userData.labelScale = region.labelScale;
+    if (mapType === 'TrueCoordinates') {
+      densityGrid.regionLabelsGroupTC.add(labelSprite);
+    } else if (mapType === 'Globe') {
+      densityGrid.regionLabelsGroupGlobe.add(labelSprite);
+    }
+  });
+  scene.add(mapType === 'TrueCoordinates' ? densityGrid.regionLabelsGroupTC : densityGrid.regionLabelsGroupGlobe);
+}
+
+// ---------------------------------------------------------------------
+// 12. Recursive Segmentation Function
+// ---------------------------------------------------------------------
+// This function attempts to segment a given region (cells) by detecting one or more bottlenecks.
+// It returns an object: { segmented: Boolean, cores: [array of sub-clusters], neck: [array of neck cells] }.
+function recursiveSegmentRegion(cells, parentType) {
+  // Compute connectivity for each cell (26-neighbor count)
+  cells.forEach(cell => {
+    let count = 0;
+    cells.forEach(other => {
+      if (cell === other) return;
+      if (Math.abs(cell.grid.ix - other.grid.ix) <= 1 &&
+          Math.abs(cell.grid.iy - other.grid.iy) <= 1 &&
+          Math.abs(cell.grid.iz - other.grid.iz) <= 1) {
+        count++;
+      }
+    });
+    cell.connectivity = count;
+  });
+  const C_avg = cells.reduce((sum, cell) => sum + cell.connectivity, 0) / cells.length;
+  // Mark cells as "thin" if connectivity < 0.5 * C_avg.
+  cells.forEach(cell => {
+    cell.thin = (cell.connectivity < 0.5 * C_avg);
+  });
+  // Group thin cells via flood-fill.
+  const thinCells = cells.filter(cell => cell.thin);
+  const neckGroups = [];
+  const visited = new Set();
+  thinCells.forEach(cell => {
+    if (visited.has(cell.id)) return;
+    const group = [];
+    const stack = [cell];
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (visited.has(current.id)) continue;
+      visited.add(current.id);
+      group.push(current);
+      cells.forEach(other => {
+        if (!visited.has(other.id) && other.thin &&
+            Math.abs(current.grid.ix - other.grid.ix) <= 1 &&
+            Math.abs(current.grid.iy - other.grid.iy) <= 1 &&
+            Math.abs(current.grid.iz - other.grid.iz) <= 1) {
+          stack.push(other);
+        }
+      });
+    }
+    neckGroups.push(group);
+  });
+  // Accept neck groups that are less than 15% of region volume and have low average connectivity.
+  const acceptedNecks = [];
+  neckGroups.forEach(group => {
+    if (group.length < 0.15 * cells.length) {
+      const groupConn = group.reduce((s, cell) => s + cell.connectivity, 0) / group.length;
+      if (groupConn < 0.5 * C_avg) acceptedNecks.push(group);
+    }
+  });
+  if (acceptedNecks.length === 0) return { segmented: false, cores: [cells] };
+  // Combine accepted neck groups.
+  let neckUnion = [];
+  acceptedNecks.forEach(group => {
+    neckUnion = neckUnion.concat(group);
+  });
+  neckUnion = Array.from(new Set(neckUnion));
+  // Remove neckUnion cells from the region.
+  const remaining = cells.filter(cell => !neckUnion.includes(cell));
+  // Partition remaining into connected components.
+  const subClusters = [];
+  const remVisited = new Set();
+  remaining.forEach(cell => {
+    if (remVisited.has(cell.id)) return;
+    const comp = [];
+    const stack = [cell];
+    while (stack.length > 0) {
+      const curr = stack.pop();
+      if (remVisited.has(curr.id)) continue;
+      remVisited.add(curr.id);
+      comp.push(curr);
+      remaining.forEach(other => {
+        if (!remVisited.has(other.id) &&
+            Math.abs(curr.grid.ix - other.grid.ix) <= 1 &&
+            Math.abs(curr.grid.iy - other.grid.iy) <= 1 &&
+            Math.abs(curr.grid.iz - other.grid.iz) <= 1) {
+          stack.push(other);
+        }
+      });
+    }
+    subClusters.push(comp);
+  });
+  if (subClusters.length < 2 || subClusters.some(comp => comp.length < 0.1 * cells.length)) {
+    return { segmented: false, cores: [cells] };
+  }
+  // For each sub-cluster, recursively check for further segmentation.
+  let finalCores = [];
+  subClusters.forEach(comp => {
+    const result = recursiveSegmentRegion(comp, (parentType === "Ocean" ? "Gulf" : parentType));
+    finalCores = finalCores.concat(result.cores);
+  });
+  return { segmented: true, cores: finalCores, neck: neckUnion };
 }
