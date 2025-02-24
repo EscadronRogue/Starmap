@@ -97,7 +97,19 @@ export class DensityGridOverlay {
       const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
       cellMap.set(key, cell);
     });
-    const directions = [{dx:1,dy:0,dz:0}, {dx:0,dy:1,dz:0}, {dx:0,dy:0,dz:1}];
+    // Include all diagonal directions (unique pairs only)
+    const directions = [];
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dz = -1; dz <= 1; dz++) {
+          if (dx === 0 && dy === 0 && dz === 0) continue;
+          // Only add one connection per pair to avoid duplicates.
+          if (dx > 0 || (dx === 0 && dy > 0) || (dx === 0 && dy === 0 && dz > 0)) {
+            directions.push({dx, dy, dz});
+          }
+        }
+      }
+    }
     directions.forEach(dir => {
       this.cubesData.forEach(cell => {
         const neighborKey = `${cell.grid.ix + dir.dx},${cell.grid.iy + dir.dy},${cell.grid.iz + dir.dz}`;
@@ -123,7 +135,7 @@ export class DensityGridOverlay {
             vertexColors: true,
             transparent: true,
             opacity: 0.3,
-            linewidth: 1
+            linewidth: 1 // initial value; will be updated in update()
           });
           const line = new THREE.Line(geom, mat);
           line.renderOrder = 1;
@@ -155,7 +167,7 @@ export class DensityGridOverlay {
       cell.tcMesh.material.opacity = alpha;
       cell.globeMesh.visible = showSquare;
       cell.globeMesh.material.opacity = alpha;
-      // Updated scale: make squares bigger and exaggerate the size difference.
+      // New square scaling: using the updated parameters.
       const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
       cell.globeMesh.scale.set(scale, scale, 1);
     });
@@ -180,6 +192,9 @@ export class DensityGridOverlay {
         line.geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
         line.geometry.attributes.position.needsUpdate = true;
         line.geometry.attributes.color.needsUpdate = true;
+        // Set the line's width proportional to the average square size.
+        const avgScale = (cell1.globeMesh.scale.x + cell2.globeMesh.scale.x) / 2;
+        line.material.linewidth = avgScale;
         line.visible = true;
       } else {
         line.visible = false;
