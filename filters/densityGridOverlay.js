@@ -1,11 +1,12 @@
 // filters/densityGridOverlay.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { Line2 } from './threejs/lines/Line2.js';
-import { LineGeometry } from './threejs/lines/LineGeometry.js';
-import { LineMaterial } from './threejs/lines/LineMaterial.js';
 import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, getConstellationForCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent } from './densitySegmentation.js';
+// Import fat-line classes for variable linewidth support
+import { Line2 } from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/jsm/lines/Line2.js';
+import { LineGeometry } from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/jsm/lines/LineGeometry.js';
+import { LineMaterial } from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/jsm/lines/LineMaterial.js';
 
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
@@ -28,7 +29,7 @@ export class DensityGridOverlay {
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
           
-          // For the TrueCoordinates map, we still create the cube.
+          // Create a cube mesh for the TrueCoordinates map
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -39,7 +40,7 @@ export class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
           
-          // For the Globe map, we create a square that will be hidden.
+          // Create a square mesh for the Globe map (its position is used for line creation)
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -102,12 +103,13 @@ export class DensityGridOverlay {
       const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
       cellMap.set(key, cell);
     });
-    // Loop over all 26 neighbor directions (unique pairs only)
+    // Include all 26 neighboring directions (unique per pair)
     const directions = [];
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dz = -1; dz <= 1; dz++) {
           if (dx === 0 && dy === 0 && dz === 0) continue;
+          // Avoid duplicate pairs by only adding one per pair.
           if (dx > 0 || (dx === 0 && dy > 0) || (dx === 0 && dy === 0 && dz > 0)) {
             directions.push({dx, dy, dz});
           }
@@ -119,6 +121,7 @@ export class DensityGridOverlay {
         const neighborKey = `${cell.grid.ix + dir.dx},${cell.grid.iy + dir.dy},${cell.grid.iz + dir.dz}`;
         if (cellMap.has(neighborKey)) {
           const neighbor = cellMap.get(neighborKey);
+          // Use the positions from the globeMesh for connecting lines.
           const points = getGreatCirclePoints(cell.globeMesh.position, neighbor.globeMesh.position, 100, 16);
           const positions = [];
           const colors = [];
@@ -132,18 +135,17 @@ export class DensityGridOverlay {
             let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
             colors.push(r, g, b);
           }
-          // Create a fat-line geometry and material
-          const geometry = new LineGeometry();
-          geometry.setPositions(positions);
-          geometry.setColors(colors);
-          const material = new LineMaterial({
+          const lineGeom = new LineGeometry();
+          lineGeom.setPositions(positions);
+          lineGeom.setColors(colors);
+          const lineMat = new LineMaterial({
             vertexColors: true,
             transparent: true,
             opacity: 0.3,
-            linewidth: 1, // initial value; updated in update()
+            linewidth: 1, // initial value; will be updated in update()
             resolution: new THREE.Vector2(window.innerWidth, window.innerHeight)
           });
-          const line = new Line2(geometry, material);
+          const line = new Line2(lineGeom, lineMat);
           line.computeLineDistances();
           line.renderOrder = 1;
           this.adjacentLines.push({ line, cell1: cell, cell2: neighbor });
@@ -160,7 +162,8 @@ export class DensityGridOverlay {
     const isolationVal = parseFloat(densitySlider.value) || 1;
     const toleranceVal = parseInt(toleranceSlider.value) || 0;
     
-    // Update grid cells
+    // Update grid cells. For the TrueCoordinates map, the square is visible;
+    // for the Globe map, we hide the square meshes.
     this.cubesData.forEach(cell => {
       let isoDist = Infinity;
       if (cell.distances.length > toleranceVal) {
@@ -171,14 +174,13 @@ export class DensityGridOverlay {
       let ratio = cell.tcPos.length() / this.maxDistance;
       if (ratio > 1) ratio = 1;
       const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
-      // For the TrueCoordinates map, show the cube.
       cell.tcMesh.visible = showSquare;
       cell.tcMesh.material.opacity = alpha;
-      // For the Globe map, hide the square.
+      // For the Globe map, we no longer show the square.
       cell.globeMesh.visible = false;
     });
     
-    // Update adjacent connection lines (for the Globe map fat lines)
+    // Update adjacent connection lines (the fat lines).
     this.adjacentLines.forEach(obj => {
       const { line, cell1, cell2 } = obj;
       if (cell1.active && cell2.active) {
@@ -195,14 +197,15 @@ export class DensityGridOverlay {
           let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
           colors.push(r, g, b);
         }
+        // Update the fat-line geometry
         obj.line.geometry.setPositions(positions);
         obj.line.geometry.setColors(colors);
-        // Compute each cell's distance ratio from the Sun (using tcPos)
+        // Compute each cell's ratio from the Sun (using tcPos)
         const ratio1 = cell1.tcPos.length() / this.maxDistance;
         const ratio2 = cell2.tcPos.length() / this.maxDistance;
         const avgRatio = (ratio1 + ratio2) / 2;
-        // Closer to the Sun (avgRatio near 0) => thicker; further (near 1) => thinner.
-        const maxThickness = 50.0;
+        // Closer to the Sun => thicker line; use linear interpolation.
+        const maxThickness = 50.0; // very very thick
         const minThickness = 0.1;
         const thickness = THREE.MathUtils.lerp(maxThickness, minThickness, avgRatio);
         obj.line.material.linewidth = thickness;
