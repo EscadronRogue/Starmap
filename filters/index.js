@@ -13,6 +13,8 @@ import { loadConstellationBoundaries, loadConstellationCenters } from './constel
 
 // The new file that manages globe surface toggling
 import { applyGlobeSurfaceFilter } from './globeSurfaceFilter.js';
+// NEW: Import the constellation overlay filter.
+import { createConstellationOverlayForGlobe } from './constellationOverlayFilter.js';
 
 let filterForm = null;
 
@@ -55,7 +57,6 @@ export async function setupFilterUI(allStars) {
   // Add new fieldset for Globe Surface
   addGlobeSurfaceFieldset();
 
-  // All categories now start closed.
   // Load constellation data in background
   await loadConstellationBoundaries();
   await loadConstellationCenters();
@@ -73,14 +74,12 @@ function addConstellationsFieldset() {
   const contentDiv = document.createElement('div');
   contentDiv.classList.add('filter-content');
   contentDiv.style.maxHeight = '0px';
-  // Make this fieldset collapsible (like the others)
   legend.addEventListener('click', () => {
     legend.classList.toggle('active');
     const isActive = legend.classList.contains('active');
     legend.setAttribute('aria-expanded', isActive);
     contentDiv.style.maxHeight = isActive ? contentDiv.scrollHeight + 'px' : '0px';
   });
-  // Existing checkboxes:
   const boundaryDiv = document.createElement('div');
   boundaryDiv.classList.add('filter-item');
   const boundaryChk = document.createElement('input');
@@ -94,7 +93,6 @@ function addConstellationsFieldset() {
   boundaryDiv.appendChild(boundaryChk);
   boundaryDiv.appendChild(boundaryLbl);
   contentDiv.appendChild(boundaryDiv);
-
   const namesDiv = document.createElement('div');
   namesDiv.classList.add('filter-item');
   const namesChk = document.createElement('input');
@@ -108,8 +106,7 @@ function addConstellationsFieldset() {
   namesDiv.appendChild(namesChk);
   namesDiv.appendChild(namesLbl);
   contentDiv.appendChild(namesDiv);
-
-  // NEW: Constellation Overlay checkbox
+  // NEW: Overlay checkbox.
   const overlayDiv = document.createElement('div');
   overlayDiv.classList.add('filter-item');
   const overlayChk = document.createElement('input');
@@ -123,7 +120,6 @@ function addConstellationsFieldset() {
   overlayDiv.appendChild(overlayChk);
   overlayDiv.appendChild(overlayLbl);
   contentDiv.appendChild(overlayDiv);
-
   fs.appendChild(contentDiv);
   filterForm.appendChild(fs);
 }
@@ -140,7 +136,6 @@ function addGlobeSurfaceFieldset() {
   const contentDiv = document.createElement('div');
   contentDiv.classList.add('filter-content');
   contentDiv.style.maxHeight = '0px';
-  // Make this fieldset collapsible (like the others)
   legend.addEventListener('click', () => {
     legend.classList.toggle('active');
     const isActive = legend.classList.contains('active');
