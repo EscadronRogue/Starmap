@@ -234,6 +234,21 @@ export function getGreatCirclePoints(p1, p2, R, segments) {
 }
 
 /**
+ * Merges branch objects with identical touchedCores.
+ */
+export function mergeBranches(branches) {
+  let merged = {};
+  branches.forEach(branch => {
+    let key = Array.from(branch.touchedCores).sort().join(',');
+    if (!merged[key]) {
+      merged[key] = { cells: [], touchedCores: new Set(branch.touchedCores) };
+    }
+    merged[key].cells = merged[key].cells.concat(branch.cells);
+  });
+  return Object.values(merged);
+}
+
+/**
  * Assigns distinct base colors to independent regions.
  * This updated version uses predefined blue shades for each type.
  */
