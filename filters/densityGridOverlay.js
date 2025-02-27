@@ -103,7 +103,6 @@ export class DensityGridOverlay {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dz = -1; dz <= 1; dz++) {
           if (dx === 0 && dy === 0 && dz === 0) continue;
-          // Only add one connection per pair to avoid duplicates.
           if (dx > 0 || (dx === 0 && dy > 0) || (dx === 0 && dy === 0 && dz > 0)) {
             directions.push({dx, dy, dz});
           }
@@ -135,7 +134,7 @@ export class DensityGridOverlay {
             vertexColors: true,
             transparent: true,
             opacity: 0.3,
-            linewidth: 1 // initial value; will be updated in update()
+            linewidth: 1
           });
           const line = new THREE.Line(geom, mat);
           line.renderOrder = 1;
@@ -167,7 +166,6 @@ export class DensityGridOverlay {
       cell.tcMesh.material.opacity = alpha;
       cell.globeMesh.visible = showSquare;
       cell.globeMesh.material.opacity = alpha;
-      // New square scaling: using the updated parameters.
       const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
       cell.globeMesh.scale.set(scale, scale, 1);
     });
@@ -192,7 +190,6 @@ export class DensityGridOverlay {
         line.geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
         line.geometry.attributes.position.needsUpdate = true;
         line.geometry.attributes.color.needsUpdate = true;
-        // Set the line's width proportional to the average square size.
         const avgScale = (cell1.globeMesh.scale.x + cell2.globeMesh.scale.x) / 2;
         line.material.linewidth = avgScale;
         line.visible = true;
@@ -291,30 +288,20 @@ export class DensityGridOverlay {
             bestCell
           });
         } else {
-          regions.push({
-            clusterId: idx,
-            cells,
-            volume: cells.length,
-            constName: regionConst,
-            type: "Ocean",
-            label: `Ocean ${regionConst}`,
-            labelScale: 1.0,
-            bestCell
-          });
+          // When segmentation occurs, omit the original ocean label.
+          // Each subdivision is now considered a Sea.
           segResult.cores.forEach((core, i) => {
-            const gulfBest = computeInterconnectedCell(core);
-            const gulfConst = getConstellationForCell(gulfBest);
-            let gulfColor = darkenColor(getBlueColor(regionConst), 0.05);
+            const seaBest = computeInterconnectedCell(core);
+            const seaConst = getConstellationForCell(seaBest);
             regions.push({
-              clusterId: idx + "_gulf_" + i,
+              clusterId: idx + "_sea_" + i,
               cells: core,
               volume: core.length,
-              constName: gulfConst,
-              type: "Gulf",
-              label: `Gulf ${gulfConst}`,
-              labelScale: 0.85,
-              bestCell: gulfBest,
-              color: gulfColor
+              constName: seaConst,
+              type: "Sea",
+              label: `Sea ${seaConst}`,
+              labelScale: 0.9,
+              bestCell: seaBest
             });
           });
           if (segResult.neck && segResult.neck.length > 0) {
@@ -432,6 +419,7 @@ export class DensityGridOverlay {
   updateRegionColors() {
     const regions = this.classifyEmptyRegions();
     const independentRegions = regions.filter(r => r.type === 'Ocean' || r.type === 'Sea' || r.type === 'Lake');
+    // Assign each region an individual blue color.
     assignDistinctColorsToIndependent(independentRegions);
     regions.forEach(region => {
       if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
@@ -439,13 +427,9 @@ export class DensityGridOverlay {
           cell.tcMesh.material.color.set(region.color || getBlueColor(region.constName));
           cell.globeMesh.material.color.set(region.color || getBlueColor(region.constName));
         });
-      } else if (region.type === 'Gulf' || region.type === 'Strait') {
+      } else if (region.type === 'Strait') {
         let parentColor = getBlueColor(region.constName);
-        if (region.type === 'Strait') {
-          region.color = lightenColor(parentColor, 0.1);
-        } else if (region.type === 'Gulf') {
-          region.color = darkenColor(parentColor, 0.05);
-        }
+        region.color = lightenColor(parentColor, 0.1);
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color);
           cell.globeMesh.material.color.set(region.color);
