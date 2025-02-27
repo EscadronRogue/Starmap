@@ -519,7 +519,6 @@ export class DensityGridOverlay {
             bestCell: computeInterconnectedCell(cells)
           });
         } else {
-          // When segmentation occurs, the region is split into two seas.
           segResult.cores.forEach((core, i) => {
             const seaConst = getMajorityConstellation(core);
             regions.push({
