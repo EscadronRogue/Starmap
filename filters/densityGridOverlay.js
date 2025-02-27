@@ -1,8 +1,4 @@
 // File: /filters/densityGridOverlay.js
-// This file implements the density grid overlay, which builds the grid, computes adjacent lines,
-// classifies regions, and assigns labels based on the majority constellation determined using the
-// boundary-based method defined in densitySegmentation.js.
-
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor, getBlueColor } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, getConstellationForCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent, getMajorityConstellation } from './densitySegmentation.js';
