@@ -1,40 +1,36 @@
+// /filters/colorFilter.js
+
 import { getStellarClassData } from './stellarClassData.js';
-// Use the same constellation color mapping as in the overlay filter.
 import { computeConstellationColorMapping } from './constellationOverlayFilter.js';
 import { generateConstellationColors } from '../utils.js';
 
 /**
- * Applies the selected color filter to the star objects.
+ * Applies color filter to stars based on the selected filter.
  * Supported filters:
- *   - "stellar-class": Colors from stellar_class.json.
- *   - "constellation": Stars receive the color of their constellation zone.
- *   - "galactic-plane": Colors based on distance from the galactic plane.
- *   - (default): Fallback to white.
+ *   - "stellar-class": Color based on stellar class.
+ *   - "constellation": Color based on the constellation overlay.
+ *   - "galactic-plane": Color based on position relative to the galactic plane.
+ *   - (default): White.
  *
  * @param {Array} stars - Array of star objects.
- * @param {Object} filters - Current filter settings.
- * @returns {Array} Updated star objects.
+ * @param {Object} filters - The current filters object.
+ * @returns {Array} Updated array of star objects.
  */
 export function applyColorFilter(stars, filters) {
   const stellarClassData = getStellarClassData();
 
   if (filters.color === 'stellar-class') {
     stars.forEach(star => {
-      let pClass = 'G';
-      if (star.Stellar_class && typeof star.Stellar_class === 'string') {
-        pClass = star.Stellar_class.charAt(0).toUpperCase();
-      }
-      const cData = stellarClassData[pClass];
-      let colorValue = cData ? cData.color : '#FFFFFF';
-      colorValue = normalizeColor(colorValue);
-      star.displayColor = colorValue;
+      const primaryClass = star.Stellar_class ? star.Stellar_class.charAt(0).toUpperCase() : 'G';
+      const classData = stellarClassData[primaryClass];
+      star.displayColor = classData ? classData.color : '#FFFFFF';
     });
   } else if (filters.color === 'constellation') {
-    // Use the same mapping as for the overlay.
     const colorsMap = computeConstellationColorMapping();
     stars.forEach(star => {
-      let colorValue = colorsMap[star.Constellation] || '#FFFFFF';
-      colorValue = normalizeColor(colorValue);
+      // Convert the star's constellation to uppercase to match the keys in colorsMap.
+      const constKey = star.Constellation ? star.Constellation.toUpperCase() : '';
+      const colorValue = colorsMap[constKey] || '#FFFFFF';
       star.displayColor = colorValue;
     });
   } else if (filters.color === 'galactic-plane') {
@@ -57,20 +53,6 @@ export function applyColorFilter(stars, filters) {
     });
   }
   return stars;
-}
-
-function normalizeColor(colorValue) {
-  if (typeof colorValue === 'number') {
-    return '#' + colorValue.toString(16).padStart(6, '0');
-  }
-  if (typeof colorValue === 'string') {
-    colorValue = colorValue.trim();
-    if (colorValue[0] !== '#') {
-      return '#' + colorValue;
-    }
-    return colorValue;
-  }
-  return '#FFFFFF';
 }
 
 function interpolateHex(hex1, hex2, factor) {
