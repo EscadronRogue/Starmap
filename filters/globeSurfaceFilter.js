@@ -5,7 +5,7 @@
  * The global boolean "globeSurfaceOpaque" is now set to true by default.
  */
 
-export let globeSurfaceOpaque = true; // Default now ON
+export let globeSurfaceOpaque = true; // ON by default
 
 /**
  * applyGlobeSurfaceFilter:
