@@ -1,8 +1,7 @@
-// filters/colorFilter.js
-
 import { getStellarClassData } from './stellarClassData.js';
 // Use the same constellation color mapping as in the overlay filter.
 import { computeConstellationColorMapping } from './constellationOverlayFilter.js';
+import { generateConstellationColors } from '../utils.js';
 
 /**
  * Applies the selected color filter to the star objects.
@@ -20,7 +19,6 @@ export function applyColorFilter(stars, filters) {
   const stellarClassData = getStellarClassData();
 
   if (filters.color === 'stellar-class') {
-    // Use stellar class data for color
     stars.forEach(star => {
       let pClass = 'G';
       if (star.Stellar_class && typeof star.Stellar_class === 'string') {
@@ -32,14 +30,14 @@ export function applyColorFilter(stars, filters) {
       star.displayColor = colorValue;
     });
   } else if (filters.color === 'constellation') {
-    // Use the computed constellation color mapping.
+    // Use the same mapping as for the overlay.
     const colorsMap = computeConstellationColorMapping();
     stars.forEach(star => {
       let colorValue = colorsMap[star.Constellation] || '#FFFFFF';
-      star.displayColor = normalizeColor(colorValue);
+      colorValue = normalizeColor(colorValue);
+      star.displayColor = colorValue;
     });
   } else if (filters.color === 'galactic-plane') {
-    // Colors based on distance from the galactic plane.
     const maxZ = Math.max(...stars.map(s => Math.abs(s.z_coordinate)));
     stars.forEach(star => {
       const factor = Math.abs(star.z_coordinate) / maxZ;
@@ -52,7 +50,6 @@ export function applyColorFilter(stars, filters) {
       }
     });
   } else {
-    // Fallback: ensure every star has a color.
     stars.forEach(star => {
       if (!star.displayColor) {
         star.displayColor = '#FFFFFF';
