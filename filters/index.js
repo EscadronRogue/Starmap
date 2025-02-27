@@ -18,7 +18,7 @@ let filterForm = null;
 
 /**
  * Sets up the entire filter UI, including the new categories:
- * - Constellations (with Show Boundaries, Show Names)
+ * - Constellations (with Show Boundaries, Show Names, and Show Overlays)
  * - Globe Surface (Opaque/Transparent)
  */
 export async function setupFilterUI(allStars) {
@@ -62,7 +62,7 @@ export async function setupFilterUI(allStars) {
 }
 
 /**
- * Adds a fieldset for "Constellations" with 2 checkboxes: "Boundaries" & "Names"
+ * Adds a fieldset for "Constellations" with 3 checkboxes: "Boundaries", "Names", and "Overlays"
  */
 function addConstellationsFieldset() {
   const fs = document.createElement('fieldset');
@@ -80,6 +80,7 @@ function addConstellationsFieldset() {
     legend.setAttribute('aria-expanded', isActive);
     contentDiv.style.maxHeight = isActive ? contentDiv.scrollHeight + 'px' : '0px';
   });
+  // Existing checkboxes:
   const boundaryDiv = document.createElement('div');
   boundaryDiv.classList.add('filter-item');
   const boundaryChk = document.createElement('input');
@@ -93,6 +94,7 @@ function addConstellationsFieldset() {
   boundaryDiv.appendChild(boundaryChk);
   boundaryDiv.appendChild(boundaryLbl);
   contentDiv.appendChild(boundaryDiv);
+
   const namesDiv = document.createElement('div');
   namesDiv.classList.add('filter-item');
   const namesChk = document.createElement('input');
@@ -106,6 +108,22 @@ function addConstellationsFieldset() {
   namesDiv.appendChild(namesChk);
   namesDiv.appendChild(namesLbl);
   contentDiv.appendChild(namesDiv);
+
+  // NEW: Constellation Overlay checkbox
+  const overlayDiv = document.createElement('div');
+  overlayDiv.classList.add('filter-item');
+  const overlayChk = document.createElement('input');
+  overlayChk.type = 'checkbox';
+  overlayChk.id = 'show-constellation-overlay';
+  overlayChk.name = 'show-constellation-overlay';
+  overlayChk.checked = true;
+  const overlayLbl = document.createElement('label');
+  overlayLbl.htmlFor = 'show-constellation-overlay';
+  overlayLbl.textContent = 'Show Constellation Overlays';
+  overlayDiv.appendChild(overlayChk);
+  overlayDiv.appendChild(overlayLbl);
+  contentDiv.appendChild(overlayDiv);
+
   fs.appendChild(contentDiv);
   filterForm.appendChild(fs);
 }
@@ -160,6 +178,7 @@ export function applyFilters(allStars) {
         globeConnections: [],
         showConstellationBoundaries: false,
         showConstellationNames: false,
+        showConstellationOverlay: false,
         globeOpaqueSurface: false,
         enableConnections: false,
         enableDensityMapping: false
@@ -176,6 +195,7 @@ export function applyFilters(allStars) {
     connections: parseFloat(formData.get('connections')) || 7,
     showConstellationBoundaries: (formData.get('show-constellation-boundaries') !== null),
     showConstellationNames: (formData.get('show-constellation-names') !== null),
+    showConstellationOverlay: (formData.get('show-constellation-overlay') !== null),
     globeOpaqueSurface: (formData.get('globe-opaque-surface') !== null),
     enableConnections: (formData.get('enable-connections') !== null),
     enableDensityMapping: (formData.get('enable-density-mapping') !== null)
@@ -205,6 +225,7 @@ export function applyFilters(allStars) {
     globeConnections: globePairs,
     showConstellationBoundaries: filters.showConstellationBoundaries,
     showConstellationNames: filters.showConstellationNames,
+    showConstellationOverlay: filters.showConstellationOverlay,
     globeOpaqueSurface: filters.globeOpaqueSurface,
     enableConnections: filters.enableConnections,
     enableDensityMapping: filters.enableDensityMapping
