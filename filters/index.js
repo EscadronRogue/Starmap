@@ -1,5 +1,4 @@
-// filters/index.js
-
+// /filters/index.js
 import { loadStellarClassData } from './stellarClassData.js';
 import { applySizeFilter } from './sizeFilter.js';
 import { applyColorFilter } from './colorFilter.js';
@@ -10,6 +9,8 @@ import { applyStellarClassLogic, generateStellarClassFilters as scGenerate } fro
 
 // For constellations
 import { loadConstellationBoundaries, loadConstellationCenters } from './constellationFilter.js';
+// Import the new overlay filter
+import { createConstellationOverlaysForGlobe } from './constellationOverlayFilter.js';
 
 // The new file that manages globe surface toggling
 import { applyGlobeSurfaceFilter } from './globeSurfaceFilter.js';
@@ -18,7 +19,7 @@ let filterForm = null;
 
 /**
  * Sets up the entire filter UI, including the new categories:
- * - Constellations (with Show Boundaries, Show Names)
+ * - Constellations (with Show Boundaries, Show Names, Show Overlays)
  * - Globe Surface (Opaque/Transparent)
  */
 export async function setupFilterUI(allStars) {
@@ -62,7 +63,8 @@ export async function setupFilterUI(allStars) {
 }
 
 /**
- * Adds a fieldset for "Constellations" with 2 checkboxes: "Boundaries" & "Names"
+ * Adds a fieldset for "Constellations" with 3 checkboxes: 
+ * "Show Constellation Boundaries", "Show Constellation Names", and "Show Constellation Overlays"
  */
 function addConstellationsFieldset() {
   const fs = document.createElement('fieldset');
@@ -93,6 +95,7 @@ function addConstellationsFieldset() {
   boundaryDiv.appendChild(boundaryChk);
   boundaryDiv.appendChild(boundaryLbl);
   contentDiv.appendChild(boundaryDiv);
+  
   const namesDiv = document.createElement('div');
   namesDiv.classList.add('filter-item');
   const namesChk = document.createElement('input');
@@ -106,6 +109,22 @@ function addConstellationsFieldset() {
   namesDiv.appendChild(namesChk);
   namesDiv.appendChild(namesLbl);
   contentDiv.appendChild(namesDiv);
+  
+  // New overlay checkbox
+  const overlayDiv = document.createElement('div');
+  overlayDiv.classList.add('filter-item');
+  const overlayChk = document.createElement('input');
+  overlayChk.type = 'checkbox';
+  overlayChk.id = 'show-constellation-overlays';
+  overlayChk.name = 'show-constellation-overlays';
+  overlayChk.checked = false; // default off
+  const overlayLbl = document.createElement('label');
+  overlayLbl.htmlFor = 'show-constellation-overlays';
+  overlayLbl.textContent = 'Show Constellation Overlays';
+  overlayDiv.appendChild(overlayChk);
+  overlayDiv.appendChild(overlayLbl);
+  contentDiv.appendChild(overlayDiv);
+  
   fs.appendChild(contentDiv);
   filterForm.appendChild(fs);
 }
@@ -160,6 +179,7 @@ export function applyFilters(allStars) {
         globeConnections: [],
         showConstellationBoundaries: false,
         showConstellationNames: false,
+        showConstellationOverlays: false,
         globeOpaqueSurface: false,
         enableConnections: false,
         enableDensityMapping: false
@@ -176,6 +196,7 @@ export function applyFilters(allStars) {
     connections: parseFloat(formData.get('connections')) || 7,
     showConstellationBoundaries: (formData.get('show-constellation-boundaries') !== null),
     showConstellationNames: (formData.get('show-constellation-names') !== null),
+    showConstellationOverlays: (formData.get('show-constellation-overlays') !== null),
     globeOpaqueSurface: (formData.get('globe-opaque-surface') !== null),
     enableConnections: (formData.get('enable-connections') !== null),
     enableDensityMapping: (formData.get('enable-density-mapping') !== null)
@@ -205,6 +226,7 @@ export function applyFilters(allStars) {
     globeConnections: globePairs,
     showConstellationBoundaries: filters.showConstellationBoundaries,
     showConstellationNames: filters.showConstellationNames,
+    showConstellationOverlays: filters.showConstellationOverlays,
     globeOpaqueSurface: filters.globeOpaqueSurface,
     enableConnections: filters.enableConnections,
     enableDensityMapping: filters.enableDensityMapping
