@@ -512,3 +512,4 @@ function applyGlobeSurface(isOpaque) {
     globeMap.scene.add(globeSurfaceSphere);
   }
 }
+ 
