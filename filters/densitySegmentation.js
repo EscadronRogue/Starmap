@@ -5,15 +5,18 @@ import { getBaseColor, lightenColor, darkenColor, getBlueColor, getIndividualBlu
 import { loadDensityCenterData, parseRA, parseDec, degToRad, getDensityCenterData } from './densityData.js';
 
 /**
- * NEW: Returns the constellation for a given cell using constellation boundaries.
- * This method uses the same approach as constellationOverlayFilter.js.
- * It converts the cell’s 3D position (tcPos) into celestial coordinates (RA and Dec in degrees)
- * and then uses the global object "constellationPolygons" (built elsewhere) along with
- * the helper function isPointInPolygon(point, polygon) to determine the constellation.
+ * Returns the constellation for a given cell using constellation boundaries.
+ * This method uses the same approach as your constellation overlay filter.
+ * It converts the cell’s globe‐projected position (if available, otherwise tcPos)
+ * into celestial coordinates (RA and Dec in degrees) and then checks in which
+ * constellation polygon the point falls.
+ *
+ * Note: This requires that the global variable "constellationPolygons" is available,
+ * and that a function isPointInPolygon(point, polygon) is defined.
  */
 export function getConstellationForCell(cell) {
-  // Convert Cartesian position to spherical RA/Dec (in degrees)
-  const pos = cell.tcPos;
+  // Use globe projection since that is the reference for boundaries
+  const pos = cell.spherePosition ? cell.spherePosition : cell.tcPos;
   const r = pos.length();
   if (r < 1e-6) return "Unknown";
   let ra = Math.atan2(-pos.z, -pos.x); // in radians
@@ -21,13 +24,12 @@ export function getConstellationForCell(cell) {
   ra = THREE.Math.radToDeg(ra);
   const dec = Math.asin(pos.y / r); // in radians
   const decDeg = THREE.Math.radToDeg(dec);
-  
-  // Use the same boundary data as the constellation overlay filter.
-  // Expect global variable "constellationPolygons" structured as:
-  // { "AND": [ [ {ra, dec}, {ra, dec}, ... ], [ ... ] ], "CAS": [ ... ], ... }
+
+  // Expect a global variable "constellationPolygons" containing the boundary polygons
   if (typeof constellationPolygons === "undefined" || typeof isPointInPolygon !== "function") {
     return "Unknown";
   }
+  // Check each constellation’s polygons
   for (const constName in constellationPolygons) {
     const polygons = constellationPolygons[constName];
     for (const polygon of polygons) {
@@ -59,7 +61,7 @@ export function segmentOceanCandidate(cells) {
       }
     }
     if (neighborCount >= 2 && neighborCount <= 3) {
-      // Simulate removal of candidate
+      // Simulate removal of candidate cell.
       const remaining = cells.filter(cell => cell !== candidate);
       const components = computeConnectedComponents(remaining);
       if (components.length === 2) {
