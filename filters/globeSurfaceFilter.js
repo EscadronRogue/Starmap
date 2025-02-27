@@ -2,11 +2,10 @@
 
 /**
  * A new filter that toggles the Globe surface from transparent to opaque black.
- * We'll store a global boolean "globeSurfaceOpaque" here, so script.js can read it
- * and modify the sphere geometry as needed.
+ * The global boolean "globeSurfaceOpaque" is now set to true by default.
  */
 
-export let globeSurfaceOpaque = false;
+export let globeSurfaceOpaque = true; // Default now ON
 
 /**
  * applyGlobeSurfaceFilter:
@@ -14,6 +13,5 @@ export let globeSurfaceOpaque = false;
  *  - We simply store a boolean in "globeSurfaceOpaque."
  */
 export function applyGlobeSurfaceFilter(filters) {
-  // If "globe-opaque-surface" is checked => filters.globeOpaqueSurface = true
   globeSurfaceOpaque = filters.globeOpaqueSurface;
 }
