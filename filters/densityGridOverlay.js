@@ -2,7 +2,7 @@
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor, getBlueColor } from './densityColorUtils.js';
-import { getGreatCirclePoints, computeInterconnectedCell, getConstellationForCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent, getMajorityConstellation, filterNeckGroup } from './densitySegmentation.js';
+import { getGreatCirclePoints, computeInterconnectedCell, getConstellationForCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent, getMajorityConstellation } from './densitySegmentation.js';
 
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
@@ -75,7 +75,7 @@ export class DensityGridOverlay {
     this.computeDistances(stars);
     this.computeAdjacentLines();
   }
-
+  
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
       const dArr = stars.map(star => {
@@ -197,9 +197,8 @@ export class DensityGridOverlay {
       }
     });
   }
-
+  
   classifyEmptyRegions() {
-    // Reset IDs
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -249,9 +248,7 @@ export class DensityGridOverlay {
     
     const regions = [];
     clusters.forEach((cells, idx) => {
-      // Use majority vote among cells to decide the constellation label
       const regionConst = getMajorityConstellation(cells);
-      
       if (cells.length < 0.1 * V_max) {
         regions.push({
           clusterId: idx,
@@ -288,8 +285,7 @@ export class DensityGridOverlay {
             bestCell: computeInterconnectedCell(cells)
           });
         } else {
-          // When segmentation occurs, omit the original ocean label.
-          // Each subdivision is now considered a Sea.
+          // When segmentation occurs, the original region is split into two seas.
           segResult.cores.forEach((core, i) => {
             const seaConst = getMajorityConstellation(core);
             regions.push({
@@ -303,25 +299,6 @@ export class DensityGridOverlay {
               bestCell: computeInterconnectedCell(core)
             });
           });
-          // For the neck, filter out tail cells so that only true connectors remain.
-          if (segResult.neck && segResult.neck.length > 0) {
-            const filteredNeck = filterNeckGroup(segResult.neck);
-            if (filteredNeck.length > 0) {
-              const neckConst = getMajorityConstellation(filteredNeck);
-              let straitColor = lightenColor(getBlueColor(neckConst), 0.1);
-              regions.push({
-                clusterId: idx + "_neck",
-                cells: filteredNeck,
-                volume: filteredNeck.length,
-                constName: neckConst,
-                type: "Strait",
-                label: `Strait ${neckConst}`,
-                labelScale: 0.7,
-                bestCell: computeInterconnectedCell(filteredNeck),
-                color: straitColor
-              });
-            }
-          }
         }
       }
     });
@@ -329,7 +306,7 @@ export class DensityGridOverlay {
     this.regionClusters = regions;
     return regions;
   }
-
+  
   createRegionLabel(text, position, mapType) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -373,7 +350,7 @@ export class DensityGridOverlay {
     labelObj.position.copy(position);
     return labelObj;
   }
-
+  
   projectToGlobe(position) {
     const dist = position.length();
     if (dist < 1e-6) return new THREE.Vector3(0, 0, 0);
@@ -386,7 +363,7 @@ export class DensityGridOverlay {
       -radius * Math.cos(dec) * Math.sin(ra)
     );
   }
-
+  
   addRegionLabelsToScene(scene, mapType) {
     if (mapType === 'TrueCoordinates') {
       if (this.regionLabelsGroupTC.parent) scene.remove(this.regionLabelsGroupTC);
@@ -417,7 +394,7 @@ export class DensityGridOverlay {
     });
     scene.add(mapType === 'TrueCoordinates' ? this.regionLabelsGroupTC : this.regionLabelsGroupGlobe);
   }
-
+  
   updateRegionColors() {
     const regions = this.classifyEmptyRegions();
     const independentRegions = regions.filter(r => r.type === 'Ocean' || r.type === 'Sea' || r.type === 'Lake');
@@ -427,13 +404,6 @@ export class DensityGridOverlay {
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color || getBlueColor(region.constName));
           cell.globeMesh.material.color.set(region.color || getBlueColor(region.constName));
-        });
-      } else if (region.type === 'Strait') {
-        let parentColor = getBlueColor(region.constName);
-        region.color = lightenColor(parentColor, 0.1);
-        region.cells.forEach(cell => {
-          cell.tcMesh.material.color.set(region.color);
-          cell.globeMesh.material.color.set(region.color);
         });
       }
     });
