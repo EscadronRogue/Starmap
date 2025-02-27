@@ -84,14 +84,14 @@ function isPointInSphericalPolygon(point, vertices) {
     let angle = Math.acos(THREE.MathUtils.clamp(d1.dot(d2), -1, 1));
     angleSum += angle;
   }
-  return Math.abs(angleSum - 2 * Math.PI) < 0.1;
+  return Math.abs(angleSum - 2 * Math.PI) < 0.1; // Tolerance of 0.1 rad (~6°)
 }
 
 /**
- * Subdivides a BufferGeometry by splitting each triangle into four smaller triangles.
- * After each subdivision, all new vertices are re-projected onto the sphere.
- * @param {THREE.BufferGeometry} geometry - Geometry to subdivide.
- * @param {number} iterations - Number of subdivision iterations.
+ * Subdivides the geometry by splitting each triangle into four smaller triangles.
+ * After each subdivision, all new vertices are projected onto the sphere.
+ * @param {THREE.BufferGeometry} geometry - The geometry to subdivide.
+ * @param {number} iterations - How many times to subdivide.
  * @returns {THREE.BufferGeometry} The subdivided geometry.
  */
 function subdivideGeometry(geometry, iterations) {
@@ -259,7 +259,7 @@ function createConstellationOverlayForGlobe() {
       }
       posAttr.needsUpdate = true;
     }
-    // Subdivide geometry to better follow curvature.
+    // Subdivide geometry so that it follows the sphere's curvature better.
     geometry = subdivideGeometry(geometry, 2);
     const material = new THREE.MeshBasicMaterial({
       color: new THREE.Color(colorMapping[constellation]),
@@ -275,62 +275,11 @@ function createConstellationOverlayForGlobe() {
   return overlays;
 }
 
-/**
- * Subdivides the geometry by splitting each triangle into four smaller triangles.
- * After each subdivision, all new vertices are projected onto the sphere.
- * @param {THREE.BufferGeometry} geometry - The geometry to subdivide.
- * @param {number} iterations - How many times to subdivide.
- * @returns {THREE.BufferGeometry} The subdivided geometry.
- */
-function subdivideGeometry(geometry, iterations) {
-  let geo = geometry;
-  for (let iter = 0; iter < iterations; iter++) {
-    const posAttr = geo.getAttribute('position');
-    const oldPositions = [];
-    for (let i = 0; i < posAttr.count; i++) {
-      const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
-      oldPositions.push(v);
-    }
-    const oldIndices = geo.getIndex().array;
-    const newVertices = [...oldPositions];
-    const newIndices = [];
-    const midpointCache = {};
-    
-    function getMidpoint(i1, i2) {
-      const key = i1 < i2 ? `${i1}_${i2}` : `${i2}_${i1}`;
-      if (midpointCache[key] !== undefined) return midpointCache[key];
-      const v1 = newVertices[i1];
-      const v2 = newVertices[i2];
-      const mid = new THREE.Vector3().addVectors(v1, v2).multiplyScalar(0.5).normalize().multiplyScalar(R);
-      newVertices.push(mid);
-      const idx = newVertices.length - 1;
-      midpointCache[key] = idx;
-      return idx;
-    }
-    
-    for (let i = 0; i < oldIndices.length; i += 3) {
-      const i0 = oldIndices[i];
-      const i1 = oldIndices[i + 1];
-      const i2 = oldIndices[i + 2];
-      const m0 = getMidpoint(i0, i1);
-      const m1 = getMidpoint(i1, i2);
-      const m2 = getMidpoint(i2, i0);
-      newIndices.push(i0, m0, m2);
-      newIndices.push(m0, i1, m1);
-      newIndices.push(m0, m1, m2);
-      newIndices.push(m2, m1, i2);
-    }
-    
-    const positions = [];
-    newVertices.forEach(v => {
-      positions.push(v.x, v.y, v.z);
-    });
-    geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geo.setIndex(newIndices);
-    geo.computeVertexNormals();
-  }
-  return geo;
+function radToSphere(ra, dec, R) {
+  const x = -R * Math.cos(dec) * Math.cos(ra);
+  const y = R * Math.sin(dec);
+  const z = -R * Math.cos(dec) * Math.sin(ra);
+  return new THREE.Vector3(x, y, z);
 }
 
 export { createConstellationOverlayForGlobe, computeConstellationColorMapping };
