@@ -17,10 +17,6 @@ import { createConstellationOverlayForGlobe } from './constellationOverlayFilter
 
 let filterForm = null;
 
-/**
- * Sets up the filter UI including Constellations (Boundaries, Names, Overlays)
- * and Globe Surface (Opaque/Transparent).
- */
 export async function setupFilterUI(allStars) {
   filterForm = document.getElementById('filters-form');
   if (!filterForm) {
