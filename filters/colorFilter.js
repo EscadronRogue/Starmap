@@ -1,16 +1,14 @@
 // /filters/colorFilter.js
 
-import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getStellarClassData } from './stellarClassData.js';
 import { computeConstellationColorMapping } from './constellationOverlayFilter.js';
 import { generateConstellationColors } from '../utils.js';
-import { getConstellationForCell } from './densitySegmentation.js';
 
 /**
  * Applies color filter to stars based on the selected filter.
  * Supported filters:
  *   - "stellar-class": Color based on stellar class.
- *   - "constellation": Color based on the constellation overlay.
+ *   - "constellation": Color based on the constellation overlay (using the "Constellation" field from the data).
  *   - "galactic-plane": Color based on position relative to the galactic plane.
  *   - (default): White.
  *
@@ -30,20 +28,9 @@ export function applyColorFilter(stars, filters) {
   } else if (filters.color === 'constellation') {
     const colorsMap = computeConstellationColorMapping();
     stars.forEach(star => {
-      // If the star's constellation is not set, compute it using its true position.
-      if (!star.Constellation) {
-        if (!star.truePosition && star.RA_in_radian !== undefined && star.DEC_in_radian !== undefined && star.Distance_from_the_Sun !== undefined) {
-          star.truePosition = computeTruePosition(star);
-        }
-        if (star.truePosition) {
-          // getConstellationForCell expects an object with a tcPos property.
-          star.Constellation = getConstellationForCell({ tcPos: star.truePosition });
-        }
-      }
-      // Convert the constellation name to uppercase to match mapping keys.
+      // Directly use the constellation provided in the data file.
       const constKey = star.Constellation ? star.Constellation.toUpperCase() : '';
-      const colorValue = colorsMap[constKey] || '#FFFFFF';
-      star.displayColor = colorValue;
+      star.displayColor = colorsMap[constKey] || '#FFFFFF';
     });
   } else if (filters.color === 'galactic-plane') {
     const maxZ = Math.max(...stars.map(s => Math.abs(s.z_coordinate)));
@@ -65,16 +52,6 @@ export function applyColorFilter(stars, filters) {
     });
   }
   return stars;
-}
-
-function computeTruePosition(star) {
-  const R = star.Distance_from_the_Sun;
-  const ra = star.RA_in_radian;
-  const dec = star.DEC_in_radian;
-  const x = -R * Math.cos(dec) * Math.cos(ra);
-  const y = R * Math.sin(dec);
-  const z = -R * Math.cos(dec) * Math.sin(ra);
-  return new THREE.Vector3(x, y, z);
 }
 
 function interpolateHex(hex1, hex2, factor) {
