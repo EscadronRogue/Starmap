@@ -1,28 +1,16 @@
-// File: /filters/densitySegmentation.js
+// densitySegmentation.js
+// This module uses the constellation polygons (loaded via the boundaries parser)
+// to assign each cell a constellation based on its position on the celestial sphere.
+
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getBaseColor, lightenColor, darkenColor, getBlueColor, getIndividualBlueColor } from './densityColorUtils.js';
 import { loadDensityCenterData, parseRA, parseDec, degToRad, getDensityCenterData } from './densityData.js';
 
-// This module assumes that constellation boundary data is provided externally and stored in
-// a global variable called "constellationPolygons" and that a function "isPointInPolygon(point, polygon)"
-// is available in the global scope.
-
-// Converts RA/Dec strings to degrees.
-function raToDeg(raStr) {
-  const [hh, mm, ss] = raStr.split(':').map(Number);
-  return (hh + mm / 60 + ss / 3600) * 15;
-}
-function decToDeg(decStr) {
-  const sign = decStr[0] === '-' ? -1 : 1;
-  const [dd, mm, ss] = decStr.replace('+', '').split(':').map(Number);
-  return sign * (dd + mm / 60 + ss / 3600);
-}
-
-// The following functions rely on external boundary data rather than embedding any raw data.
-
-// Returns the constellation for a given cell using constellation boundaries.
+// The getConstellationForCell function now uses the constellationPolygons that were
+// loaded (for example, by constellationFilter.js). We assume that constellationPolygons
+// is available as a global variable. (Alternatively, you could import it if you export it.)
 export function getConstellationForCell(cell) {
-  // Use globe-projected position since the boundaries are defined for the globe.
+  // Use the globe-projected position (or fallback to true coordinates) because the boundaries are defined on the sphere.
   const pos = cell.spherePosition ? cell.spherePosition : cell.tcPos;
   const r = pos.length();
   if (r < 1e-6) return "Unknown";
@@ -32,9 +20,12 @@ export function getConstellationForCell(cell) {
   const dec = Math.asin(pos.y / r);
   const decDeg = THREE.Math.radToDeg(dec);
   
-  if (typeof constellationPolygons === "undefined" || typeof isPointInPolygon !== "function") {
+  // Check that constellationPolygons is available
+  if (typeof constellationPolygons === "undefined") {
     return "Unknown";
   }
+  
+  // For each constellation, check all its polygons to see if the point lies inside.
   for (const constName in constellationPolygons) {
     const polygons = constellationPolygons[constName];
     for (const polygon of polygons) {
@@ -46,7 +37,23 @@ export function getConstellationForCell(cell) {
   return "Unknown";
 }
 
-// Segments a cluster if a neck candidate is found.
+// Standard ray-casting algorithm for a point-in-polygon test.
+// Assumes polygon is an array of vertices with {ra, dec} in degrees.
+function isPointInPolygon(point, polygon) {
+  let intersections = 0;
+  const { ra: testRA, dec: testDec } = point;
+  for (let i = 0; i < polygon.length; i++) {
+    const current = polygon[i];
+    const next = polygon[(i + 1) % polygon.length];
+    // Check if the edge crosses the horizontal line at testDec.
+    if ((current.dec > testDec) !== (next.dec > testDec)) {
+      const intersectRA = current.ra + (next.ra - current.ra) * ((testDec - current.dec) / (next.dec - current.dec));
+      if (testRA < intersectRA) intersections++;
+    }
+  }
+  return intersections % 2 === 1;
+}
+
 export function segmentOceanCandidate(cells) {
   for (const candidate of cells) {
     let neighborCount = 0;
