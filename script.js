@@ -295,6 +295,41 @@ window.onload = async () => {
 
     await setupFilterUI(cachedStars);
 
+    // Now that the filters UI is built, attach its event listeners
+    const debouncedApplyFilters = debounce(buildAndApplyFilters, 150);
+    const form = document.getElementById('filters-form');
+    if (form) {
+      form.addEventListener('change', debouncedApplyFilters);
+      const cSlider = document.getElementById('connection-slider');
+      const cVal = document.getElementById('connection-value');
+      if (cSlider && cVal) {
+        cSlider.addEventListener('input', () => {
+          cVal.textContent = cSlider.value;
+          debouncedApplyFilters();
+        });
+      }
+      const dSlider = document.getElementById('density-slider');
+      const dVal = document.getElementById('density-value');
+      if (dSlider && dVal) {
+        dSlider.addEventListener('input', () => {
+          dVal.textContent = dSlider.value;
+          if (getCurrentFilters().enableDensityMapping) {
+            updateDensityMapping(currentFilteredStars);
+          }
+        });
+      }
+      const tSlider = document.getElementById('tolerance-slider');
+      const tVal = document.getElementById('tolerance-value');
+      if (tSlider && tVal) {
+        tSlider.addEventListener('input', () => {
+          tVal.textContent = tSlider.value;
+          if (getCurrentFilters().enableDensityMapping) {
+            updateDensityMapping(currentFilteredStars);
+          }
+        });
+      }
+    }
+
     // Setup maps
     trueCoordinatesMap = new MapManager({ canvasId: 'map3D', mapType: 'TrueCoordinates' });
     globeMap = new MapManager({ canvasId: 'sphereMap', mapType: 'Globe' });
@@ -306,6 +341,13 @@ window.onload = async () => {
 
     // Apply filters (this now uses the precomputed positions)
     await buildAndApplyFilters();
+
+    // Compute max distance (for density mapping) if needed
+    maxDistanceFromCenter = Math.max(
+      ...cachedStars.map(s =>
+        Math.sqrt(s.x_coordinate ** 2 + s.y_coordinate ** 2 + s.z_coordinate ** 2)
+      )
+    );
 
     // Create and add the globe grid.
     globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
@@ -375,7 +417,7 @@ async function buildAndApplyFilters() {
   currentGlobeFilteredStars = globeFilteredStars;
   currentGlobeConnections = globeConnections;
 
-  // These positions are already computed on load so we don't recompute them here.
+  // These positions are already computed on load.
   trueCoordinatesMap.updateMap(currentFilteredStars, currentConnections);
   trueCoordinatesMap.labelManager.refreshLabels(currentFilteredStars);
 
