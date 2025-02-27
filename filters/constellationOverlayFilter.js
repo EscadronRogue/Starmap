@@ -28,9 +28,9 @@ function computeNeighborMap() {
 
 function generatePalette(numColors) {
   const colors = [];
+  // Use higher saturation (90%) for more vivid colors.
   for (let i = 0; i < numColors; i++) {
     const hue = Math.round((360 * i) / numColors);
-    // Increased saturation to 90% for more vibrant, distinct colors.
     colors.push(`hsl(${hue},90%,50%)`);
   }
   return colors;
@@ -46,17 +46,19 @@ function computeConstellationColorMapping() {
     if (seg.const2) allConsts.add(seg.const2);
   });
   const constellations = Array.from(allConsts);
-  // Determine maximum degree.
+  // Determine maximum degree
   let maxDegree = 0;
   constellations.forEach(c => {
     const deg = neighbors[c] ? neighbors[c].length : 0;
     if (deg > maxDegree) maxDegree = deg;
   });
-  // Use at least (maxDegree + 1) colors, with a minimum of 12.
-  const paletteSize = Math.max(maxDegree + 1, 12);
+  // Use a palette with at least maxDegree+1 colors, minimum 20.
+  const paletteSize = Math.max(maxDegree + 1, 20);
   const palette = generatePalette(paletteSize);
-  // Sort constellations in descending order by degree.
+  
+  // Sort constellations in descending order by neighbor count.
   constellations.sort((a, b) => (neighbors[b] ? neighbors[b].length : 0) - (neighbors[a] ? neighbors[a].length : 0));
+  
   const colorMapping = {};
   for (const c of constellations) {
     const used = new Set();
@@ -232,7 +234,6 @@ function createConstellationOverlayForGlobe() {
       ordered.pop();
     }
     let geometry;
-    // Use spherical fan triangulation if the spherical centroid is inside.
     const centroid = computeSphericalCentroid(ordered);
     if (isPointInSphericalPolygon(centroid, ordered)) {
       const vertices = [];
@@ -250,7 +251,6 @@ function createConstellationOverlayForGlobe() {
       geometry.setIndex(indices);
       geometry.computeVertexNormals();
     } else {
-      // Fallback: planar triangulation on tangent plane.
       const tangent = new THREE.Vector3();
       const bitangent = new THREE.Vector3();
       const tempCentroid = new THREE.Vector3(0, 0, 0);
@@ -277,7 +277,6 @@ function createConstellationOverlayForGlobe() {
       }
       posAttr.needsUpdate = true;
     }
-    // Subdivide geometry so that it better follows the sphere's curvature.
     geometry = subdivideGeometry(geometry, 2);
     const material = new THREE.MeshBasicMaterial({
       color: new THREE.Color(colorMapping[constellation]),
