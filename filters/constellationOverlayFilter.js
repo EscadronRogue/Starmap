@@ -1,11 +1,17 @@
-// filters/constellationOverlayFilter.js
-
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getConstellationBoundaries } from './constellationFilter.js';
 
 const R = 100; // Globe radius
 
 // --- Graph Coloring Helpers (Non-recursive Greedy) ---
+
+// Use a predefined distinct palette with 20 colors.
+const distinctPalette = [
+  "#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00",
+  "#ffff33", "#a65628", "#f781bf", "#66c2a5", "#fc8d62",
+  "#8da0cb", "#e78ac3", "#a6d854", "#ffd92f", "#e5c494",
+  "#b3b3b3", "#1b9e77", "#d95f02", "#7570b3", "#e7298a"
+];
 
 function computeNeighborMap() {
   const boundaries = getConstellationBoundaries(); // Each segment: {ra1, dec1, ra2, dec2, const1, const2}
@@ -26,16 +32,6 @@ function computeNeighborMap() {
   return neighbors;
 }
 
-function generatePalette(numColors) {
-  const colors = [];
-  // Use higher saturation (90%) for more vivid colors.
-  for (let i = 0; i < numColors; i++) {
-    const hue = Math.round((360 * i) / numColors);
-    colors.push(`hsl(${hue},90%,50%)`);
-  }
-  return colors;
-}
-
 function computeConstellationColorMapping() {
   const neighbors = computeNeighborMap();
   const allConsts = new Set();
@@ -46,15 +42,15 @@ function computeConstellationColorMapping() {
     if (seg.const2) allConsts.add(seg.const2);
   });
   const constellations = Array.from(allConsts);
-  // Determine maximum degree
+  
+  // Determine maximum neighbor count (degree)
   let maxDegree = 0;
   constellations.forEach(c => {
     const deg = neighbors[c] ? neighbors[c].length : 0;
     if (deg > maxDegree) maxDegree = deg;
   });
-  // Use a palette with at least maxDegree+1 colors, minimum 20.
-  const paletteSize = Math.max(maxDegree + 1, 20);
-  const palette = generatePalette(paletteSize);
+  // Ensure our palette is large enough; if not, we'll cycle.
+  const palette = distinctPalette;
   
   // Sort constellations in descending order by neighbor count.
   constellations.sort((a, b) => (neighbors[b] ? neighbors[b].length : 0) - (neighbors[a] ? neighbors[a].length : 0));
@@ -67,6 +63,7 @@ function computeConstellationColorMapping() {
         if (colorMapping[nb]) used.add(colorMapping[nb]);
       }
     }
+    // Find the first color in the palette that is not used.
     let assigned = palette.find(color => !used.has(color));
     if (!assigned) assigned = palette[0];
     colorMapping[c] = assigned;
@@ -76,24 +73,12 @@ function computeConstellationColorMapping() {
 
 // --- Spherical Triangulation Helpers ---
 
-/**
- * Computes the spherical centroid of an array of vertices (assumed to be on the sphere).
- * Returns a normalized vector (on the unit sphere) then scaled to R.
- */
 function computeSphericalCentroid(vertices) {
   const sum = new THREE.Vector3(0, 0, 0);
   vertices.forEach(v => sum.add(v));
   return sum.normalize().multiplyScalar(R);
 }
 
-/**
- * Determines if a point is inside a spherical polygon.
- * Uses an angle-sum test: if the sum of angles between consecutive vertices (as seen from the point)
- * is approximately 2*PI, then the point is inside.
- * @param {THREE.Vector3} point - Test point (on the sphere).
- * @param {THREE.Vector3[]} vertices - Vertices of the spherical polygon.
- * @returns {boolean}
- */
 function isPointInSphericalPolygon(point, vertices) {
   let angleSum = 0;
   for (let i = 0; i < vertices.length; i++) {
@@ -107,13 +92,6 @@ function isPointInSphericalPolygon(point, vertices) {
   return Math.abs(angleSum - 2 * Math.PI) < 0.1;
 }
 
-/**
- * Subdivides the geometry by splitting each triangle into four smaller triangles.
- * After each subdivision, all new vertices are projected onto the sphere.
- * @param {THREE.BufferGeometry} geometry - The geometry to subdivide.
- * @param {number} iterations - How many times to subdivide.
- * @returns {THREE.BufferGeometry} The subdivided geometry.
- */
 function subdivideGeometry(geometry, iterations) {
   let geo = geometry;
   for (let iter = 0; iter < iterations; iter++) {
@@ -167,16 +145,6 @@ function subdivideGeometry(geometry, iterations) {
 
 // --- Overlay Creation ---
 
-/**
- * Creates a low-opacity overlay for each constellation by stitching together
- * the already-plotted boundary segments. For each constellation, the segments are
- * grouped and ordered by matching endpoints (using a tolerance). Then, if the spherical
- * centroid is inside the polygon, a fan triangulation is used; otherwise, it falls back
- * to planar triangulation. Finally, the resulting geometry is subdivided so that its
- * triangles closely follow the sphere's curvature.
- *
- * @returns {Array} Array of THREE.Mesh objects (overlays) for the Globe.
- */
 function createConstellationOverlayForGlobe() {
   const boundaries = getConstellationBoundaries();
   const groups = {};
@@ -228,7 +196,6 @@ function createConstellationOverlayForGlobe() {
       iteration++;
     }
     if (ordered.length < 3) continue;
-    // Ensure closure of the polygon.
     if (ordered[0].distanceTo(ordered[ordered.length - 1]) > 0.01) continue;
     if (ordered[0].distanceTo(ordered[ordered.length - 1]) < 0.001) {
       ordered.pop();
