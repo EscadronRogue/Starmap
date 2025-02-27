@@ -1,7 +1,7 @@
 // filters/densityGridOverlay.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor } from './densityColorUtils.js';
+import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor, getBlueColor } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, getConstellationForCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent } from './densitySegmentation.js';
 
 export class DensityGridOverlay {
@@ -304,7 +304,7 @@ export class DensityGridOverlay {
           segResult.cores.forEach((core, i) => {
             const gulfBest = computeInterconnectedCell(core);
             const gulfConst = getConstellationForCell(gulfBest);
-            let gulfColor = darkenColor(getBaseColor(regionConst), 0.05);
+            let gulfColor = darkenColor(getBlueColor(regionConst), 0.05);
             regions.push({
               clusterId: idx + "_gulf_" + i,
               cells: core,
@@ -320,7 +320,7 @@ export class DensityGridOverlay {
           if (segResult.neck && segResult.neck.length > 0) {
             const neckBest = computeInterconnectedCell(segResult.neck);
             const neckConst = getConstellationForCell(neckBest);
-            let straitColor = lightenColor(getBaseColor(regionConst), 0.1);
+            let straitColor = lightenColor(getBlueColor(regionConst), 0.1);
             regions.push({
               clusterId: idx + "_neck",
               cells: segResult.neck,
@@ -436,11 +436,11 @@ export class DensityGridOverlay {
     regions.forEach(region => {
       if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
         region.cells.forEach(cell => {
-          cell.tcMesh.material.color.set(region.color || getBaseColor(region.constName));
-          cell.globeMesh.material.color.set(region.color || getBaseColor(region.constName));
+          cell.tcMesh.material.color.set(region.color || getBlueColor(region.constName));
+          cell.globeMesh.material.color.set(region.color || getBlueColor(region.constName));
         });
       } else if (region.type === 'Gulf' || region.type === 'Strait') {
-        let parentColor = getBaseColor(region.constName);
+        let parentColor = getBlueColor(region.constName);
         if (region.type === 'Strait') {
           region.color = lightenColor(parentColor, 0.1);
         } else if (region.type === 'Gulf') {
