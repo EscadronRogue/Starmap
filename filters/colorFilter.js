@@ -1,5 +1,6 @@
 // /filters/colorFilter.js
 
+import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getStellarClassData } from './stellarClassData.js';
 import { computeConstellationColorMapping } from './constellationOverlayFilter.js';
 import { generateConstellationColors } from '../utils.js';
@@ -29,12 +30,17 @@ export function applyColorFilter(stars, filters) {
   } else if (filters.color === 'constellation') {
     const colorsMap = computeConstellationColorMapping();
     stars.forEach(star => {
-      // If the star's constellation is not defined and we have a truePosition,
-      // compute the constellation using getConstellationForCell.
-      if (!star.Constellation && star.truePosition) {
-        star.Constellation = getConstellationForCell({ tcPos: star.truePosition });
+      // If the star's constellation is not set, compute it using its true position.
+      if (!star.Constellation) {
+        if (!star.truePosition && star.RA_in_radian !== undefined && star.DEC_in_radian !== undefined && star.Distance_from_the_Sun !== undefined) {
+          star.truePosition = computeTruePosition(star);
+        }
+        if (star.truePosition) {
+          // getConstellationForCell expects an object with a tcPos property.
+          star.Constellation = getConstellationForCell({ tcPos: star.truePosition });
+        }
       }
-      // Convert the constellation name to uppercase to match the mapping keys.
+      // Convert the constellation name to uppercase to match mapping keys.
       const constKey = star.Constellation ? star.Constellation.toUpperCase() : '';
       const colorValue = colorsMap[constKey] || '#FFFFFF';
       star.displayColor = colorValue;
@@ -59,6 +65,16 @@ export function applyColorFilter(stars, filters) {
     });
   }
   return stars;
+}
+
+function computeTruePosition(star) {
+  const R = star.Distance_from_the_Sun;
+  const ra = star.RA_in_radian;
+  const dec = star.DEC_in_radian;
+  const x = -R * Math.cos(dec) * Math.cos(ra);
+  const y = R * Math.sin(dec);
+  const z = -R * Math.cos(dec) * Math.sin(ra);
+  return new THREE.Vector3(x, y, z);
 }
 
 function interpolateHex(hex1, hex2, factor) {
