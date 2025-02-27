@@ -284,64 +284,25 @@ window.onload = async () => {
     cachedStars = await loadStarData();
     if (!cachedStars.length) throw new Error('No star data available');
 
+    // Compute star positions before applying filters
+    cachedStars.forEach(star => {
+      star.spherePosition = projectStarGlobe(star);
+      star.truePosition = getStarTruePosition(star);
+    });
+
     await setupFilterUI(cachedStars);
 
-    const debouncedApplyFilters = debounce(buildAndApplyFilters, 150);
-    const form = document.getElementById('filters-form');
-    if (form) {
-      form.addEventListener('change', debouncedApplyFilters);
-      const cSlider = document.getElementById('connection-slider');
-      const cVal = document.getElementById('connection-value');
-      if (cSlider && cVal) {
-        cSlider.addEventListener('input', () => {
-          cVal.textContent = cSlider.value;
-          debouncedApplyFilters();
-        });
-      }
-      const dSlider = document.getElementById('density-slider');
-      const dVal = document.getElementById('density-value');
-      if (dSlider && dVal) {
-        dSlider.addEventListener('input', () => {
-          dVal.textContent = dSlider.value;
-          if (getCurrentFilters().enableDensityMapping) {
-            updateDensityMapping(currentFilteredStars);
-          }
-        });
-      }
-      const tSlider = document.getElementById('tolerance-slider');
-      const tVal = document.getElementById('tolerance-value');
-      if (tSlider && tVal) {
-        tSlider.addEventListener('input', () => {
-          tVal.textContent = tSlider.value;
-          if (getCurrentFilters().enableDensityMapping) {
-            updateDensityMapping(currentFilteredStars);
-          }
-        });
-      }
-    }
-
-    maxDistanceFromCenter = Math.max(
-      ...cachedStars.map(s =>
-        Math.sqrt(s.x_coordinate ** 2 + s.y_coordinate ** 2 + s.z_coordinate ** 2)
-      )
-    );
-
+    // Setup maps
     trueCoordinatesMap = new MapManager({ canvasId: 'map3D', mapType: 'TrueCoordinates' });
     globeMap = new MapManager({ canvasId: 'sphereMap', mapType: 'Globe' });
-
     window.trueCoordinatesMap = trueCoordinatesMap;
     window.globeMap = globeMap;
 
     initStarInteractions(trueCoordinatesMap);
     initStarInteractions(globeMap);
 
+    // Apply filters (this now uses the precomputed positions)
     await buildAndApplyFilters();
-
-    // Compute star positions.
-    cachedStars.forEach(star => {
-      star.spherePosition = projectStarGlobe(star);
-      star.truePosition = getStarTruePosition(star);
-    });
 
     // Create and add the globe grid.
     globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
@@ -411,13 +372,7 @@ async function buildAndApplyFilters() {
   currentGlobeFilteredStars = globeFilteredStars;
   currentGlobeConnections = globeConnections;
 
-  currentGlobeFilteredStars.forEach(star => {
-    star.spherePosition = projectStarGlobe(star);
-  });
-  currentFilteredStars.forEach(star => {
-    star.truePosition = getStarTruePosition(star);
-  });
-
+  // These positions are already computed on load so we don't recompute them here.
   trueCoordinatesMap.updateMap(currentFilteredStars, currentConnections);
   trueCoordinatesMap.labelManager.refreshLabels(currentFilteredStars);
 
@@ -453,7 +408,6 @@ async function buildAndApplyFilters() {
       });
     }
     updateDensityMapping(currentFilteredStars);
-    // Add region labels (based on our classification) to both maps.
     densityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
     densityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
   } else {
