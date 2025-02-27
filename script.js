@@ -31,7 +31,7 @@ let globeMap;
 
 let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
-let constellationOverlayGlobe = []; // NEW: overlays for constellation surfaces
+let constellationOverlayGlobe = []; // NEW: overlays for constellation zones
 let globeSurfaceSphere = null;
 let densityOverlay = null;
 let globeGrid = null;
@@ -49,7 +49,7 @@ function radToSphere(ra, dec, R) {
 }
 
 /**
- * For the TrueCoordinates map, we now compute the star’s position by re‑projecting
+ * For the TrueCoordinates map, we compute the star’s position by re‑projecting
  * its RA_in_radian and DEC_in_radian onto a sphere whose radius is the star’s true distance.
  */
 function getStarTruePosition(star) {
