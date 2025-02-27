@@ -1,4 +1,4 @@
-// filters/index.js
+// /filters/index.js
 
 import { loadStellarClassData } from './stellarClassData.js';
 import { applySizeFilter } from './sizeFilter.js';
@@ -96,7 +96,7 @@ function addConstellationsFieldset() {
   overlayChk.type = 'checkbox';
   overlayChk.id = 'show-constellation-overlay';
   overlayChk.name = 'show-constellation-overlay';
-  overlayChk.checked = true;
+  overlayChk.checked = false; // Set to false by default
   const overlayLbl = document.createElement('label');
   overlayLbl.htmlFor = 'show-constellation-overlay';
   overlayLbl.textContent = 'Show Constellation Overlays';
