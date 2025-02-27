@@ -1,14 +1,14 @@
 // /filters/colorFilter.js
 
 import { getStellarClassData } from './stellarClassData.js';
-import { generateConstellationColors } from '../utils.js';
 
 /**
  * Applies color filter to stars based on the selected filter.
  * Supported filters:
- *   - "stellar-class": Color based on stellar class.
- *   - "constellation": Color based directly on the star's "Constellation" field.
- *   - "galactic-plane": Color based on position relative to the galactic plane.
+ *   - "stellar-class": Colors based on stellar class.
+ *   - "constellation": Colors based on the star's "Constellation" field using a fixed mapping
+ *                      that mimics the constellation overlay color logic.
+ *   - "galactic-plane": Colors based on the star’s position relative to the galactic plane.
  *   - (default): White.
  *
  * @param {Array} stars - Array of star objects.
@@ -25,12 +25,29 @@ export function applyColorFilter(stars, filters) {
       star.displayColor = classData ? classData.color : '#FFFFFF';
     });
   } else if (filters.color === 'constellation') {
-    // Generate a color mapping using the constellation names from the star data.
-    const colorMapping = generateConstellationColors(stars);
+    // Use a fixed palette similar to the constellation overlay.
+    const distinctPalette = [
+      "#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00",
+      "#ffff33", "#a65628", "#f781bf", "#66c2a5", "#fc8d62",
+      "#8da0cb", "#e78ac3", "#a6d854", "#ffd92f", "#e5c494",
+      "#b3b3b3", "#1b9e77", "#d95f02", "#7570b3", "#e7298a"
+    ];
+    // Build a mapping from unique constellation names (uppercased) found in the star data.
+    const constellationSet = new Set();
     stars.forEach(star => {
-      // Use the "Constellation" field directly as the key.
-      const constellation = star.Constellation || "";
-      star.displayColor = colorMapping[constellation] || '#FFFFFF';
+      if (star.Constellation) {
+        constellationSet.add(star.Constellation.toUpperCase());
+      }
+    });
+    const constellations = Array.from(constellationSet).sort();
+    const colorMapping = {};
+    constellations.forEach((constName, index) => {
+      colorMapping[constName] = distinctPalette[index % distinctPalette.length];
+    });
+    // Apply the mapping to each star.
+    stars.forEach(star => {
+      const constKey = star.Constellation ? star.Constellation.toUpperCase() : '';
+      star.displayColor = colorMapping[constKey] || '#FFFFFF';
     });
   } else if (filters.color === 'galactic-plane') {
     const maxZ = Math.max(...stars.map(s => Math.abs(s.z_coordinate)));
