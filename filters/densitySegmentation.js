@@ -3,38 +3,30 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getBaseColor, lightenColor, darkenColor, getBlueColor, getIndividualBlueColor } from './densityColorUtils.js';
 import { loadDensityCenterData, parseRA, parseDec, degToRad, getDensityCenterData } from './densityData.js';
+import { constellationPolygons, isPointInPolygon } from './constellationOverlayFilter.js';
 
 /**
- * NEW: Returns the constellation for a given cell using the constellation boundaries.
- * Assumes that a global object "constellationPolygons" exists (built by constellationOverlayFilter.js)
- * and that a function isPointInPolygon(point, polygon) is available.
- *
- * The cell’s tcPos is converted to celestial coordinates (RA, Dec) in degrees.
- * Then we loop over all constellations; for each, if the point is inside one of its polygons,
- * we return that constellation name.
+ * Returns the constellation for a given cell using the constellation boundaries.
+ * The cell's 3D position (tcPos) is converted into RA/Dec (in degrees) in the same way
+ * as the overlay filter. Then we iterate over the constellationPolygons and use the
+ * isPointInPolygon test to decide which constellation polygon contains the cell.
  */
 export function getConstellationForCell(cell) {
-  // Convert cell.tcPos (Cartesian) into RA and Dec (in degrees)
   const pos = cell.tcPos;
   const r = pos.length();
   if (r < 1e-6) return "Unknown";
-  let ra = Math.atan2(-pos.z, -pos.x); // in radians
+  let ra = Math.atan2(-pos.z, -pos.x);
   if (ra < 0) ra += 2 * Math.PI;
   ra = THREE.Math.radToDeg(ra);
-  const dec = Math.asin(pos.y / r); // in radians
+  const dec = Math.asin(pos.y / r);
   const decDeg = THREE.Math.radToDeg(dec);
   
-  // We now expect a global variable "constellationPolygons" structured as:
-  // { "AND": [ [ {ra, dec}, {ra, dec}, ... ], [ ... ] ], "CAS": [ ... ], ... }
-  if (typeof constellationPolygons === "undefined") {
-    // Fallback if boundaries are not available
+  if (!constellationPolygons || Object.keys(constellationPolygons).length === 0) {
     return "Unknown";
   }
-  // Check each constellation's polygon(s)
   for (const constName in constellationPolygons) {
     const polygons = constellationPolygons[constName];
     for (const polygon of polygons) {
-      // isPointInPolygon is assumed to be available.
       if (isPointInPolygon({ ra, dec: decDeg }, polygon)) {
         return constName;
       }
@@ -146,8 +138,8 @@ export function computeInterconnectedCell(cells) {
 }
 
 /**
- * Tallies, for a given set of cells, the total count (volume) per constellation
- * (using the new boundary‐based method) and returns the constellation with the highest count.
+ * Tallies the volume (cell count) per constellation for a set of cells,
+ * and returns the constellation with the highest volume.
  */
 export function getMajorityConstellation(cells) {
   const volumeByConstellation = {};
@@ -167,21 +159,21 @@ export function getMajorityConstellation(cells) {
 }
 
 /**
- * Computes the angular distance (in degrees) between two points given in RA/DEC.
+ * Computes the angular distance (in degrees) between two points given in RA/Dec.
  */
 export function angularDistance(ra1, dec1, ra2, dec2) {
   const r1 = THREE.Math.degToRad(ra1);
   const d1 = THREE.Math.degToRad(dec1);
   const r2 = THREE.Math.degToRad(ra2);
   const d2 = THREE.Math.degToRad(dec2);
-  const cosDist = Math.sin(d1) * Math.sin(d2) + Math.cos(d1) * Math.cos(d2) * Math.cos(r1 - r2);
+  const cosDist = Math.sin(d1)*Math.sin(d2) + Math.cos(d1)*Math.cos(d2)*Math.cos(r1 - r2);
   const clamped = Math.min(Math.max(cosDist, -1), 1);
   const dist = Math.acos(clamped);
   return THREE.Math.radToDeg(dist);
 }
 
 /**
- * Returns an array of points along the great‑circle path between two points.
+ * Returns an array of points along the great-circle path between two points.
  */
 export function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
@@ -200,7 +192,6 @@ export function getGreatCirclePoints(p1, p2, R, segments) {
 
 /**
  * Assigns distinct base colors to independent regions.
- * Each region gets its own blue-based color based on its unique id, constellation, and type.
  */
 export function assignDistinctColorsToIndependent(regions) {
   regions.forEach(region => {
