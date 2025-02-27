@@ -239,3 +239,8 @@ function makeTextSprite(txt, opts) {
   sprite.scale.set(canvas.width * scaleFactor, canvas.height * scaleFactor, 1);
   return sprite;
 }
+
+// NEW: Export a getter for the loaded boundary data.
+export function getConstellationBoundaries() {
+  return boundaryData;
+}
