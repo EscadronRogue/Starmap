@@ -185,12 +185,25 @@ class MapManager {
 
   animate() {
     requestAnimationFrame(() => this.animate());
+    // For the Globe map, update overlays
+    if (this.mapType === 'Globe' && window.constellationOverlayGlobe) {
+      window.constellationOverlayGlobe.forEach(mesh => {
+        // When the camera is outside the globe, force the overlay to render on top.
+        if (this.camera.position.length() > 100) {
+          mesh.material.depthTest = false;
+          mesh.renderOrder = 2;
+        } else {
+          // When inside, enable depth test so the opaque interior surface occludes the overlay.
+          mesh.material.depthTest = true;
+          mesh.renderOrder = 0;
+        }
+      });
+    }
+    // Also update shader uniforms for other objects if needed.
     if (this.mapType === 'Globe') {
       this.scene.traverse(child => {
         if (child.material && child.material.uniforms && child.material.uniforms.cameraPos) {
           child.material.uniforms.cameraPos.value.copy(this.camera.position);
-          const camDist = this.camera.position.length();
-          child.material.uniforms.isInside.value = camDist < 100;
         }
       });
     }
