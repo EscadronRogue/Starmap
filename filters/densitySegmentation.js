@@ -5,10 +5,49 @@ import { getBaseColor, lightenColor, darkenColor, getBlueColor, getIndividualBlu
 import { loadDensityCenterData, parseRA, parseDec, degToRad, getDensityCenterData } from './densityData.js';
 
 /**
+ * NEW: Returns the constellation for a given cell using the constellation boundaries.
+ * Assumes that a global object "constellationPolygons" exists (built by constellationOverlayFilter.js)
+ * and that a function isPointInPolygon(point, polygon) is available.
+ *
+ * The cell’s tcPos is converted to celestial coordinates (RA, Dec) in degrees.
+ * Then we loop over all constellations; for each, if the point is inside one of its polygons,
+ * we return that constellation name.
+ */
+export function getConstellationForCell(cell) {
+  // Convert cell.tcPos (Cartesian) into RA and Dec (in degrees)
+  const pos = cell.tcPos;
+  const r = pos.length();
+  if (r < 1e-6) return "Unknown";
+  let ra = Math.atan2(-pos.z, -pos.x); // in radians
+  if (ra < 0) ra += 2 * Math.PI;
+  ra = THREE.Math.radToDeg(ra);
+  const dec = Math.asin(pos.y / r); // in radians
+  const decDeg = THREE.Math.radToDeg(dec);
+  
+  // We now expect a global variable "constellationPolygons" structured as:
+  // { "AND": [ [ {ra, dec}, {ra, dec}, ... ], [ ... ] ], "CAS": [ ... ], ... }
+  if (typeof constellationPolygons === "undefined") {
+    // Fallback if boundaries are not available
+    return "Unknown";
+  }
+  // Check each constellation's polygon(s)
+  for (const constName in constellationPolygons) {
+    const polygons = constellationPolygons[constName];
+    for (const polygon of polygons) {
+      // isPointInPolygon is assumed to be available.
+      if (isPointInPolygon({ ra, dec: decDeg }, polygon)) {
+        return constName;
+      }
+    }
+  }
+  return "Unknown";
+}
+
+/**
  * Attempts to segment an Ocean (or Sea) candidate cluster via neck candidate detection.
- * A neck candidate is any cell with between 2 and 5 neighbors.
+ * A neck candidate is any cell with between 2 and 3 neighbors.
  * The candidate is simulated removed; if the removal yields exactly two connected components
- * and the smaller component is at least 10% the size of the larger, segmentation is accepted.
+ * and the smaller component is at least 25% as big as the larger, segmentation is accepted.
  */
 export function segmentOceanCandidate(cells) {
   for (const candidate of cells) {
@@ -23,7 +62,7 @@ export function segmentOceanCandidate(cells) {
         neighborCount++;
       }
     }
-    if (neighborCount >= 2 && neighborCount <= 5) {
+    if (neighborCount >= 2 && neighborCount <= 3) {
       // Simulate removal of the candidate cell.
       const remaining = cells.filter(cell => cell !== candidate);
       const components = computeConnectedComponents(remaining);
@@ -32,7 +71,7 @@ export function segmentOceanCandidate(cells) {
         const size2 = components[1].length;
         const smaller = Math.min(size1, size2);
         const larger = Math.max(size1, size2);
-        if (smaller >= 0.10 * larger) {
+        if (smaller >= 0.25 * larger) {
           return { segmented: true, cores: components, neck: [candidate] };
         }
       }
@@ -67,12 +106,10 @@ function computeConnectedComponents(cells) {
       visited.add(current.id);
       comp.push(current);
       cells.forEach(other => {
-        if (
-          !visited.has(other.id) &&
-          Math.abs(current.grid.ix - other.grid.ix) <= 1 &&
-          Math.abs(current.grid.iy - other.grid.iy) <= 1 &&
-          Math.abs(current.grid.iz - other.grid.iz) <= 1
-        ) {
+        if (!visited.has(other.id) &&
+            Math.abs(current.grid.ix - other.grid.ix) <= 1 &&
+            Math.abs(current.grid.iy - other.grid.iy) <= 1 &&
+            Math.abs(current.grid.iz - other.grid.iz) <= 1) {
           stack.push(other);
         }
       });
@@ -109,8 +146,8 @@ export function computeInterconnectedCell(cells) {
 }
 
 /**
- * Returns the total volume (i.e. cell count) for each constellation in the given set of cells,
- * then returns the name of the constellation with the highest volume.
+ * Tallies, for a given set of cells, the total count (volume) per constellation
+ * (using the new boundary‐based method) and returns the constellation with the highest count.
  */
 export function getMajorityConstellation(cells) {
   const volumeByConstellation = {};
@@ -127,59 +164,6 @@ export function getMajorityConstellation(cells) {
     }
   }
   return majority;
-}
-
-/**
- * Returns the constellation for a given cell.
- * Uses loaded density center data if available; otherwise falls back to hard‐coded centers.
- */
-export function getConstellationForCell(cell) {
-  loadDensityCenterData();
-  const pos = cell.tcPos;
-  const r = pos.length();
-  if (r < 1e-6) return "Unknown";
-  const ra = Math.atan2(-pos.z, -pos.x);
-  let normRa = ra;
-  if (normRa < 0) normRa += 2 * Math.PI;
-  const raDeg = THREE.MathUtils.radToDeg(normRa);
-  const dec = Math.asin(pos.y / r);
-  const decDeg = THREE.MathUtils.radToDeg(dec);
-  if (isNaN(decDeg)) return "Unknown";
-  const centers = getDensityCenterData();
-  if (centers && centers.length > 0) {
-    let best = centers[0];
-    let bestDist = angularDistance(raDeg, decDeg, THREE.Math.radToDeg(best.ra), THREE.Math.radToDeg(best.dec));
-    for (let i = 1; i < centers.length; i++) {
-      const center = centers[i];
-      const d = angularDistance(raDeg, decDeg, THREE.Math.radToDeg(center.ra), THREE.Math.radToDeg(center.dec));
-      if (d < bestDist) {
-        bestDist = d;
-        best = center;
-      }
-    }
-    return best.name;
-  } else {
-    const fallbackCenters = [
-      { name: "Orion", ra: 83, dec: -5 },
-      { name: "Gemini", ra: 100, dec: 20 },
-      { name: "Taurus", ra: 65, dec: 15 },
-      { name: "Leo", ra: 152, dec: 12 },
-      { name: "Scorpius", ra: 255, dec: -30 },
-      { name: "Cygnus", ra: 310, dec: 40 },
-      { name: "Pegasus", ra: 330, dec: 20 }
-    ];
-    let best = fallbackCenters[0];
-    let bestDist = angularDistance(raDeg, decDeg, best.ra, best.dec);
-    for (let i = 1; i < fallbackCenters.length; i++) {
-      const center = fallbackCenters[i];
-      const d = angularDistance(raDeg, decDeg, center.ra, center.dec);
-      if (d < bestDist) {
-        bestDist = d;
-        best = center;
-      }
-    }
-    return best.name;
-  }
 }
 
 /**
