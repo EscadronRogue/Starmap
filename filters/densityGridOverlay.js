@@ -14,7 +14,7 @@ export class DensityGridOverlay {
     this.regionLabelsGroupTC = new THREE.Group();
     this.regionLabelsGroupGlobe = new THREE.Group();
   }
-
+  
   createGrid(stars) {
     const halfExt = Math.ceil(this.maxDistance / this.gridSize) * this.gridSize;
     this.cubesData = [];
@@ -285,7 +285,6 @@ export class DensityGridOverlay {
             bestCell: computeInterconnectedCell(cells)
           });
         } else {
-          // When segmentation occurs, the region is split into two seas.
           segResult.cores.forEach((core, i) => {
             const seaConst = getMajorityConstellation(core);
             regions.push({
@@ -300,7 +299,6 @@ export class DensityGridOverlay {
             });
           });
           if (segResult.neck && segResult.neck.length > 0) {
-            // For a neck, use the same majority method.
             const neckConst = getMajorityConstellation(segResult.neck);
             let straitColor = lightenColor(getBlueColor(neckConst), 0.1);
             regions.push({
