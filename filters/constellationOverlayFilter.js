@@ -1,3 +1,5 @@
+// /filters/constellationOverlayFilter.js
+
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getConstellationBoundaries } from './constellationFilter.js';
 
@@ -18,12 +20,16 @@ function computeNeighborMap() {
   const neighbors = {};
   boundaries.forEach(seg => {
     if (seg.const1) {
-      if (!neighbors[seg.const1]) neighbors[seg.const1] = new Set();
-      if (seg.const2) neighbors[seg.const1].add(seg.const2);
+      const key1 = seg.const1.toUpperCase();
+      const key2 = seg.const2 ? seg.const2.toUpperCase() : null;
+      if (!neighbors[key1]) neighbors[key1] = new Set();
+      if (key2) neighbors[key1].add(key2);
     }
     if (seg.const2) {
-      if (!neighbors[seg.const2]) neighbors[seg.const2] = new Set();
-      if (seg.const1) neighbors[seg.const2].add(seg.const1);
+      const key2 = seg.const2.toUpperCase();
+      const key1 = seg.const1 ? seg.const1.toUpperCase() : null;
+      if (!neighbors[key2]) neighbors[key2] = new Set();
+      if (key1) neighbors[key2].add(key1);
     }
   });
   Object.keys(neighbors).forEach(key => {
@@ -38,8 +44,8 @@ function computeConstellationColorMapping() {
   Object.keys(neighbors).forEach(c => allConsts.add(c));
   const boundaries = getConstellationBoundaries();
   boundaries.forEach(seg => {
-    if (seg.const1) allConsts.add(seg.const1);
-    if (seg.const2) allConsts.add(seg.const2);
+    if (seg.const1) allConsts.add(seg.const1.toUpperCase());
+    if (seg.const2) allConsts.add(seg.const2.toUpperCase());
   });
   const constellations = Array.from(allConsts);
   
@@ -150,12 +156,14 @@ function createConstellationOverlayForGlobe() {
   const groups = {};
   boundaries.forEach(seg => {
     if (seg.const1) {
-      if (!groups[seg.const1]) groups[seg.const1] = [];
-      groups[seg.const1].push(seg);
+      const key = seg.const1.toUpperCase();
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(seg);
     }
-    if (seg.const2 && seg.const2 !== seg.const1) {
-      if (!groups[seg.const2]) groups[seg.const2] = [];
-      groups[seg.const2].push(seg);
+    if (seg.const2 && seg.const2.toUpperCase() !== (seg.const1 ? seg.const1.toUpperCase() : '')) {
+      const key = seg.const2.toUpperCase();
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(seg);
     }
   });
   const colorMapping = computeConstellationColorMapping();
