@@ -39,6 +39,19 @@ export function getBaseColor(constName) {
 }
 
 /**
+ * Returns a blue color based on a constellation name.
+ * This forces the hue into the blue range (200 to 240).
+ */
+export function getBlueColor(constName) {
+  let hash = 0;
+  for (let i = 0; i < constName.length; i++) {
+    hash = constName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = 200 + (Math.abs(hash) % 41); // hue between 200 and 240
+  return new THREE.Color(`hsl(${hue}, 70%, 50%)`);
+}
+
+/**
  * Returns a double‑sided shader material for labels.
  */
 export function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
