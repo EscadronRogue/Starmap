@@ -47,7 +47,6 @@ function computeConstellationColorMapping() {
         if (colorMapping[nb]) used.add(colorMapping[nb]);
       }
     }
-    // Assign the first available color.
     let assigned = palette.find(color => !used.has(color));
     if (!assigned) assigned = palette[0];
     colorMapping[c] = assigned;
@@ -64,8 +63,8 @@ function computeConstellationColorMapping() {
  * is projected onto a tangent plane, triangulated, and finally each vertex is
  * re-projected onto the sphere so that the overlay follows the globe’s curvature.
  *
- * A custom shader discards back-facing fragments so that only the front (visible)
- * side of the overlay is drawn. The overlay uses a color from the computed mapping.
+ * A custom shader discards back-facing fragments depending on whether the camera
+ * is inside or outside the sphere. (Uniform "isInside" is updated per frame.)
  *
  * @returns {Array} Array of THREE.Mesh objects (overlays) for the Globe.
  */
@@ -98,7 +97,6 @@ function createConstellationOverlayForGlobe() {
     ordered.push(currentEnd);
     let changed = true;
     let iteration = 0;
-    // Add a maximum iteration count to avoid infinite loops.
     while (changed && iteration < segs.length) {
       changed = false;
       for (let i = 0; i < segs.length; i++) {
@@ -125,7 +123,6 @@ function createConstellationOverlayForGlobe() {
     if (ordered[0].distanceTo(ordered[ordered.length - 1]) < 0.001) {
       ordered.pop();
     }
-    // Project the 3D polygon to a tangent plane.
     const centroid = new THREE.Vector3(0, 0, 0);
     ordered.forEach(p => centroid.add(p));
     centroid.divideScalar(ordered.length);
@@ -146,7 +143,6 @@ function createConstellationOverlayForGlobe() {
     indices.forEach(tri => flatIndices.push(...tri));
     geometry.setIndex(flatIndices);
     geometry.computeVertexNormals();
-    // Reproject each vertex onto the sphere.
     const posAttr = geometry.attributes.position;
     for (let i = 0; i < posAttr.count; i++) {
       const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
@@ -154,12 +150,13 @@ function createConstellationOverlayForGlobe() {
       posAttr.setXYZ(i, v.x, v.y, v.z);
     }
     posAttr.needsUpdate = true;
-    // Create custom shader material.
+    // Create custom shader material with uniform "isInside"
     const material = new THREE.ShaderMaterial({
       uniforms: {
         color: { value: new THREE.Color(colorMapping[constellation]) },
         opacity: { value: 0.15 },
-        cameraPos: { value: new THREE.Vector3() }
+        cameraPos: { value: new THREE.Vector3() },
+        isInside: { value: false }
       },
       vertexShader: `
         varying vec3 vNormal;
@@ -174,11 +171,16 @@ function createConstellationOverlayForGlobe() {
         uniform vec3 color;
         uniform float opacity;
         uniform vec3 cameraPos;
+        uniform bool isInside;
         varying vec3 vNormal;
         varying vec3 vPosition;
         void main() {
           vec3 viewDir = normalize(cameraPos - vPosition);
-          if (dot(vNormal, viewDir) < 0.0) discard;
+          if (isInside) {
+            if(dot(vNormal, viewDir) > 0.0) discard;
+          } else {
+            if(dot(vNormal, viewDir) < 0.0) discard;
+          }
           gl_FragColor = vec4(color, opacity);
         }
       `,
@@ -196,7 +198,6 @@ function createConstellationOverlayForGlobe() {
   return overlays;
 }
 
-// Helper: convert (ra, dec) to 3D point on sphere.
 function radToSphere(ra, dec, R) {
   const x = -R * Math.cos(dec) * Math.cos(ra);
   const y = R * Math.sin(dec);
