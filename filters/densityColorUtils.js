@@ -1,4 +1,4 @@
-// filters/densityColorUtils.js
+// /filters/densityColorUtils.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 
@@ -27,7 +27,7 @@ export function darkenColor(color, factor) {
 }
 
 /**
- * Derives a base color from a constellation name by hashing it into a hue.
+ * Derives a base color from a string by hashing it into a hue.
  */
 export function getBaseColor(constName) {
   let hash = 0;
@@ -39,7 +39,7 @@ export function getBaseColor(constName) {
 }
 
 /**
- * Returns a blue color based on a constellation name.
+ * Returns a blue color based on a string.
  * Forces the hue into the blue range (200 to 240).
  */
 export function getBlueColor(constName) {
@@ -52,18 +52,18 @@ export function getBlueColor(constName) {
 }
 
 /**
- * Returns an individual blue color based on a seed string.
- * This generates a diverse blue shade (in the range of blue, cyan, turquoise, etc.)
- * while keeping the hue between about 180 and 260.
+ * Returns an individual blue-based color based on a seed string.
+ * This generates a diverse blue shade within a broader range (approximately 180 to 260 degrees)
+ * so that each region can have its own unique blue-based color.
  */
 export function getIndividualBlueColor(seedStr) {
   let hash = 0;
   for (let i = 0; i < seedStr.length; i++) {
     hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
   }
-  // Normalize hash to a value between 0 and 1
+  // Normalize the absolute hash value to a number between 0 and 1.
   let normalized = (Math.abs(hash) % 1000) / 1000;
-  // Map to a hue between 180 and 260 (blue range)
+  // Map normalized value to a hue between 180 and 260.
   let hue = 180 + normalized * 80;
   let saturation = 70; 
   let lightness = 50; 
