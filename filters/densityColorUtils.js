@@ -1,6 +1,4 @@
 // File: /filters/densityColorUtils.js
-// This file contains color utility functions used for generating blue‐based colors.
-
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 
 export function lightenColor(color, factor) {
@@ -35,7 +33,7 @@ export function getBlueColor(str) {
   for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const hue = 200 + (Math.abs(hash) % 41); // hue between 200 and 240
+  const hue = 200 + (Math.abs(hash) % 41);
   return new THREE.Color(`hsl(${hue}, 70%, 50%)`);
 }
 
@@ -45,7 +43,7 @@ export function getIndividualBlueColor(seedStr) {
     hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
   }
   let normalized = (Math.abs(hash) % 1000) / 1000;
-  let hue = 180 + normalized * 80; // hue between 180 and 260
+  let hue = 180 + normalized * 80;
   let saturation = 70;
   let lightness = 50;
   return new THREE.Color(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
