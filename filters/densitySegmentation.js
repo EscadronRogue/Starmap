@@ -6,7 +6,7 @@ import { loadDensityCenterData, parseRA, parseDec, degToRad, getDensityCenterDat
 
 /**
  * Attempts to segment an Ocean (or Sea) candidate cluster via neck candidate detection.
- * A neck candidate is any cell with between 2 and 4 neighbors.
+ * A neck candidate is any cell with between 2 and 5 neighbors.
  * The candidate is simulated removed and the cluster is re-partitioned.
  * If the removal yields exactly two connected components and the smaller one is at least 10%
  * as big as the larger one, segmentation is accepted.
@@ -24,7 +24,7 @@ export function segmentOceanCandidate(cells) {
         neighborCount++;
       }
     }
-    if (neighborCount >= 2 && neighborCount <= 4) {
+    if (neighborCount >= 2 && neighborCount <= 5) {
       // Simulate removal of the candidate cell
       const remaining = cells.filter(cell => cell !== candidate);
       const components = computeConnectedComponents(remaining);
