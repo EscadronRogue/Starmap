@@ -8,6 +8,7 @@ import {
   createConstellationBoundariesForGlobe,
   createConstellationLabelsForGlobe
 } from './filters/constellationFilter.js';
+import { createConstellationOverlayForGlobe } from './filters/constellationOverlayFilter.js';
 import { initDensityOverlay, updateDensityMapping } from './filters/densityFilter.js';
 import { globeSurfaceOpaque } from './filters/globeSurfaceFilter.js';
 import { ThreeDControls } from './cameraControls.js';
@@ -30,6 +31,7 @@ let globeMap;
 
 let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
+let constellationOverlayGlobe = []; // NEW: overlays for constellation surfaces
 let globeSurfaceSphere = null;
 let densityOverlay = null;
 let globeGrid = null;
@@ -403,6 +405,7 @@ function buildAndApplyFilters() {
     globeConnections,
     showConstellationBoundaries,
     showConstellationNames,
+    showConstellationOverlay,
     globeOpaqueSurface,
     enableConnections,
     enableDensityMapping
@@ -427,6 +430,7 @@ function buildAndApplyFilters() {
   globeMap.labelManager.refreshLabels(currentGlobeFilteredStars);
 
   removeConstellationObjectsFromGlobe();
+  removeConstellationOverlayObjectsFromGlobe();
   if (showConstellationBoundaries) {
     constellationLinesGlobe = createConstellationBoundariesForGlobe();
     constellationLinesGlobe.forEach(ln => globeMap.scene.add(ln));
@@ -434,6 +438,10 @@ function buildAndApplyFilters() {
   if (showConstellationNames) {
     constellationLabelsGlobe = createConstellationLabelsForGlobe();
     constellationLabelsGlobe.forEach(lbl => globeMap.scene.add(lbl));
+  }
+  if (showConstellationOverlay) {
+    constellationOverlayGlobe = createConstellationOverlayForGlobe();
+    constellationOverlayGlobe.forEach(mesh => globeMap.scene.add(mesh));
   }
 
   applyGlobeSurface(globeOpaqueSurface);
@@ -477,6 +485,13 @@ function removeConstellationObjectsFromGlobe() {
     constellationLabelsGlobe.forEach(lbl => globeMap.scene.remove(lbl));
   }
   constellationLabelsGlobe = [];
+}
+
+function removeConstellationOverlayObjectsFromGlobe() {
+  if (constellationOverlayGlobe && constellationOverlayGlobe.length > 0) {
+    constellationOverlayGlobe.forEach(mesh => globeMap.scene.remove(mesh));
+  }
+  constellationOverlayGlobe = [];
 }
 
 function applyGlobeSurface(isOpaque) {
