@@ -6,27 +6,29 @@ import { loadDensityCenterData, parseRA, parseDec, degToRad, getDensityCenterDat
 
 /**
  * Attempts to segment an Ocean candidate cluster via bottleneck detection.
- * (Note: The segmentation algorithm here is a placeholder that splits the cluster in half if a neck is detected.)
+ * (Note: This algorithm is a placeholder that splits the cluster in half if a neck is detected.)
  */
 export function segmentOceanCandidate(cells) {
   cells.forEach(cell => {
     let count = 0;
     cells.forEach(other => {
       if (cell === other) return;
-      if (Math.abs(cell.grid.ix - other.grid.ix) <= 1 &&
-          Math.abs(cell.grid.iy - other.grid.iy) <= 1 &&
-          Math.abs(cell.grid.iz - other.grid.iz) <= 1) {
+      if (
+        Math.abs(cell.grid.ix - other.grid.ix) <= 1 &&
+        Math.abs(cell.grid.iy - other.grid.iy) <= 1 &&
+        Math.abs(cell.grid.iz - other.grid.iz) <= 1
+      ) {
         count++;
       }
     });
     cell.connectivity = count;
   });
   const C_avg = cells.reduce((sum, cell) => sum + cell.connectivity, 0) / cells.length;
-  
+
   cells.forEach(cell => {
     cell.thin = (cell.connectivity / C_avg) < 0.5;
   });
-  
+
   const thinCells = cells.filter(cell => cell.thin);
   const neckGroups = [];
   const visited = new Set();
@@ -40,23 +42,26 @@ export function segmentOceanCandidate(cells) {
       visited.add(current.id);
       group.push(current);
       cells.forEach(other => {
-        if (!visited.has(other.id) && other.thin &&
-            Math.abs(current.grid.ix - other.grid.ix) <= 1 &&
-            Math.abs(current.grid.iy - other.grid.iy) <= 1 &&
-            Math.abs(current.grid.iz - other.grid.iz) <= 1) {
+        if (
+          !visited.has(other.id) &&
+          other.thin &&
+          Math.abs(current.grid.ix - other.grid.ix) <= 1 &&
+          Math.abs(current.grid.iy - other.grid.iy) <= 1 &&
+          Math.abs(current.grid.iz - other.grid.iz) <= 1
+        ) {
           stack.push(other);
         }
       });
     }
     neckGroups.push(group);
   });
-  
+
   const oceanVol = cells.length;
   for (const group of neckGroups) {
     if (group.length < 0.15 * oceanVol) {
       const neckAvgConn = group.reduce((s, cell) => s + cell.connectivity, 0) / group.length;
       if (neckAvgConn < 0.5 * C_avg) {
-        // If segmentation is detected, split cells into two clusters (this is a placeholder split)
+        // If segmentation is detected, split cells into two clusters (a simple split)
         const half = Math.floor(cells.length / 2);
         const core1 = cells.slice(0, half);
         const core2 = cells.slice(half);
@@ -64,7 +69,7 @@ export function segmentOceanCandidate(cells) {
       }
     }
   }
-  
+
   return { segmented: false, cores: [cells] };
 }
 
@@ -114,9 +119,11 @@ export function computeInterconnectedCell(cells) {
     let count = 0;
     cells.forEach(other => {
       if (cell === other) return;
-      if (Math.abs(cell.grid.ix - other.grid.ix) <= 1 &&
-          Math.abs(cell.grid.iy - other.grid.iy) <= 1 &&
-          Math.abs(cell.grid.iz - other.grid.iz) <= 1) {
+      if (
+        Math.abs(cell.grid.ix - other.grid.ix) <= 1 &&
+        Math.abs(cell.grid.iy - other.grid.iy) <= 1 &&
+        Math.abs(cell.grid.iz - other.grid.iz) <= 1
+      ) {
         count++;
       }
     });
@@ -215,10 +222,52 @@ export function getGreatCirclePoints(p1, p2, R, segments) {
 
 /**
  * Assigns distinct base colors to independent regions.
- * This updated version assigns an individual blue color to each region based on its unique id.
+ * (This function remains as before.)
  */
 export function assignDistinctColorsToIndependent(regions) {
   regions.forEach(region => {
     region.color = getIndividualBlueColor(region.clusterId + region.constName + region.type);
+  });
+}
+
+/**
+ * Returns the majority constellation among a set of cells.
+ * For each cell, we call getConstellationForCell and then choose the one with the highest count.
+ */
+export function getMajorityConstellation(cells) {
+  const counts = {};
+  cells.forEach(cell => {
+    const cons = getConstellationForCell(cell);
+    counts[cons] = (counts[cons] || 0) + 1;
+  });
+  let majority = "Unknown";
+  let maxCount = 0;
+  for (const cons in counts) {
+    if (counts[cons] > maxCount) {
+      majority = cons;
+      maxCount = counts[cons];
+    }
+  }
+  return majority;
+}
+
+/**
+ * Filters out tail cells from a neck (candidate strait) group.
+ * A tail cell is defined as having only one neighbor in the group.
+ */
+export function filterNeckGroup(neckCells) {
+  return neckCells.filter(cell => {
+    let count = 0;
+    neckCells.forEach(other => {
+      if (cell === other) return;
+      if (
+        Math.abs(cell.grid.ix - other.grid.ix) <= 1 &&
+        Math.abs(cell.grid.iy - other.grid.iy) <= 1 &&
+        Math.abs(cell.grid.iz - other.grid.iz) <= 1
+      ) {
+        count++;
+      }
+    });
+    return count > 1;
   });
 }
