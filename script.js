@@ -30,14 +30,14 @@ let globeMap;
 
 let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
-let constellationOverlaysGlobe = [];  // New global variable for overlays
+let constellationOverlaysGlobe = [];  // Global variable for overlays
 let globeSurfaceSphere = null;
 let densityOverlay = null;
 let globeGrid = null;
 
 /**
  * Converts (ra, dec, R) to a position on the sphere.
- * (Note: same as used for the Globe map.)
+ * (Same as used for the Globe map.)
  */
 function radToSphere(ra, dec, R) {
   return new THREE.Vector3(
@@ -149,6 +149,9 @@ class MapManager {
 
     this.starGroup = new THREE.Group();
     this.scene.add(this.starGroup);
+
+    // Start the render loop.
+    this.animate();
   }
 
   addStars(stars) {
