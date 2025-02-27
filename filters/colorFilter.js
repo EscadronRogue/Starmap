@@ -3,6 +3,7 @@
 import { getStellarClassData } from './stellarClassData.js';
 import { computeConstellationColorMapping } from './constellationOverlayFilter.js';
 import { generateConstellationColors } from '../utils.js';
+import { getConstellationForCell } from './densitySegmentation.js';
 
 /**
  * Applies color filter to stars based on the selected filter.
@@ -28,7 +29,12 @@ export function applyColorFilter(stars, filters) {
   } else if (filters.color === 'constellation') {
     const colorsMap = computeConstellationColorMapping();
     stars.forEach(star => {
-      // Convert the star's constellation to uppercase to match the keys in colorsMap.
+      // If the star's constellation is not defined and we have a truePosition,
+      // compute the constellation using getConstellationForCell.
+      if (!star.Constellation && star.truePosition) {
+        star.Constellation = getConstellationForCell({ tcPos: star.truePosition });
+      }
+      // Convert the constellation name to uppercase to match the mapping keys.
       const constKey = star.Constellation ? star.Constellation.toUpperCase() : '';
       const colorValue = colorsMap[constKey] || '#FFFFFF';
       star.displayColor = colorValue;
