@@ -446,8 +446,8 @@ function applyGlobeSurface(isOpaque) {
     globeSurfaceSphere = null;
   }
   if (isOpaque) {
-    // Use a slightly smaller radius (90 instead of 100) so that the opaque surface is always beneath overlays.
-    const geom = new THREE.SphereGeometry(90, 32, 32);
+    // Use a slightly smaller radius (98 instead of 100) so that the opaque surface is always beneath overlays.
+    const geom = new THREE.SphereGeometry(98, 32, 32);
     const mat = new THREE.MeshBasicMaterial({
       color: 0x000000,
       side: THREE.FrontSide,
