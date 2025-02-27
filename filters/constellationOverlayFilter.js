@@ -63,9 +63,6 @@ function computeConstellationColorMapping() {
  * is projected onto a tangent plane, triangulated, and finally each vertex is
  * re-projected onto the sphere so that the overlay follows the globe’s curvature.
  *
- * A custom shader discards back-facing fragments depending on whether the camera
- * is inside or outside the sphere. (Uniform "isInside" is updated per frame.)
- *
  * @returns {Array} Array of THREE.Mesh objects (overlays) for the Globe.
  */
 function createConstellationOverlayForGlobe() {
@@ -123,6 +120,7 @@ function createConstellationOverlayForGlobe() {
     if (ordered[0].distanceTo(ordered[ordered.length - 1]) < 0.001) {
       ordered.pop();
     }
+    // Project the 3D polygon to a tangent plane.
     const centroid = new THREE.Vector3(0, 0, 0);
     ordered.forEach(p => centroid.add(p));
     centroid.divideScalar(ordered.length);
@@ -150,48 +148,17 @@ function createConstellationOverlayForGlobe() {
       posAttr.setXYZ(i, v.x, v.y, v.z);
     }
     posAttr.needsUpdate = true;
-    // Create custom shader material with uniform "isInside"
-    const material = new THREE.ShaderMaterial({
-      uniforms: {
-        color: { value: new THREE.Color(colorMapping[constellation]) },
-        opacity: { value: 0.15 },
-        cameraPos: { value: new THREE.Vector3() },
-        isInside: { value: false }
-      },
-      vertexShader: `
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-        void main() {
-          vNormal = normalize(normalMatrix * normal);
-          vPosition = (modelMatrix * vec4(position, 1.0)).xyz;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 color;
-        uniform float opacity;
-        uniform vec3 cameraPos;
-        uniform bool isInside;
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-        void main() {
-          vec3 viewDir = normalize(cameraPos - vPosition);
-          if (isInside) {
-            if(dot(vNormal, viewDir) > 0.0) discard;
-          } else {
-            if(dot(vNormal, viewDir) < 0.0) discard;
-          }
-          gl_FragColor = vec4(color, opacity);
-        }
-      `,
+    // Create a basic material for the overlay.
+    const material = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(colorMapping[constellation]),
+      opacity: 0.15,
       transparent: true,
       side: THREE.DoubleSide,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -4,
-      polygonOffsetUnits: -4
+      depthWrite: false
+      // depthTest will be updated dynamically in the animate loop.
     });
     const mesh = new THREE.Mesh(geometry, material);
+    // Set an initial renderOrder; will be updated dynamically.
     mesh.renderOrder = 1;
     overlays.push(mesh);
   }
