@@ -1,10 +1,8 @@
-// /filters/densityColorUtils.js
+// File: /filters/densityColorUtils.js
+// This file contains color utility functions used for generating blue‐based colors.
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 
-/**
- * Lightens a THREE.Color by increasing its lightness.
- */
 export function lightenColor(color, factor) {
   let hsl = { h: 0, s: 0, l: 0 };
   color.getHSL(hsl);
@@ -14,9 +12,6 @@ export function lightenColor(color, factor) {
   return newColor;
 }
 
-/**
- * Darkens a THREE.Color by decreasing its lightness.
- */
 export function darkenColor(color, factor) {
   let hsl = { h: 0, s: 0, l: 0 };
   color.getHSL(hsl);
@@ -26,53 +21,36 @@ export function darkenColor(color, factor) {
   return newColor;
 }
 
-/**
- * Derives a base color from a string by hashing it into a hue.
- */
-export function getBaseColor(constName) {
+export function getBaseColor(str) {
   let hash = 0;
-  for (let i = 0; i < constName.length; i++) {
-    hash = constName.charCodeAt(i) + ((hash << 5) - hash);
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
   const hue = (hash % 360 + 360) % 360;
   return new THREE.Color(`hsl(${hue}, 70%, 50%)`);
 }
 
-/**
- * Returns a blue color based on a string.
- * Forces the hue into the blue range (200 to 240).
- */
-export function getBlueColor(constName) {
+export function getBlueColor(str) {
   let hash = 0;
-  for (let i = 0; i < constName.length; i++) {
-    hash = constName.charCodeAt(i) + ((hash << 5) - hash);
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
   const hue = 200 + (Math.abs(hash) % 41); // hue between 200 and 240
   return new THREE.Color(`hsl(${hue}, 70%, 50%)`);
 }
 
-/**
- * Returns an individual blue-based color based on a seed string.
- * This generates a diverse blue shade within a broader range (approximately 180 to 260 degrees)
- * so that each region can have its own unique blue-based color.
- */
 export function getIndividualBlueColor(seedStr) {
   let hash = 0;
   for (let i = 0; i < seedStr.length; i++) {
     hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
   }
-  // Normalize the absolute hash value to a number between 0 and 1.
   let normalized = (Math.abs(hash) % 1000) / 1000;
-  // Map normalized value to a hue between 180 and 260.
-  let hue = 180 + normalized * 80;
-  let saturation = 70; 
-  let lightness = 50; 
+  let hue = 180 + normalized * 80; // hue between 180 and 260
+  let saturation = 70;
+  let lightness = 50;
   return new THREE.Color(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
 }
 
-/**
- * Returns a double‑sided shader material for labels.
- */
 export function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
   return new THREE.ShaderMaterial({
     uniforms: {
