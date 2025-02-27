@@ -234,51 +234,26 @@ export function getGreatCirclePoints(p1, p2, R, segments) {
 }
 
 /**
- * Computes the maximum distance between any two cells in a branch.
- */
-export function computeBranchLength(cells) {
-  let maxDist = 0;
-  for (let i = 0; i < cells.length; i++) {
-    for (let j = i + 1; j < cells.length; j++) {
-      let d = cells[i].tcPos.distanceTo(cells[j].tcPos);
-      if (d > maxDist) maxDist = d;
-    }
-  }
-  return maxDist;
-}
-
-/**
- * Merges branch objects with identical touchedCores.
- */
-export function mergeBranches(branches) {
-  let merged = {};
-  branches.forEach(branch => {
-    let key = Array.from(branch.touchedCores).sort().join(',');
-    if (!merged[key]) {
-      merged[key] = { cells: [], touchedCores: new Set(branch.touchedCores) };
-    }
-    merged[key].cells = merged[key].cells.concat(branch.cells);
-  });
-  return Object.values(merged);
-}
-
-/**
  * Assigns distinct base colors to independent regions.
+ * This updated version uses predefined blue shades for each type.
  */
 export function assignDistinctColorsToIndependent(regions) {
   const colorMap = {};
-  const types = ['Ocean', 'Sea', 'Lake'];
-  types.forEach(type => {
+  // Define distinct blue palettes for each region type.
+  const bluePalettes = {
+    Ocean: ['#001f3f', '#003366', '#004080', '#0059b3', '#0074D9'],
+    Sea:   ['#003f7f', '#0059b3', '#0074D9', '#3399ff', '#66ccff'],
+    Lake:  ['#66ccff', '#99ccff', '#cce6ff', '#e6f2ff']
+  };
+
+  ['Ocean', 'Sea', 'Lake'].forEach(type => {
     const group = regions.filter(r => r.type === type);
-    const count = group.length;
+    const palette = bluePalettes[type] || [];
     group.forEach((region, i) => {
-      let hue = (360 * i / count) % 360;
-      if (type === 'Ocean') hue = (hue + 240) % 360;
-      else if (type === 'Sea') hue = (hue + 200) % 360;
-      else if (type === 'Lake') hue = (hue + 160) % 360;
-      const col = new THREE.Color(`hsl(${hue}, 70%, 50%)`);
-      region.color = col;
-      colorMap[region.clusterId] = col;
+      // Cycle through the palette if there are more regions than available colors.
+      const colorHex = palette[i % palette.length];
+      region.color = new THREE.Color(colorHex);
+      colorMap[region.clusterId] = region.color;
     });
   });
   return colorMap;
