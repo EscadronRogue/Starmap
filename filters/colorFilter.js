@@ -1,15 +1,15 @@
 // filters/colorFilter.js
 
 import { getStellarClassData } from './stellarClassData.js';
-// NEW: Use our new color mapping for constellations.
+// NEW: Use the same constellation color mapping as in the overlay filter.
 import { computeConstellationColorMapping } from './constellationOverlayFilter.js';
 import { generateConstellationColors } from '../utils.js';
 
 /**
  * Applies the selected color filter to the star objects.
  * Supported filters:
- *   - "stellar-class": Colors are taken from stellar_class.json.
- *   - "constellation": Colors are generated per constellation.
+ *   - "stellar-class": Colors from stellar_class.json.
+ *   - "constellation": Stars get the color of their constellation zone.
  *   - "galactic-plane": Colors based on distance from the galactic plane.
  *   - (default): Fallback to white.
  *
@@ -21,7 +21,6 @@ export function applyColorFilter(stars, filters) {
   const stellarClassData = getStellarClassData();
 
   if (filters.color === 'stellar-class') {
-    // Use the stellar class data
     stars.forEach(star => {
       let pClass = 'G';
       if (star.Stellar_class && typeof star.Stellar_class === 'string') {
@@ -33,7 +32,6 @@ export function applyColorFilter(stars, filters) {
       star.displayColor = colorValue;
     });
   } else if (filters.color === 'constellation') {
-    // NEW: Use the same mapping as the overlay filter.
     const colorsMap = computeConstellationColorMapping();
     stars.forEach(star => {
       let colorValue = colorsMap[star.Constellation] || '#FFFFFF';
