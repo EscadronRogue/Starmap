@@ -185,21 +185,20 @@ class MapManager {
 
   animate() {
     requestAnimationFrame(() => this.animate());
-    // For the Globe map, update overlays
+    // For the Globe map, update overlays (if any) to ensure they are always drawn on top.
     if (this.mapType === 'Globe' && window.constellationOverlayGlobe) {
       window.constellationOverlayGlobe.forEach(mesh => {
-        // When the camera is outside the globe, force the overlay to render on top.
+        // When the camera is outside the globe, disable depth test so the overlay appears on top.
         if (this.camera.position.length() > 100) {
           mesh.material.depthTest = false;
           mesh.renderOrder = 2;
         } else {
-          // When inside, enable depth test so the opaque interior surface occludes the overlay.
+          // When inside, enable depth test so the opaque surface occludes the overlay.
           mesh.material.depthTest = true;
           mesh.renderOrder = 0;
         }
       });
     }
-    // Also update shader uniforms for other objects if needed.
     if (this.mapType === 'Globe') {
       this.scene.traverse(child => {
         if (child.material && child.material.uniforms && child.material.uniforms.cameraPos) {
@@ -447,7 +446,8 @@ function applyGlobeSurface(isOpaque) {
     globeSurfaceSphere = null;
   }
   if (isOpaque) {
-    const geom = new THREE.SphereGeometry(100, 32, 32);
+    // Use a slightly smaller radius (98 instead of 100) so that the opaque surface is always beneath overlays.
+    const geom = new THREE.SphereGeometry(98, 32, 32);
     const mat = new THREE.MeshBasicMaterial({
       color: 0x000000,
       side: THREE.FrontSide,
