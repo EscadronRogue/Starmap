@@ -5,87 +5,38 @@ import { getBaseColor, lightenColor, darkenColor, getBlueColor, getIndividualBlu
 import { loadDensityCenterData, parseRA, parseDec, degToRad, getDensityCenterData } from './densityData.js';
 
 /**
- * Attempts to segment an Ocean (or Sea) candidate cluster via bottleneck detection.
- * In this updated version, segmentation only occurs if there is a neck (a group of thin cells)
- * that—after filtering out tail cells—separates the region into two or more connected sub‑clusters.
+ * Attempts to segment an Ocean (or Sea) candidate cluster via neck candidate detection.
+ * A neck candidate is any cell with between 2 and 3 neighbors.
+ * The candidate is simulated removed and the cluster is re-partitioned.
+ * If the removal yields exactly two connected components and the smaller one is at least 25%
+ * as big as the larger one, segmentation is accepted.
  */
 export function segmentOceanCandidate(cells) {
-  // Compute connectivity and mark thin cells.
-  cells.forEach(cell => {
-    let count = 0;
-    cells.forEach(other => {
-      if (cell === other) return;
+  for (const candidate of cells) {
+    let neighborCount = 0;
+    for (const other of cells) {
+      if (candidate === other) continue;
       if (
-        Math.abs(cell.grid.ix - other.grid.ix) <= 1 &&
-        Math.abs(cell.grid.iy - other.grid.iy) <= 1 &&
-        Math.abs(cell.grid.iz - other.grid.iz) <= 1
+        Math.abs(candidate.grid.ix - other.grid.ix) <= 1 &&
+        Math.abs(candidate.grid.iy - other.grid.iy) <= 1 &&
+        Math.abs(candidate.grid.iz - other.grid.iz) <= 1
       ) {
-        count++;
-      }
-    });
-    cell.connectivity = count;
-  });
-  const C_avg = cells.reduce((sum, cell) => sum + cell.connectivity, 0) / cells.length;
-
-  cells.forEach(cell => {
-    cell.thin = (cell.connectivity / C_avg) < 0.5;
-  });
-
-  // Collect thin cells and group them into potential neck groups.
-  const thinCells = cells.filter(cell => cell.thin);
-  const neckGroups = [];
-  const visited = new Set();
-  thinCells.forEach(cell => {
-    if (visited.has(cell.id)) return;
-    const group = [];
-    const stack = [cell];
-    while (stack.length > 0) {
-      const current = stack.pop();
-      if (visited.has(current.id)) continue;
-      visited.add(current.id);
-      group.push(current);
-      cells.forEach(other => {
-        if (
-          !visited.has(other.id) &&
-          other.thin &&
-          Math.abs(current.grid.ix - other.grid.ix) <= 1 &&
-          Math.abs(current.grid.iy - other.grid.iy) <= 1 &&
-          Math.abs(current.grid.iz - other.grid.iz) <= 1
-        ) {
-          stack.push(other);
-        }
-      });
-    }
-    neckGroups.push(group);
-  });
-
-  // Look for a neck group that is narrow relative to the overall volume.
-  let candidateNeck = null;
-  const oceanVol = cells.length;
-  for (const group of neckGroups) {
-    if (group.length < 0.15 * oceanVol) {
-      const neckAvgConn = group.reduce((s, cell) => s + cell.connectivity, 0) / group.length;
-      if (neckAvgConn < 0.5 * C_avg) {
-        // Filter out tail cells from the neck group.
-        const filteredNeck = filterNeckGroup(group);
-        if (filteredNeck.length > 0) {
-          candidateNeck = filteredNeck;
-          break;
-        }
+        neighborCount++;
       }
     }
-  }
-
-  // Only segment if a candidate neck exists.
-  if (candidateNeck) {
-    // Remove the neck cells from the original set.
-    const cellsWithoutNeck = cells.filter(cell => !candidateNeck.includes(cell));
-    // Compute connected components on the remaining cells.
-    const components = computeConnectedComponents(cellsWithoutNeck);
-    // Filter out very small components (e.g., less than 10% of the total volume)
-    const significantComponents = components.filter(comp => comp.length >= 0.1 * oceanVol);
-    if (significantComponents.length >= 2) {
-      return { segmented: true, cores: significantComponents, neck: candidateNeck };
+    if (neighborCount >= 2 && neighborCount <= 3) {
+      // Simulate removal of the candidate cell
+      const remaining = cells.filter(cell => cell !== candidate);
+      const components = computeConnectedComponents(remaining);
+      if (components.length === 2) {
+        const size1 = components[0].length;
+        const size2 = components[1].length;
+        const smaller = Math.min(size1, size2);
+        const larger = Math.max(size1, size2);
+        if (smaller >= 0.25 * larger) {
+          return { segmented: true, cores: components, neck: [candidate] };
+        }
+      }
     }
   }
   return { segmented: false, cores: [cells] };
@@ -131,27 +82,6 @@ function computeConnectedComponents(cells) {
 }
 
 /**
- * Filters out tail cells from a neck (candidate strait) group.
- * A tail cell is defined as having only one neighbor in the group.
- */
-export function filterNeckGroup(neckCells) {
-  return neckCells.filter(cell => {
-    let count = 0;
-    neckCells.forEach(other => {
-      if (cell === other) return;
-      if (
-        Math.abs(cell.grid.ix - other.grid.ix) <= 1 &&
-        Math.abs(cell.grid.iy - other.grid.iy) <= 1 &&
-        Math.abs(cell.grid.iz - other.grid.iz) <= 1
-      ) {
-        count++;
-      }
-    });
-    return count > 1;
-  });
-}
-
-/**
  * Finds the cell with the highest connectivity within a group.
  */
 export function computeInterconnectedCell(cells) {
@@ -179,7 +109,7 @@ export function computeInterconnectedCell(cells) {
 
 /**
  * Returns the majority constellation among a set of cells.
- * For each cell, getConstellationForCell is called and then the most frequent name is returned.
+ * For each cell, getConstellationForCell is called and the most frequent name is returned.
  */
 export function getMajorityConstellation(cells) {
   const counts = {};
