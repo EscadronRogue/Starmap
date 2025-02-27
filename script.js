@@ -36,10 +36,6 @@ let globeSurfaceSphere = null;
 let densityOverlay = null;
 let globeGrid = null;
 
-/**
- * Converts (ra, dec, R) to a position on the sphere.
- * (Note: same as used for the Globe map.)
- */
 function radToSphere(ra, dec, R) {
   return new THREE.Vector3(
     -R * Math.cos(dec) * Math.cos(ra),
@@ -48,26 +44,16 @@ function radToSphere(ra, dec, R) {
   );
 }
 
-/**
- * For the TrueCoordinates map, we compute the star’s position by re‑projecting
- * its RA_in_radian and DEC_in_radian onto a sphere whose radius is the star’s true distance.
- */
 function getStarTruePosition(star) {
   const R = star.Distance_from_the_Sun;
   return radToSphere(star.RA_in_radian, star.DEC_in_radian, R);
 }
 
-/**
- * For the Globe map, we “project” the star onto a sphere of radius 100.
- */
 function projectStarGlobe(star) {
   const R = 100;
   return radToSphere(star.RA_in_radian, star.DEC_in_radian, R);
 }
 
-/**
- * Creates a grid overlay on the inside surface of a sphere (radius 100).
- */
 function createGlobeGrid(R = 100, options = {}) {
   const gridGroup = new THREE.Group();
   const gridColor = options.color || 0x444444;
@@ -81,7 +67,6 @@ function createGlobeGrid(R = 100, options = {}) {
     linewidth: lineWidth
   });
 
-  // Draw meridians: constant RA lines every 30°.
   for (let raDeg = 0; raDeg < 360; raDeg += 30) {
     const ra = THREE.Math.degToRad(raDeg);
     const points = [];
@@ -94,7 +79,6 @@ function createGlobeGrid(R = 100, options = {}) {
     gridGroup.add(line);
   }
 
-  // Draw parallels: constant DEC lines every 30°.
   for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
     const dec = THREE.Math.degToRad(decDeg);
     const points = [];
@@ -107,12 +91,9 @@ function createGlobeGrid(R = 100, options = {}) {
     const line = new THREE.Line(geometry, material);
     gridGroup.add(line);
   }
-
   return gridGroup;
 }
 
-// ---------------------------------------------------------
-// MapManager class
 class MapManager {
   constructor({ canvasId, mapType }) {
     this.canvas = document.getElementById(canvasId);
@@ -145,9 +126,7 @@ class MapManager {
     this.scene.add(pt);
 
     this.controls = new ThreeDControls(this.camera, this.renderer.domElement);
-
     this.labelManager = new LabelManager(mapType, this.scene);
-
     this.starGroup = new THREE.Group();
     this.scene.add(this.starGroup);
 
@@ -162,7 +141,6 @@ class MapManager {
       child.geometry.dispose();
       child.material.dispose();
     }
-
     stars.forEach(star => {
       const size = star.displaySize || 1;
       const sphereGeometry = new THREE.SphereGeometry(size * 0.2, 12, 12);
@@ -172,7 +150,6 @@ class MapManager {
         opacity: 1.0
       });
       const starMesh = new THREE.Mesh(sphereGeometry, material);
-
       let pos;
       if (this.mapType === 'TrueCoordinates') {
         pos = star.truePosition ? star.truePosition.clone() : getStarTruePosition(star);
@@ -191,7 +168,6 @@ class MapManager {
       this.connectionGroup = null;
     }
     if (!connectionObjs || connectionObjs.length === 0) return;
-
     this.connectionGroup = new THREE.Group();
     if (this.mapType === 'Globe') {
       const linesArray = createConnectionLines(stars, connectionObjs, 'Globe');
@@ -218,7 +194,7 @@ class MapManager {
 
   animate() {
     requestAnimationFrame(() => this.animate());
-    // For Globe maps, update overlay uniforms (cameraPos) so overlays always face the camera correctly.
+    // For overlays: update camera position uniform so front-facing fragments are computed correctly.
     if (this.mapType === 'Globe') {
       this.scene.traverse(child => {
         if (child.material && child.material.uniforms && child.material.uniforms.cameraPos) {
@@ -230,19 +206,15 @@ class MapManager {
   }
 }
 
-// ---------------------------------------------------------
-// Raycasting for tooltips
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
-
   map.canvas.addEventListener('mousemove', (event) => {
     if (selectedStarData) return;
     const rect = map.canvas.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, map.camera);
-
     const intersects = raycaster.intersectObjects(map.starGroup.children, true);
     if (intersects.length > 0) {
       const index = map.starGroup.children.indexOf(intersects[0].object);
@@ -253,13 +225,11 @@ function initStarInteractions(map) {
       hideTooltip();
     }
   });
-
   map.canvas.addEventListener('click', (event) => {
     const rect = map.canvas.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, map.camera);
-
     const intersects = raycaster.intersectObjects(map.starGroup.children, true);
     let clickedStar = null;
     if (intersects.length > 0) {
@@ -286,18 +256,13 @@ function updateSelectedStarHighlight() {
   });
 }
 
-// ---------------------------------------------------------
-// onload
 window.onload = async () => {
   const loader = document.getElementById('loader');
   loader.classList.remove('hidden');
-
   try {
     cachedStars = await loadStarData();
     if (!cachedStars.length) throw new Error('No star data available');
-
     await setupFilterUI(cachedStars);
-
     const debouncedApplyFilters = debounce(buildAndApplyFilters, 150);
     const form = document.getElementById('filters-form');
     if (form) {
@@ -331,34 +296,22 @@ window.onload = async () => {
         });
       }
     }
-
     maxDistanceFromCenter = Math.max(
-      ...cachedStars.map(s =>
-        Math.sqrt(s.x_coordinate ** 2 + s.y_coordinate ** 2 + s.z_coordinate ** 2)
-      )
+      ...cachedStars.map(s => Math.sqrt(s.x_coordinate ** 2 + s.y_coordinate ** 2 + s.z_coordinate ** 2))
     );
-
     trueCoordinatesMap = new MapManager({ canvasId: 'map3D', mapType: 'TrueCoordinates' });
     globeMap = new MapManager({ canvasId: 'sphereMap', mapType: 'Globe' });
-
     window.trueCoordinatesMap = trueCoordinatesMap;
     window.globeMap = globeMap;
-
     initStarInteractions(trueCoordinatesMap);
     initStarInteractions(globeMap);
-
     buildAndApplyFilters();
-
-    // Compute star positions.
     cachedStars.forEach(star => {
       star.spherePosition = projectStarGlobe(star);
       star.truePosition = getStarTruePosition(star);
     });
-
-    // Create and add the globe grid.
     globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
-
     loader.classList.add('hidden');
   } catch (err) {
     console.error('Error initializing starmap:', err);
@@ -398,13 +351,8 @@ function getCurrentFilters() {
   };
 }
 
-/**
- * Main function that re-applies all filters, updates both maps, and re-creates lines.
- * If density mapping is enabled, the density overlay is updated and region labels are added.
- */
 function buildAndApplyFilters() {
   if (!cachedStars) return;
-
   const {
     filteredStars,
     connections,
@@ -417,25 +365,16 @@ function buildAndApplyFilters() {
     enableConnections,
     enableDensityMapping
   } = applyFilters(cachedStars);
-
   currentFilteredStars = filteredStars;
   currentConnections = connections;
   currentGlobeFilteredStars = globeFilteredStars;
   currentGlobeConnections = globeConnections;
-
-  currentGlobeFilteredStars.forEach(star => {
-    star.spherePosition = projectStarGlobe(star);
-  });
-  currentFilteredStars.forEach(star => {
-    star.truePosition = getStarTruePosition(star);
-  });
-
+  currentGlobeFilteredStars.forEach(star => { star.spherePosition = projectStarGlobe(star); });
+  currentFilteredStars.forEach(star => { star.truePosition = getStarTruePosition(star); });
   trueCoordinatesMap.updateMap(currentFilteredStars, currentConnections);
   trueCoordinatesMap.labelManager.refreshLabels(currentFilteredStars);
-
   globeMap.updateMap(currentGlobeFilteredStars, currentGlobeConnections);
   globeMap.labelManager.refreshLabels(currentGlobeFilteredStars);
-
   removeConstellationObjectsFromGlobe();
   removeConstellationOverlayObjectsFromGlobe();
   if (showConstellationBoundaries) {
@@ -450,9 +389,7 @@ function buildAndApplyFilters() {
     constellationOverlayGlobe = createConstellationOverlayForGlobe();
     constellationOverlayGlobe.forEach(mesh => globeMap.scene.add(mesh));
   }
-
   applyGlobeSurface(globeOpaqueSurface);
-
   if (getCurrentFilters().enableDensityMapping) {
     if (!densityOverlay) {
       densityOverlay = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars);
@@ -486,7 +423,6 @@ function removeConstellationObjectsFromGlobe() {
     constellationLinesGlobe.forEach(l => globeMap.scene.remove(l));
   }
   constellationLinesGlobe = [];
-
   if (constellationLabelsGlobe && constellationLabelsGlobe.length > 0) {
     constellationLabelsGlobe.forEach(lbl => globeMap.scene.remove(lbl));
   }
@@ -512,7 +448,7 @@ function applyGlobeSurface(isOpaque) {
       side: THREE.FrontSide,
       depthWrite: true,
       depthTest: true,
-      transparent: false,
+      transparent: false
     });
     globeSurfaceSphere = new THREE.Mesh(geom, mat);
     globeSurfaceSphere.renderOrder = 0;
