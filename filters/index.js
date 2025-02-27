@@ -17,7 +17,7 @@ import { applyGlobeSurfaceFilter } from './globeSurfaceFilter.js';
 import { createConstellationOverlayForGlobe } from './constellationOverlayFilter.js';
 
 let filterForm = null;
-
+ 
 /**
  * Sets up the entire filter UI, including the new categories:
  * - Constellations (with Show Boundaries, Show Names, and Show Overlays)
