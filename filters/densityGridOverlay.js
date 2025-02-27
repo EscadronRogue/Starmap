@@ -199,7 +199,6 @@ export class DensityGridOverlay {
   }
   
   classifyEmptyRegions() {
-    // Reset cell IDs.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -301,18 +300,18 @@ export class DensityGridOverlay {
             });
           });
           if (segResult.neck && segResult.neck.length > 0) {
-            const filteredNeck = segResult.neck; // In this new logic, neck is a single cell candidate.
-            const neckConst = getMajorityConstellation(filteredNeck);
+            // For a neck, use the same majority method.
+            const neckConst = getMajorityConstellation(segResult.neck);
             let straitColor = lightenColor(getBlueColor(neckConst), 0.1);
             regions.push({
               clusterId: idx + "_neck",
-              cells: filteredNeck,
-              volume: filteredNeck.length,
+              cells: segResult.neck,
+              volume: segResult.neck.length,
               constName: neckConst,
               type: "Strait",
               label: `Strait ${neckConst}`,
               labelScale: 0.7,
-              bestCell: computeInterconnectedCell(filteredNeck),
+              bestCell: computeInterconnectedCell(segResult.neck),
               color: straitColor
             });
           }
