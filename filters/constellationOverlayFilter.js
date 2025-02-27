@@ -1,7 +1,9 @@
 // filters/constellationOverlayFilter.js
- 
+
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getConstellationBoundaries } from './constellationFilter.js';
+
+const R = 100; // Globe radius
 
 // --- Graph Coloring Helpers ---
 
@@ -32,33 +34,30 @@ function computeNeighborMap() {
 /**
  * Using a greedy algorithm, assign each constellation a color from a small palette
  * so that no two neighboring constellations share the same color.
- * We use a palette of 4 colors.
+ * We sort in descending order of neighbor count.
  */
 function computeConstellationColorMapping() {
   const neighbors = computeNeighborMap();
-  const constellations = Object.keys(neighbors);
-  // In case some constellations never appear as neighbors, add them.
+  // Get all constellation names (if a constellation never appears as a neighbor, add it)
+  const constellations = new Set();
+  Object.keys(neighbors).forEach(c => constellations.add(c));
   const boundaries = getConstellationBoundaries();
   boundaries.forEach(seg => {
-    if (seg.const1 && !constellations.includes(seg.const1)) {
-      constellations.push(seg.const1);
-      neighbors[seg.const1] = [];
-    }
-    if (seg.const2 && !constellations.includes(seg.const2)) {
-      constellations.push(seg.const2);
-      neighbors[seg.const2] = [];
-    }
+    if (seg.const1) constellations.add(seg.const1);
+    if (seg.const2) constellations.add(seg.const2);
   });
-  // Sort constellations by degree (number of neighbors)
-  constellations.sort((a, b) => (neighbors[a]?.length || 0) - (neighbors[b]?.length || 0));
+  const constellationList = Array.from(constellations);
+  // Sort in descending order by degree
+  constellationList.sort((a, b) => (neighbors[b]?.length || 0) - (neighbors[a]?.length || 0));
+  // Use a palette of 4 colors (expandable if needed)
   const palette = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3'];
   const colorMapping = {};
-  for (const c of constellations) {
+  for (const c of constellationList) {
     const used = new Set();
     (neighbors[c] || []).forEach(nb => {
       if (colorMapping[nb]) used.add(colorMapping[nb]);
     });
-    // Find the first available color from the palette.
+    // Choose the first palette color not already used by neighbors
     let assigned = null;
     for (let i = 0; i < palette.length; i++) {
       if (!used.has(palette[i])) {
@@ -66,7 +65,7 @@ function computeConstellationColorMapping() {
         break;
       }
     }
-    // Fallback if needed.
+    // If none available, simply assign the first color (or you can generate a new one)
     colorMapping[c] = assigned || palette[0];
   }
   return colorMapping;
@@ -74,13 +73,14 @@ function computeConstellationColorMapping() {
 
 // --- Overlay Creation ---
 
-const R = 100; // Globe radius
-
 /**
  * Creates a low-opacity overlay for each constellation by stitching together
- * the already-plotted boundary segments. For each constellation, the segments are
+ * the already-plotted boundary segments. For each constellation the segments are
  * grouped, connected by matching endpoints (using a small tolerance), then the 3D
  * polygon is projected onto a tangent plane and triangulated.
+ *
+ * After triangulation, each vertex is re-projected onto the sphere so that the
+ * overlay perfectly follows the curvature of the globe.
  *
  * The overlay uses a color assigned by a graph–coloring algorithm so that adjacent
  * constellations have different colors.
@@ -105,12 +105,11 @@ function createConstellationOverlayForGlobe() {
   const overlays = [];
   for (const constellation in groups) {
     const segs = groups[constellation];
-    // Build an ordered list of vertices by walking through connected segments.
+    // Build an ordered list of vertices by "walking" through connected segments.
     const ordered = [];
     const used = new Array(segs.length).fill(false);
-    const convert = (seg, endpoint) => {
-      return radToSphere(endpoint === 0 ? seg.ra1 : seg.ra2, endpoint === 0 ? seg.dec1 : seg.dec2, R);
-    };
+    const convert = (seg, endpoint) =>
+      radToSphere(endpoint === 0 ? seg.ra1 : seg.ra2, endpoint === 0 ? seg.dec1 : seg.dec2, R);
     if (segs.length === 0) continue;
     // Start with the first segment.
     let currentPoint = convert(segs[0], 0);
@@ -142,7 +141,6 @@ function createConstellationOverlayForGlobe() {
     if (ordered.length < 3) continue;
     // Ensure the polygon is closed.
     if (ordered[0].distanceTo(ordered[ordered.length - 1]) > 0.01) continue;
-    // Remove duplicate last point.
     if (ordered[0].distanceTo(ordered[ordered.length - 1]) < 0.001) {
       ordered.pop();
     }
@@ -152,14 +150,12 @@ function createConstellationOverlayForGlobe() {
     centroid.divideScalar(ordered.length);
     const normal = centroid.clone().normalize();
     let up = new THREE.Vector3(0, 1, 0);
-    if (Math.abs(normal.dot(up)) > 0.9) {
-      up = new THREE.Vector3(1, 0, 0);
-    }
+    if (Math.abs(normal.dot(up)) > 0.9) up = new THREE.Vector3(1, 0, 0);
     const tangent = up.clone().sub(normal.clone().multiplyScalar(normal.dot(up))).normalize();
     const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
     const pts2D = ordered.map(p => new THREE.Vector2(p.dot(tangent), p.dot(bitangent)));
     const indices = THREE.ShapeUtils.triangulateShape(pts2D, []);
-    // Build geometry.
+    // Build geometry using the ordered 3D vertices.
     const vertices = [];
     ordered.forEach(p => {
       vertices.push(p.x, p.y, p.z);
@@ -170,7 +166,15 @@ function createConstellationOverlayForGlobe() {
     indices.forEach(tri => flatIndices.push(...tri));
     geometry.setIndex(flatIndices);
     geometry.computeVertexNormals();
-    // Create material with polygonOffset so that the overlay appears on top of the opaque surface.
+    // Project every vertex onto the sphere so the polygon follows the curvature.
+    const posAttr = geometry.attributes.position;
+    for (let i = 0; i < posAttr.count; i++) {
+      const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
+      v.normalize().multiplyScalar(R);
+      posAttr.setXYZ(i, v.x, v.y, v.z);
+    }
+    posAttr.needsUpdate = true;
+    // Create material with polygonOffset so the overlay appears on top of the opaque surface.
     const material = new THREE.MeshBasicMaterial({
       color: new THREE.Color(colorMapping[constellation]),
       transparent: true,
@@ -188,7 +192,7 @@ function createConstellationOverlayForGlobe() {
   return overlays;
 }
 
-// Helper: convert spherical coordinates to 3D point on sphere.
+// Helper: convert (ra, dec) to 3D point on sphere.
 function radToSphere(ra, dec, R) {
   const x = -R * Math.cos(dec) * Math.cos(ra);
   const y = R * Math.sin(dec);
@@ -196,4 +200,5 @@ function radToSphere(ra, dec, R) {
   return new THREE.Vector3(x, y, z);
 }
 
-export { createConstellationOverlayForGlobe };
+// Export the main functions and the color mapping for reuse.
+export { createConstellationOverlayForGlobe, computeConstellationColorMapping };
