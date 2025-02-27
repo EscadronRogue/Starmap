@@ -24,7 +24,7 @@ export function segmentOceanCandidate(cells) {
         neighborCount++;
       }
     }
-    if (neighborCount >= 2 && neighborCount <= 3) {
+    if (neighborCount >= 2 && neighborCount <= 4) {
       // Simulate removal of the candidate cell
       const remaining = cells.filter(cell => cell !== candidate);
       const components = computeConnectedComponents(remaining);
