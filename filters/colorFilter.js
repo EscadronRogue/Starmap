@@ -1,8 +1,8 @@
 // filters/colorFilter.js
 
 import { getStellarClassData } from './stellarClassData.js';
+// Use the same constellation color mapping as in the overlay filter.
 import { computeConstellationColorMapping } from './constellationOverlayFilter.js';
-import { getBaseColor } from './densityColorUtils.js';
 
 /**
  * Applies the selected color filter to the star objects.
@@ -20,6 +20,7 @@ export function applyColorFilter(stars, filters) {
   const stellarClassData = getStellarClassData();
 
   if (filters.color === 'stellar-class') {
+    // Use stellar class data for color
     stars.forEach(star => {
       let pClass = 'G';
       if (star.Stellar_class && typeof star.Stellar_class === 'string') {
@@ -27,21 +28,18 @@ export function applyColorFilter(stars, filters) {
       }
       const cData = stellarClassData[pClass];
       let colorValue = cData ? cData.color : '#FFFFFF';
-      star.displayColor = normalizeColor(colorValue);
+      colorValue = normalizeColor(colorValue);
+      star.displayColor = colorValue;
     });
   } else if (filters.color === 'constellation') {
+    // Use the computed constellation color mapping.
     const colorsMap = computeConstellationColorMapping();
     stars.forEach(star => {
-      // Use the star's "Constellation" property (or fallback if missing)
-      const constellation = star.Constellation || '';
-      let colorValue = colorsMap[constellation];
-      if (!colorValue) {
-        // Fallback: use a hashed base color for the constellation name.
-        colorValue = getBaseColor(constellation).getStyle();
-      }
+      let colorValue = colorsMap[star.Constellation] || '#FFFFFF';
       star.displayColor = normalizeColor(colorValue);
     });
   } else if (filters.color === 'galactic-plane') {
+    // Colors based on distance from the galactic plane.
     const maxZ = Math.max(...stars.map(s => Math.abs(s.z_coordinate)));
     stars.forEach(star => {
       const factor = Math.abs(star.z_coordinate) / maxZ;
@@ -54,6 +52,7 @@ export function applyColorFilter(stars, filters) {
       }
     });
   } else {
+    // Fallback: ensure every star has a color.
     stars.forEach(star => {
       if (!star.displayColor) {
         star.displayColor = '#FFFFFF';
