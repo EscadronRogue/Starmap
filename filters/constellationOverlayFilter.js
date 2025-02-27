@@ -5,10 +5,10 @@ import { getConstellationBoundaries } from './constellationFilter.js';
 
 const R = 100; // Globe radius
 
-// --- Graph Coloring Helpers using recursive greedy approach ---
+// --- Graph Coloring Helpers using a recursive greedy approach ---
 
 function computeNeighborMap() {
-  const boundaries = getConstellationBoundaries(); // Each segment: {ra1,dec1,ra2,dec2,const1,const2}
+  const boundaries = getConstellationBoundaries(); // Each segment: {ra1, dec1, ra2, dec2, const1, const2}
   const neighbors = {};
   boundaries.forEach(seg => {
     if (seg.const1) {
@@ -36,12 +36,12 @@ function computeConstellationColorMapping() {
     if (seg.const2) allConsts.add(seg.const2);
   });
   const constellations = Array.from(allConsts);
-  // Order by descending neighbor count
+  // Order by descending neighbor count.
   constellations.sort((a, b) => (neighbors[b]?.length || 0) - (neighbors[a]?.length || 0));
   const palette = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3'];
   const colorMapping = {};
 
-  // Recursive assignment – simple backtracking
+  // Recursive assignment with backtracking.
   function assignColor(index) {
     if (index === constellations.length) return true;
     const current = constellations[index];
@@ -55,7 +55,6 @@ function computeConstellationColorMapping() {
         if (assignColor(index + 1)) return true;
       }
     }
-    // Backtrack: remove assignment
     delete colorMapping[current];
     return false;
   }
@@ -68,11 +67,12 @@ function computeConstellationColorMapping() {
 /**
  * Creates a low-opacity overlay for each constellation by stitching together
  * the already-plotted boundary segments. For each constellation the segments are
- * grouped, ordered by matching endpoints, then the 3D polygon is projected onto
- * a tangent plane, triangulated, and finally each vertex is re-projected onto the
- * sphere so that the overlay follows the curvature.
+ * grouped, ordered by matching endpoints (using a small tolerance), then the 3D
+ * polygon is projected onto a tangent plane, triangulated, and each vertex is
+ * re-projected onto the sphere so that the overlay follows the globe’s curvature.
  *
- * The overlay uses a color from the computed mapping.
+ * A custom shader discards back-facing fragments so the overlay is drawn only
+ * on the front side. The overlay color is taken from the computed color mapping.
  *
  * @returns {Array} Array of THREE.Mesh objects (overlays) for the Globe.
  */
@@ -129,6 +129,7 @@ function createConstellationOverlayForGlobe() {
     if (ordered[0].distanceTo(ordered[ordered.length - 1]) < 0.001) {
       ordered.pop();
     }
+    // Project to tangent plane.
     const centroid = new THREE.Vector3(0, 0, 0);
     ordered.forEach(p => centroid.add(p));
     centroid.divideScalar(ordered.length);
@@ -149,7 +150,7 @@ function createConstellationOverlayForGlobe() {
     indices.forEach(tri => flatIndices.push(...tri));
     geometry.setIndex(flatIndices);
     geometry.computeVertexNormals();
-    // Reproject every vertex onto the sphere:
+    // Reproject vertices onto sphere.
     const posAttr = geometry.attributes.position;
     for (let i = 0; i < posAttr.count; i++) {
       const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
@@ -157,7 +158,7 @@ function createConstellationOverlayForGlobe() {
       posAttr.setXYZ(i, v.x, v.y, v.z);
     }
     posAttr.needsUpdate = true;
-    // Create a custom shader material.
+    // Create a custom shader material that discards back-facing fragments.
     const material = new THREE.ShaderMaterial({
       uniforms: {
         color: { value: new THREE.Color(colorMapping[constellation]) },
@@ -181,9 +182,7 @@ function createConstellationOverlayForGlobe() {
         varying vec3 vNormal;
         varying vec3 vPosition;
         void main() {
-          // Compute view direction.
           vec3 viewDir = normalize(cameraPos - vPosition);
-          // Only render if front facing.
           if(dot(vNormal, viewDir) < 0.0) discard;
           gl_FragColor = vec4(color, opacity);
         }
@@ -195,7 +194,6 @@ function createConstellationOverlayForGlobe() {
       polygonOffsetFactor: -4,
       polygonOffsetUnits: -4
     });
-    // We'll update cameraPos uniform on each frame.
     const mesh = new THREE.Mesh(geometry, material);
     mesh.renderOrder = 1;
     overlays.push(mesh);
@@ -203,7 +201,7 @@ function createConstellationOverlayForGlobe() {
   return overlays;
 }
 
-// Helper: convert (ra, dec) to 3D point on sphere.
+// Helper: convert (ra, dec) to a 3D point on the sphere.
 function radToSphere(ra, dec, R) {
   const x = -R * Math.cos(dec) * Math.cos(ra);
   const y = R * Math.sin(dec);
