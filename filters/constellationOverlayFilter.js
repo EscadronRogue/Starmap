@@ -26,6 +26,15 @@ function computeNeighborMap() {
   return neighbors;
 }
 
+function generatePalette(numColors) {
+  const colors = [];
+  for (let i = 0; i < numColors; i++) {
+    const hue = Math.round((360 * i) / numColors);
+    colors.push(`hsl(${hue},70%,50%)`);
+  }
+  return colors;
+}
+
 function computeConstellationColorMapping() {
   const neighbors = computeNeighborMap();
   const allConsts = new Set();
@@ -36,9 +45,20 @@ function computeConstellationColorMapping() {
     if (seg.const2) allConsts.add(seg.const2);
   });
   const constellations = Array.from(allConsts);
-  // Sort in descending order by neighbor count.
+
+  // Determine maximum neighbor count
+  let maxDegree = 0;
+  constellations.forEach(c => {
+    const deg = neighbors[c] ? neighbors[c].length : 0;
+    if (deg > maxDegree) maxDegree = deg;
+  });
+  // Use a palette size of at least maxDegree+1, or 12 minimum.
+  const paletteSize = Math.max(maxDegree + 1, 12);
+  const palette = generatePalette(paletteSize);
+
+  // Sort constellations in descending order by degree.
   constellations.sort((a, b) => (neighbors[b] ? neighbors[b].length : 0) - (neighbors[a] ? neighbors[a].length : 0));
-  const palette = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3'];
+
   const colorMapping = {};
   for (const c of constellations) {
     const used = new Set();
@@ -47,6 +67,7 @@ function computeConstellationColorMapping() {
         if (colorMapping[nb]) used.add(colorMapping[nb]);
       }
     }
+    // Find the first color in the palette that is not used.
     let assigned = palette.find(color => !used.has(color));
     if (!assigned) assigned = palette[0];
     colorMapping[c] = assigned;
