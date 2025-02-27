@@ -40,7 +40,7 @@ export function getBaseColor(constName) {
 
 /**
  * Returns a blue color based on a constellation name.
- * This forces the hue into the blue range (200 to 240).
+ * Forces the hue into the blue range (200 to 240).
  */
 export function getBlueColor(constName) {
   let hash = 0;
@@ -49,6 +49,25 @@ export function getBlueColor(constName) {
   }
   const hue = 200 + (Math.abs(hash) % 41); // hue between 200 and 240
   return new THREE.Color(`hsl(${hue}, 70%, 50%)`);
+}
+
+/**
+ * Returns an individual blue color based on a seed string.
+ * This generates a diverse blue shade (in the range of blue, cyan, turquoise, etc.)
+ * while keeping the hue between about 180 and 260.
+ */
+export function getIndividualBlueColor(seedStr) {
+  let hash = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  // Normalize hash to a value between 0 and 1
+  let normalized = (Math.abs(hash) % 1000) / 1000;
+  // Map to a hue between 180 and 260 (blue range)
+  let hue = 180 + normalized * 80;
+  let saturation = 70; 
+  let lightness = 50; 
+  return new THREE.Color(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
 }
 
 /**
