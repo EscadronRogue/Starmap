@@ -59,14 +59,12 @@ function createGlobeGrid(R = 100, options = {}) {
   const gridColor = options.color || 0x444444;
   const lineOpacity = options.opacity !== undefined ? options.opacity : 0.25;
   const lineWidth = options.lineWidth || 1;
-
   const material = new THREE.LineBasicMaterial({
     color: gridColor,
     transparent: true,
     opacity: lineOpacity,
     linewidth: lineWidth
   });
-
   for (let raDeg = 0; raDeg < 360; raDeg += 30) {
     const ra = THREE.Math.degToRad(raDeg);
     const points = [];
@@ -78,7 +76,6 @@ function createGlobeGrid(R = 100, options = {}) {
     const line = new THREE.Line(geometry, material);
     gridGroup.add(line);
   }
-
   for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
     const dec = THREE.Math.degToRad(decDeg);
     const points = [];
@@ -99,14 +96,12 @@ class MapManager {
     this.canvas = document.getElementById(canvasId);
     this.mapType = mapType;
     this.scene = new THREE.Scene();
-
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: true
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
-
     this.camera = new THREE.PerspectiveCamera(
       75,
       this.canvas.clientWidth / this.canvas.clientHeight,
@@ -119,17 +114,14 @@ class MapManager {
       this.camera.position.set(0, 0, 200);
     }
     this.scene.add(this.camera);
-
     const amb = new THREE.AmbientLight(0xffffff, 0.5);
     this.scene.add(amb);
     const pt = new THREE.PointLight(0xffffff, 1);
     this.scene.add(pt);
-
     this.controls = new ThreeDControls(this.camera, this.renderer.domElement);
     this.labelManager = new LabelManager(mapType, this.scene);
     this.starGroup = new THREE.Group();
     this.scene.add(this.starGroup);
-
     window.addEventListener('resize', () => this.onResize(), false);
     this.animate();
   }
@@ -194,7 +186,7 @@ class MapManager {
 
   animate() {
     requestAnimationFrame(() => this.animate());
-    // For overlays: update camera position uniform so front-facing fragments are computed correctly.
+    // Update cameraPos uniform for overlay materials
     if (this.mapType === 'Globe') {
       this.scene.traverse(child => {
         if (child.material && child.material.uniforms && child.material.uniforms.cameraPos) {
