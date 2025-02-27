@@ -54,48 +54,59 @@ function computeConstellationColorMapping() {
   return colorMapping;
 }
 
-// --- Spherical Triangulation Helpers ---
+// --- Spherical Overlay Creation Helpers ---
 
 /**
- * Computes the spherical centroid of an array of vertices (assumed to be on the sphere).
- * Returns a normalized vector (on the unit sphere) then scaled to R.
+ * Samples a boundary segment along its great‐circle arc.
+ * @param {Object} seg - Boundary segment with ra1, dec1, ra2, dec2.
+ * @param {number} samples - Number of sample points (including endpoints).
+ * @returns {THREE.Vector3[]} Array of 3D points along the arc.
  */
-function computeSphericalCentroid(vertices) {
-  const sum = new THREE.Vector3(0, 0, 0);
-  vertices.forEach(v => sum.add(v));
-  return sum.normalize().multiplyScalar(R);
+function sampleBoundarySegment(seg, samples = 32) {
+  const p1 = radToSphere(seg.ra1, seg.dec1, R);
+  const p2 = radToSphere(seg.ra2, seg.dec2, R);
+  return getGreatCirclePoints(p1, p2, R, samples);
 }
 
 /**
- * Determines if a point is inside a spherical polygon.
- * This uses an angle-sum method: if the sum of angles between consecutive vertices as seen
- * from the point is approximately 2*PI, the point is inside.
- * @param {THREE.Vector3} point - The test point (assumed on sphere).
- * @param {THREE.Vector3[]} vertices - Array of vertices (on sphere) in order.
- * @returns {boolean}
+ * Projects an array of 3D points (on the sphere) to 2D coordinates on the tangent plane
+ * defined at the given centroid.
+ * @param {THREE.Vector3[]} points - 3D points on the sphere.
+ * @param {THREE.Vector3} centroid - Spherical centroid.
+ * @returns {THREE.Vector2[]} Array of 2D points.
  */
-function isPointInSphericalPolygon(point, vertices) {
-  let angleSum = 0;
-  for (let i = 0; i < vertices.length; i++) {
-    const v1 = vertices[i].clone().normalize();
-    const v2 = vertices[(i + 1) % vertices.length].clone().normalize();
-    // Compute the angle at 'point' between v1 and v2 using dot product of directions from point.
-    const d1 = v1.clone().sub(point).normalize();
-    const d2 = v2.clone().sub(point).normalize();
-    let angle = Math.acos(THREE.MathUtils.clamp(d1.dot(d2), -1, 1));
-    angleSum += angle;
-  }
-  return Math.abs(angleSum - 2 * Math.PI) < 0.1; // Tolerance of 0.1 rad (~6°)
+function projectPointsToTangent(points, centroid) {
+  const normal = centroid.clone().normalize();
+  let up = new THREE.Vector3(0, 1, 0);
+  if (Math.abs(normal.dot(up)) > 0.9) up = new THREE.Vector3(1, 0, 0);
+  const tangent = up.clone().sub(normal.clone().multiplyScalar(normal.dot(up))).normalize();
+  const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+  return points.map(p => new THREE.Vector2(p.dot(tangent), p.dot(bitangent)));
+}
+
+/**
+ * Sorts 2D points in counter-clockwise order around their centroid.
+ * @param {THREE.Vector2[]} points2D - Array of 2D points.
+ * @returns {THREE.Vector2[]} Sorted 2D points.
+ */
+function sortPointsByAngle(points2D) {
+  const centroid = new THREE.Vector2(0, 0);
+  points2D.forEach(p => centroid.add(p));
+  centroid.divideScalar(points2D.length);
+  return points2D.sort((a, b) => {
+    const angleA = Math.atan2(a.y - centroid.y, a.x - centroid.x);
+    const angleB = Math.atan2(b.y - centroid.y, b.x - centroid.x);
+    return angleA - angleB;
+  });
 }
 
 // --- Overlay Creation ---
 
 /**
- * Creates a low-opacity overlay for each constellation by stitching together
- * the already-plotted boundary segments. For each constellation, the segments are
- * grouped and ordered by matching endpoints (using a tolerance). Then, if the spherical
- * centroid is inside the polygon, a fan triangulation is used (which follows the sphere's curvature).
- * Otherwise, it falls back to the planar triangulation method.
+ * Creates a low-opacity overlay for each constellation. For each constellation, we
+ * gather sample points along each boundary’s great‑circle arc so that the polygon
+ * naturally follows the curvature. We then project these points onto a tangent plane,
+ * sort them by angle, triangulate the polygon, and reproject the vertices onto the sphere.
  *
  * @returns {Array} Array of THREE.Mesh objects (overlays) for the Globe.
  */
@@ -116,100 +127,52 @@ function createConstellationOverlayForGlobe() {
   const overlays = [];
   for (const constellation in groups) {
     const segs = groups[constellation];
-    const ordered = [];
-    const used = new Array(segs.length).fill(false);
-    const convert = (seg, endpoint) =>
-      radToSphere(endpoint === 0 ? seg.ra1 : seg.ra2, endpoint === 0 ? seg.dec1 : seg.dec2, R);
-    if (segs.length === 0) continue;
-    let currentPoint = convert(segs[0], 0);
-    ordered.push(currentPoint);
-    used[0] = true;
-    let currentEnd = convert(segs[0], 1);
-    ordered.push(currentEnd);
-    let changed = true;
-    let iteration = 0;
-    while (changed && iteration < segs.length) {
-      changed = false;
-      for (let i = 0; i < segs.length; i++) {
-        if (used[i]) continue;
-        const seg = segs[i];
-        const p0 = convert(seg, 0);
-        const p1 = convert(seg, 1);
-        if (p0.distanceTo(currentEnd) < 0.001) {
-          ordered.push(p1);
-          currentEnd = p1;
-          used[i] = true;
-          changed = true;
-        } else if (p1.distanceTo(currentEnd) < 0.001) {
-          ordered.push(p0);
-          currentEnd = p0;
-          used[i] = true;
-          changed = true;
-        }
-      }
-      iteration++;
-    }
-    if (ordered.length < 3) continue;
-    // Ensure closure
-    if (ordered[0].distanceTo(ordered[ordered.length - 1]) > 0.01) continue;
-    if (ordered[0].distanceTo(ordered[ordered.length - 1]) < 0.001) {
-      ordered.pop();
-    }
-    let geometry;
-    // Attempt spherical (fan) triangulation:
-    const centroid = computeSphericalCentroid(ordered);
-    if (isPointInSphericalPolygon(centroid, ordered)) {
-      // Fan triangulation using the centroid.
-      const vertices = [];
-      ordered.forEach(p => {
-        vertices.push(p.x, p.y, p.z);
-      });
-      // Also add the centroid.
-      vertices.push(centroid.x, centroid.y, centroid.z);
-      const vertexArray = new Float32Array(vertices);
-      geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.BufferAttribute(vertexArray, 3));
-      // Create triangles: for each edge (i, i+1), triangle: (v[i], v[i+1], centroid)
-      const indices = [];
-      const n = ordered.length;
-      const centroidIndex = n; // last vertex
-      for (let i = 0; i < n; i++) {
-        indices.push(i, (i + 1) % n, centroidIndex);
-      }
-      geometry.setIndex(indices);
-      geometry.computeVertexNormals();
-    } else {
-      // Fallback: use planar triangulation on tangent plane.
-      const centroidFallback = new THREE.Vector2(0, 0);
-      const tangent = new THREE.Vector3(0, 0, 0);
-      const bitangent = new THREE.Vector3(0, 0, 0);
-      // Compute tangent and bitangent from centroid of ordered points.
-      const tempCentroid = new THREE.Vector3(0, 0, 0);
-      ordered.forEach(p => tempCentroid.add(p));
-      tempCentroid.divideScalar(ordered.length);
-      const normal = tempCentroid.clone().normalize();
-      let up = new THREE.Vector3(0, 1, 0);
-      if (Math.abs(normal.dot(up)) > 0.9) up = new THREE.Vector3(1, 0, 0);
-      tangent.copy(up).sub(normal.clone().multiplyScalar(normal.dot(up))).normalize();
-      bitangent.crossVectors(normal, tangent).normalize();
-      const pts2D = ordered.map(p => new THREE.Vector2(p.dot(tangent), p.dot(bitangent)));
-      const indices2D = THREE.ShapeUtils.triangulateShape(pts2D, []);
-      const vertices = [];
-      ordered.forEach(p => {
-        vertices.push(p.x, p.y, p.z);
-      });
-      geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-      geometry.setIndex(indices2D.flat());
-      geometry.computeVertexNormals();
-      const posAttr = geometry.attributes.position;
-      for (let i = 0; i < posAttr.count; i++) {
-        const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
-        v.normalize().multiplyScalar(R);
-        posAttr.setXYZ(i, v.x, v.y, v.z);
-      }
-      posAttr.needsUpdate = true;
-    }
+    let points3D = [];
+    // For each segment, sample many points along the arc.
+    segs.forEach(seg => {
+      const pts = sampleBoundarySegment(seg, 32);
+      points3D = points3D.concat(pts);
+    });
+    if (points3D.length < 3) continue;
+    // Remove duplicate (or nearly duplicate) points.
+    points3D = points3D.filter((p, i) => {
+      return points3D.findIndex((q, j) => i !== j && p.distanceTo(q) < 0.01) === i;
+    });
+    // Compute the spherical centroid (average, then normalize to R).
+    const centroid = new THREE.Vector3(0, 0, 0);
+    points3D.forEach(p => centroid.add(p));
+    centroid.divideScalar(points3D.length).normalize().multiplyScalar(R);
+    // Project points to 2D in the tangent plane at the centroid.
+    let points2D = projectPointsToTangent(points3D, centroid);
+    points2D = sortPointsByAngle(points2D);
+    // Triangulate the 2D polygon.
+    const indices2D = THREE.ShapeUtils.triangulateShape(points2D, []);
+    // Create geometry from the sorted 3D points.
+    // To ensure the overlay follows the curvature, we use the original 3D points ordered as in points2D.
+    const sortedPoints3D = [];
+    // Build a mapping from 2D to 3D by reprojecting each 2D point back into 3D using the tangent plane.
+    // First, compute tangent and bitangent as before.
+    let up = new THREE.Vector3(0, 1, 0);
+    if (Math.abs(centroid.clone().normalize().dot(up)) > 0.9) up = new THREE.Vector3(1, 0, 0);
+    const normal = centroid.clone().normalize();
+    const tangent = up.clone().sub(normal.clone().multiplyScalar(normal.dot(up))).normalize();
+    const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+    // For each sorted 2D point, compute the corresponding 3D point on the tangent plane,
+    // then project that point onto the sphere.
+    points2D.forEach(pt => {
+      const p3 = tangent.clone().multiplyScalar(pt.x).add(bitangent.clone().multiplyScalar(pt.y)).add(centroid);
+      p3.normalize().multiplyScalar(R);
+      sortedPoints3D.push(p3);
+    });
+    const vertices = [];
+    sortedPoints3D.forEach(p => {
+      vertices.push(p.x, p.y, p.z);
+    });
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setIndex(indices2D.flat());
+    geometry.computeVertexNormals();
+    // Create material; we use a basic material so it always follows the sphere's curvature.
     const material = new THREE.MeshBasicMaterial({
       color: new THREE.Color(colorMapping[constellation]),
       opacity: 0.15,
@@ -222,6 +185,21 @@ function createConstellationOverlayForGlobe() {
     overlays.push(mesh);
   }
   return overlays;
+}
+
+function getGreatCirclePoints(p1, p2, R, segments) {
+  const points = [];
+  const start = p1.clone().normalize().multiplyScalar(R);
+  const end = p2.clone().normalize().multiplyScalar(R);
+  const axis = new THREE.Vector3().crossVectors(start, end).normalize();
+  const angle = start.angleTo(end);
+  for (let i = 0; i <= segments; i++) {
+    const theta = (i / segments) * angle;
+    const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, theta);
+    const point = start.clone().applyQuaternion(quaternion);
+    points.push(point);
+  }
+  return points;
 }
 
 function radToSphere(ra, dec, R) {
