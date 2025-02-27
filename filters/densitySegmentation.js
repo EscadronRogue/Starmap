@@ -63,11 +63,10 @@ export function segmentOceanCandidate(cells) {
   let candidateNeck = null;
   const oceanVol = cells.length;
   for (const group of neckGroups) {
-    // Use a threshold (e.g., neck group must be less than 15% of the total volume)
     if (group.length < 0.15 * oceanVol) {
       const neckAvgConn = group.reduce((s, cell) => s + cell.connectivity, 0) / group.length;
       if (neckAvgConn < 0.5 * C_avg) {
-        // Filter out tail cells from the neck group
+        // Filter out tail cells from the neck group.
         const filteredNeck = filterNeckGroup(group);
         if (filteredNeck.length > 0) {
           candidateNeck = filteredNeck;
@@ -79,7 +78,7 @@ export function segmentOceanCandidate(cells) {
 
   // Only segment if a candidate neck exists.
   if (candidateNeck) {
-    // Remove the neck cells from the original set
+    // Remove the neck cells from the original set.
     const cellsWithoutNeck = cells.filter(cell => !candidateNeck.includes(cell));
     // Compute connected components on the remaining cells.
     const components = computeConnectedComponents(cellsWithoutNeck);
@@ -133,7 +132,7 @@ function computeConnectedComponents(cells) {
 
 /**
  * Filters out tail cells from a neck (candidate strait) group.
- * A tail cell is defined as having only one neighbor within the neck group.
+ * A tail cell is defined as having only one neighbor in the group.
  */
 export function filterNeckGroup(neckCells) {
   return neckCells.filter(cell => {
@@ -150,6 +149,32 @@ export function filterNeckGroup(neckCells) {
     });
     return count > 1;
   });
+}
+
+/**
+ * Finds the cell with the highest connectivity within a group.
+ */
+export function computeInterconnectedCell(cells) {
+  let bestCell = cells[0];
+  let maxCount = 0;
+  cells.forEach(cell => {
+    let count = 0;
+    cells.forEach(other => {
+      if (cell === other) return;
+      if (
+        Math.abs(cell.grid.ix - other.grid.ix) <= 1 &&
+        Math.abs(cell.grid.iy - other.grid.iy) <= 1 &&
+        Math.abs(cell.grid.iz - other.grid.iz) <= 1
+      ) {
+        count++;
+      }
+    });
+    if (count > maxCount) {
+      maxCount = count;
+      bestCell = cell;
+    }
+  });
+  return bestCell;
 }
 
 /**
