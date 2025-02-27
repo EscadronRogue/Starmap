@@ -199,6 +199,7 @@ export class DensityGridOverlay {
   }
   
   classifyEmptyRegions() {
+    // Reset cell IDs.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -285,7 +286,7 @@ export class DensityGridOverlay {
             bestCell: computeInterconnectedCell(cells)
           });
         } else {
-          // When segmentation occurs, the original region is split into two seas.
+          // When segmentation occurs, the region is split into two seas.
           segResult.cores.forEach((core, i) => {
             const seaConst = getMajorityConstellation(core);
             regions.push({
@@ -299,6 +300,22 @@ export class DensityGridOverlay {
               bestCell: computeInterconnectedCell(core)
             });
           });
+          if (segResult.neck && segResult.neck.length > 0) {
+            const filteredNeck = segResult.neck; // In this new logic, neck is a single cell candidate.
+            const neckConst = getMajorityConstellation(filteredNeck);
+            let straitColor = lightenColor(getBlueColor(neckConst), 0.1);
+            regions.push({
+              clusterId: idx + "_neck",
+              cells: filteredNeck,
+              volume: filteredNeck.length,
+              constName: neckConst,
+              type: "Strait",
+              label: `Strait ${neckConst}`,
+              labelScale: 0.7,
+              bestCell: computeInterconnectedCell(filteredNeck),
+              color: straitColor
+            });
+          }
         }
       }
     });
@@ -404,6 +421,13 @@ export class DensityGridOverlay {
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color || getBlueColor(region.constName));
           cell.globeMesh.material.color.set(region.color || getBlueColor(region.constName));
+        });
+      } else if (region.type === 'Strait') {
+        let parentColor = getBlueColor(region.constName);
+        region.color = lightenColor(parentColor, 0.1);
+        region.cells.forEach(cell => {
+          cell.tcMesh.material.color.set(region.color);
+          cell.globeMesh.material.color.set(region.color);
         });
       }
     });
