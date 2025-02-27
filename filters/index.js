@@ -10,18 +10,16 @@ import { applyStellarClassLogic, generateStellarClassFilters as scGenerate } fro
 
 // For constellations
 import { loadConstellationBoundaries, loadConstellationCenters } from './constellationFilter.js';
-
-// The new file that manages globe surface toggling
+// Globe surface filter
 import { applyGlobeSurfaceFilter } from './globeSurfaceFilter.js';
-// NEW: Import the constellation overlay filter.
+// NEW: Constellation overlay filter.
 import { createConstellationOverlayForGlobe } from './constellationOverlayFilter.js';
 
 let filterForm = null;
- 
+
 /**
- * Sets up the entire filter UI, including the new categories:
- * - Constellations (with Show Boundaries, Show Names, and Show Overlays)
- * - Globe Surface (Opaque/Transparent)
+ * Sets up the filter UI including Constellations (Boundaries, Names, Overlays)
+ * and Globe Surface (Opaque/Transparent).
  */
 export async function setupFilterUI(allStars) {
   filterForm = document.getElementById('filters-form');
@@ -30,13 +28,9 @@ export async function setupFilterUI(allStars) {
     return;
   }
 
-  // Load stellar class data
   loadStellarClassData();
-
-  // Generate the stellar class subcategories
   scGenerate(allStars);
 
-  // Make existing legends collapsible
   const mainLegends = filterForm.querySelectorAll('legend.collapsible');
   mainLegends.forEach(legend => {
     const fc = legend.nextElementSibling;
@@ -45,26 +39,16 @@ export async function setupFilterUI(allStars) {
       legend.classList.toggle('active');
       const isActive = legend.classList.contains('active');
       legend.setAttribute('aria-expanded', isActive);
-      if (fc) {
-        fc.style.maxHeight = isActive ? fc.scrollHeight + 'px' : '0px';
-      }
+      if (fc) fc.style.maxHeight = isActive ? fc.scrollHeight + 'px' : '0px';
     });
   });
 
-  // Add new fieldset for Constellations
   addConstellationsFieldset();
-
-  // Add new fieldset for Globe Surface
   addGlobeSurfaceFieldset();
-
-  // Load constellation data in background
   await loadConstellationBoundaries();
   await loadConstellationCenters();
 }
 
-/**
- * Adds a fieldset for "Constellations" with 3 checkboxes: "Boundaries", "Names", and "Overlays"
- */
 function addConstellationsFieldset() {
   const fs = document.createElement('fieldset');
   const legend = document.createElement('legend');
@@ -80,6 +64,7 @@ function addConstellationsFieldset() {
     legend.setAttribute('aria-expanded', isActive);
     contentDiv.style.maxHeight = isActive ? contentDiv.scrollHeight + 'px' : '0px';
   });
+
   const boundaryDiv = document.createElement('div');
   boundaryDiv.classList.add('filter-item');
   const boundaryChk = document.createElement('input');
@@ -93,6 +78,7 @@ function addConstellationsFieldset() {
   boundaryDiv.appendChild(boundaryChk);
   boundaryDiv.appendChild(boundaryLbl);
   contentDiv.appendChild(boundaryDiv);
+
   const namesDiv = document.createElement('div');
   namesDiv.classList.add('filter-item');
   const namesChk = document.createElement('input');
@@ -106,6 +92,7 @@ function addConstellationsFieldset() {
   namesDiv.appendChild(namesChk);
   namesDiv.appendChild(namesLbl);
   contentDiv.appendChild(namesDiv);
+
   // NEW: Overlay checkbox.
   const overlayDiv = document.createElement('div');
   overlayDiv.classList.add('filter-item');
@@ -120,13 +107,11 @@ function addConstellationsFieldset() {
   overlayDiv.appendChild(overlayChk);
   overlayDiv.appendChild(overlayLbl);
   contentDiv.appendChild(overlayDiv);
+
   fs.appendChild(contentDiv);
   filterForm.appendChild(fs);
 }
 
-/**
- * Adds a fieldset for "Globe Surface" with 1 checkbox: "Opaque Globe Surface"
- */
 function addGlobeSurfaceFieldset() {
   const fs = document.createElement('fieldset');
   const legend = document.createElement('legend');
@@ -148,7 +133,7 @@ function addGlobeSurfaceFieldset() {
   surfChk.type = 'checkbox';
   surfChk.id = 'globe-opaque-surface';
   surfChk.name = 'globe-opaque-surface';
-  // NEW: Set opaque surface ON by default.
+  // Opaque surface ON by default.
   surfChk.checked = true;
   const surfLbl = document.createElement('label');
   surfLbl.htmlFor = 'globe-opaque-surface';
@@ -160,9 +145,6 @@ function addGlobeSurfaceFieldset() {
   filterForm.appendChild(fs);
 }
 
-/**
- * Main applyFilters pipeline.
- */
 export function applyFilters(allStars) {
   if (!filterForm) {
     filterForm = document.getElementById('filters-form');
@@ -182,7 +164,6 @@ export function applyFilters(allStars) {
     }
   }
   const formData = new FormData(filterForm);
-
   const filters = {
     size: formData.get('size'),
     color: formData.get('color'),
@@ -204,7 +185,6 @@ export function applyFilters(allStars) {
   filteredStars = applyOpacityFilter(filteredStars, filters);
 
   const globeFiltered = filteredStars.filter(s => s.Common_name_of_the_star !== 'Sun');
-
   let pairs = [];
   let globePairs = [];
   if (filters.enableConnections) {
@@ -228,5 +208,4 @@ export function applyFilters(allStars) {
   };
 }
 
-// re-export
 export { scGenerate as generateStellarClassFilters };
