@@ -1,7 +1,6 @@
 // script.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-
 import { applyFilters, setupFilterUI } from './filters/index.js';
 import { createConnectionLines, mergeConnectionLines } from './filters/connectionsFilter.js';
 import {
@@ -186,11 +185,12 @@ class MapManager {
 
   animate() {
     requestAnimationFrame(() => this.animate());
-    // Update cameraPos uniform for overlay materials
     if (this.mapType === 'Globe') {
       this.scene.traverse(child => {
         if (child.material && child.material.uniforms && child.material.uniforms.cameraPos) {
           child.material.uniforms.cameraPos.value.copy(this.camera.position);
+          const camDist = this.camera.position.length();
+          child.material.uniforms.isInside.value = camDist < 100;
         }
       });
     }
@@ -447,3 +447,5 @@ function applyGlobeSurface(isOpaque) {
     globeMap.scene.add(globeSurfaceSphere);
   }
 }
+
+export { MapManager };
