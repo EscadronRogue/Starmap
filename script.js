@@ -31,7 +31,7 @@ let globeMap;
 
 let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
-let constellationOverlayGlobe = []; // NEW: overlays for constellation zones
+let constellationOverlayGlobe = []; // overlays for constellation zones
 let globeSurfaceSphere = null;
 let densityOverlay = null;
 let globeGrid = null;
@@ -458,7 +458,6 @@ function buildAndApplyFilters() {
       });
     }
     updateDensityMapping(currentFilteredStars);
-    // Add region labels (based on our classification) to both maps.
     densityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
     densityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
   } else {
