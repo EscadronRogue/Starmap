@@ -60,7 +60,7 @@ export function segmentOceanCandidate(cells) {
         neighborCount++;
       }
     }
-    if (neighborCount >= 2 && neighborCount <= 3) {
+    if (neighborCount >= 2 && neighborCount <= 5) {
       const remaining = cells.filter(cell => cell !== candidate);
       const components = computeConnectedComponents(remaining);
       if (components.length === 2) {
@@ -68,7 +68,7 @@ export function segmentOceanCandidate(cells) {
         const size2 = components[1].length;
         const smaller = Math.min(size1, size2);
         const larger = Math.max(size1, size2);
-        if (smaller >= 0.25 * larger) {
+        if (smaller >= 0.10 * larger) {
           return { segmented: true, cores: components, neck: [candidate] };
         }
       }
