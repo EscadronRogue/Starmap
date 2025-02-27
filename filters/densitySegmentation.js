@@ -7,9 +7,8 @@ import { loadDensityCenterData, parseRA, parseDec, degToRad, getDensityCenterDat
 /**
  * Attempts to segment an Ocean (or Sea) candidate cluster via neck candidate detection.
  * A neck candidate is any cell with between 2 and 5 neighbors.
- * The candidate is simulated removed and the cluster is re-partitioned.
- * If the removal yields exactly two connected components and the smaller one is at least 10%
- * as big as the larger one, segmentation is accepted.
+ * The candidate is simulated removed; if the removal yields exactly two connected components
+ * and the smaller component is at least 10% the size of the larger, segmentation is accepted.
  */
 export function segmentOceanCandidate(cells) {
   for (const candidate of cells) {
@@ -25,7 +24,7 @@ export function segmentOceanCandidate(cells) {
       }
     }
     if (neighborCount >= 2 && neighborCount <= 5) {
-      // Simulate removal of the candidate cell
+      // Simulate removal of the candidate cell.
       const remaining = cells.filter(cell => cell !== candidate);
       const components = computeConnectedComponents(remaining);
       if (components.length === 2) {
@@ -68,10 +67,12 @@ function computeConnectedComponents(cells) {
       visited.add(current.id);
       comp.push(current);
       cells.forEach(other => {
-        if (!visited.has(other.id) &&
-            Math.abs(current.grid.ix - other.grid.ix) <= 1 &&
-            Math.abs(current.grid.iy - other.grid.iy) <= 1 &&
-            Math.abs(current.grid.iz - other.grid.iz) <= 1) {
+        if (
+          !visited.has(other.id) &&
+          Math.abs(current.grid.ix - other.grid.ix) <= 1 &&
+          Math.abs(current.grid.iy - other.grid.iy) <= 1 &&
+          Math.abs(current.grid.iz - other.grid.iz) <= 1
+        ) {
           stack.push(other);
         }
       });
@@ -108,21 +109,21 @@ export function computeInterconnectedCell(cells) {
 }
 
 /**
- * Returns the majority constellation among a set of cells.
- * For each cell, getConstellationForCell is called and the most frequent name is returned.
+ * Returns the total volume (i.e. cell count) for each constellation in the given set of cells,
+ * then returns the name of the constellation with the highest volume.
  */
 export function getMajorityConstellation(cells) {
-  const counts = {};
+  const volumeByConstellation = {};
   cells.forEach(cell => {
     const cons = getConstellationForCell(cell);
-    counts[cons] = (counts[cons] || 0) + 1;
+    volumeByConstellation[cons] = (volumeByConstellation[cons] || 0) + 1;
   });
   let majority = "Unknown";
-  let maxCount = 0;
-  for (const cons in counts) {
-    if (counts[cons] > maxCount) {
+  let maxVolume = 0;
+  for (const cons in volumeByConstellation) {
+    if (volumeByConstellation[cons] > maxVolume) {
+      maxVolume = volumeByConstellation[cons];
       majority = cons;
-      maxCount = counts[cons];
     }
   }
   return majority;
