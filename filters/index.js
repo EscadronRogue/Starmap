@@ -72,7 +72,7 @@ function addConstellationsFieldset() {
   legend.textContent = 'Constellations';
   fs.appendChild(legend);
   const contentDiv = document.createElement('div');
-  contentDiv.classList.add('filter-content');
+  contentDiv.classList.add('filter-content', 'scrollable-category');
   contentDiv.style.maxHeight = '0px';
   legend.addEventListener('click', () => {
     legend.classList.toggle('active');
@@ -148,7 +148,8 @@ function addGlobeSurfaceFieldset() {
   surfChk.type = 'checkbox';
   surfChk.id = 'globe-opaque-surface';
   surfChk.name = 'globe-opaque-surface';
-  surfChk.checked = false;
+  // NEW: Set opaque surface ON by default.
+  surfChk.checked = true;
   const surfLbl = document.createElement('label');
   surfLbl.htmlFor = 'globe-opaque-surface';
   surfLbl.textContent = 'Opaque Globe Surface';
