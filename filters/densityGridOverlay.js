@@ -1,4 +1,7 @@
-// /filters/densityGridOverlay.js
+// File: /filters/densityGridOverlay.js
+// This file implements the density grid overlay, which builds the grid, computes adjacent lines,
+// classifies regions, and assigns labels based on the majority constellation determined using the
+// boundary-based method defined in densitySegmentation.js.
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor, getBlueColor } from './densityColorUtils.js';
@@ -10,7 +13,7 @@ export class DensityGridOverlay {
     this.gridSize = gridSize;
     this.cubesData = [];
     this.adjacentLines = [];
-    this.regionClusters = []; // Final regions after segmentation/classification
+    this.regionClusters = [];
     this.regionLabelsGroupTC = new THREE.Group();
     this.regionLabelsGroupGlobe = new THREE.Group();
   }
@@ -24,7 +27,6 @@ export class DensityGridOverlay {
           const posTC = new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5);
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
-          
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -34,11 +36,9 @@ export class DensityGridOverlay {
           });
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
-          
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
-          
           let projectedPos;
           if (distFromCenter < 1e-6) {
             projectedPos = new THREE.Vector3(0, 0, 0);
@@ -55,7 +55,6 @@ export class DensityGridOverlay {
           squareGlobe.position.copy(projectedPos);
           const normal = projectedPos.clone().normalize();
           squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-          
           const cell = {
             tcMesh: cubeTC,
             globeMesh: squareGlobe,
@@ -103,7 +102,7 @@ export class DensityGridOverlay {
         for (let dz = -1; dz <= 1; dz++) {
           if (dx === 0 && dy === 0 && dz === 0) continue;
           if (dx > 0 || (dx === 0 && dy > 0) || (dx === 0 && dy === 0 && dz > 0)) {
-            directions.push({dx, dy, dz});
+            directions.push({ dx, dy, dz });
           }
         }
       }
@@ -147,10 +146,8 @@ export class DensityGridOverlay {
     const densitySlider = document.getElementById('density-slider');
     const toleranceSlider = document.getElementById('tolerance-slider');
     if (!densitySlider || !toleranceSlider) return;
-    
     const isolationVal = parseFloat(densitySlider.value) || 1;
     const toleranceVal = parseInt(toleranceSlider.value) || 0;
-    
     this.cubesData.forEach(cell => {
       let isoDist = Infinity;
       if (cell.distances.length > toleranceVal) {
@@ -168,7 +165,6 @@ export class DensityGridOverlay {
       const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
       cell.globeMesh.scale.set(scale, scale, 1);
     });
-    
     this.adjacentLines.forEach(obj => {
       const { line, cell1, cell2 } = obj;
       if (cell1.globeMesh.visible && cell2.globeMesh.visible) {
@@ -199,7 +195,6 @@ export class DensityGridOverlay {
   }
   
   classifyEmptyRegions() {
-    // Reset cell IDs.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -241,12 +236,10 @@ export class DensityGridOverlay {
       }
       clusters.push(clusterCells);
     }
-    
     let V_max = 0;
     clusters.forEach(cells => {
       if (cells.length > V_max) V_max = cells.length;
     });
-    
     const regions = [];
     clusters.forEach((cells, idx) => {
       const regionConst = getMajorityConstellation(cells);
@@ -286,7 +279,6 @@ export class DensityGridOverlay {
             bestCell: computeInterconnectedCell(cells)
           });
         } else {
-          // When segmentation occurs, the region is split into two seas.
           segResult.cores.forEach((core, i) => {
             const seaConst = getMajorityConstellation(core);
             regions.push({
@@ -318,7 +310,6 @@ export class DensityGridOverlay {
         }
       }
     });
-    
     this.regionClusters = regions;
     return regions;
   }
@@ -474,12 +465,10 @@ export class DensityGridOverlay {
       }
       clusters.push(clusterCells);
     }
-    
     let V_max = 0;
     clusters.forEach(cells => {
       if (cells.length > V_max) V_max = cells.length;
     });
-    
     const regions = [];
     clusters.forEach((cells, idx) => {
       const regionConst = getMajorityConstellation(cells);
@@ -550,7 +539,6 @@ export class DensityGridOverlay {
         }
       }
     });
-    
     this.regionClusters = regions;
     return regions;
   }
