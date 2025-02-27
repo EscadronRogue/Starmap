@@ -1,14 +1,13 @@
 // /filters/colorFilter.js
 
 import { getStellarClassData } from './stellarClassData.js';
-import { computeConstellationColorMapping } from './constellationOverlayFilter.js';
 import { generateConstellationColors } from '../utils.js';
 
 /**
  * Applies color filter to stars based on the selected filter.
  * Supported filters:
  *   - "stellar-class": Color based on stellar class.
- *   - "constellation": Color based on the constellation overlay (using the "Constellation" field from the data).
+ *   - "constellation": Color based directly on the star's "Constellation" field.
  *   - "galactic-plane": Color based on position relative to the galactic plane.
  *   - (default): White.
  *
@@ -26,11 +25,12 @@ export function applyColorFilter(stars, filters) {
       star.displayColor = classData ? classData.color : '#FFFFFF';
     });
   } else if (filters.color === 'constellation') {
-    const colorsMap = computeConstellationColorMapping();
+    // Generate a color mapping using the constellation names from the star data.
+    const colorMapping = generateConstellationColors(stars);
     stars.forEach(star => {
-      // Directly use the constellation provided in the data file.
-      const constKey = star.Constellation ? star.Constellation.toUpperCase() : '';
-      star.displayColor = colorsMap[constKey] || '#FFFFFF';
+      // Use the "Constellation" field directly as the key.
+      const constellation = star.Constellation || "";
+      star.displayColor = colorMapping[constellation] || '#FFFFFF';
     });
   } else if (filters.color === 'galactic-plane') {
     const maxZ = Math.max(...stars.map(s => Math.abs(s.z_coordinate)));
