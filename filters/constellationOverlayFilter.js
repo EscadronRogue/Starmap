@@ -1,102 +1,107 @@
-// /filters/constellationOverlayFilter.js
+// filters/constellationOverlayFilter.js
+
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
+import { getConstellationBoundaries } from './constellationFilter.js';
+import { getBaseColor } from './densityColorUtils.js';
+
+const R = 100; // Globe radius
 
 /**
- * Loads the constellation boundary segments from the boundaries text file.
- * Each line is expected to contain at least 8 parts with two endpoints and two constellation names.
+ * Creates a low opacity overlay for each constellation.
+ * It collects all boundary segments for a given constellation,
+ * computes the convex hull (in a tangent plane), and then builds
+ * a fan-triangulated mesh filled with a low opacity color.
+ *
+ * @returns {Array} Array of THREE.Mesh objects (overlays) for the Globe.
  */
-export async function loadConstellationBoundaries() {
-  try {
-    const resp = await fetch('constellation_boundaries.txt');
-    if (!resp.ok) throw new Error(`Failed to load constellation_boundaries.txt: ${resp.status}`);
-    const raw = await resp.text();
-    const lines = raw.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-    const boundaries = [];
-    lines.forEach(line => {
-      const parts = line.split(/\s+/);
-      if (parts.length < 8) return;
-      const ra1 = parseRA(parts[2]);
-      const dec1 = parseDec(parts[3]);
-      const ra2 = parseRA(parts[4]);
-      const dec2 = parseDec(parts[5]);
-      const const1 = parts[6];
-      const const2 = parts[7];
-      boundaries.push({ ra1, dec1, ra2, dec2, const1, const2 });
-    });
-    return boundaries;
-  } catch (err) {
-    console.error("Error loading constellation boundaries:", err);
-    return [];
-  }
-}
+function createConstellationOverlayForGlobe() {
+  const boundaries = getConstellationBoundaries();
+  const constellationPoints = {};
 
-function parseRA(raStr) {
-  // Expect format "HH:MM:SS"
-  const parts = raStr.split(':').map(Number);
-  const hours = parts[0] + parts[1] / 60 + parts[2] / 3600;
-  const degrees = hours * 15;
-  return THREE.MathUtils.degToRad(degrees);
-}
-
-function parseDec(decStr) {
-  // Expect format "+DD:MM:SS" or "-DD:MM:SS"
-  const sign = decStr.startsWith('-') ? -1 : 1;
-  const cleaned = decStr.replace('+', '');
-  const parts = cleaned.split(':').map(Number);
-  const degrees = parts[0] + parts[1] / 60 + parts[2] / 3600;
-  return THREE.MathUtils.degToRad(degrees * sign);
-}
-
-/**
- * Groups all endpoints by constellation.
- * Each boundary segment contributes both endpoints to each constellation it borders.
- */
-function groupBoundaryPoints(boundaries) {
-  const groups = {};
+  // For each boundary segment add both endpoints to each constellation
   boundaries.forEach(seg => {
-    [seg.const1, seg.const2].forEach(cname => {
-      if (!groups[cname]) groups[cname] = [];
-      groups[cname].push({ ra: seg.ra1, dec: seg.dec1 });
-      groups[cname].push({ ra: seg.ra2, dec: seg.dec2 });
-    });
-  });
-  // Remove duplicate points for each constellation.
-  for (const cname in groups) {
-    groups[cname] = removeDuplicates(groups[cname]);
-  }
-  return groups;
-}
-
-function removeDuplicates(points) {
-  const unique = [];
-  points.forEach(pt => {
-    if (!unique.some(u => Math.abs(u.ra - pt.ra) < 1e-6 && Math.abs(u.dec - pt.dec) < 1e-6)) {
-      unique.push(pt);
+    // For the first constellation in the segment:
+    if (!constellationPoints[seg.const1]) {
+      constellationPoints[seg.const1] = [];
     }
+    constellationPoints[seg.const1].push(radToSphere(seg.ra1, seg.dec1, R));
+    constellationPoints[seg.const1].push(radToSphere(seg.ra2, seg.dec2, R));
+    // For the second constellation:
+    if (!constellationPoints[seg.const2]) {
+      constellationPoints[seg.const2] = [];
+    }
+    constellationPoints[seg.const2].push(radToSphere(seg.ra1, seg.dec1, R));
+    constellationPoints[seg.const2].push(radToSphere(seg.ra2, seg.dec2, R));
   });
-  return unique;
+
+  const overlays = [];
+  for (const constellation in constellationPoints) {
+    let pts = removeDuplicatePoints(constellationPoints[constellation]);
+    if (pts.length < 3) continue;
+
+    // Compute the (Euclidean) centroid.
+    const centroid = new THREE.Vector3(0, 0, 0);
+    pts.forEach(p => centroid.add(p));
+    centroid.divideScalar(pts.length);
+
+    // Use the normalized centroid as the plane normal.
+    const n = centroid.clone().normalize();
+    let globalUp = new THREE.Vector3(0, 1, 0);
+    if (Math.abs(n.dot(globalUp)) > 0.9) {
+      globalUp = new THREE.Vector3(1, 0, 0);
+    }
+    const tangent = globalUp.clone().sub(n.clone().multiplyScalar(n.dot(globalUp))).normalize();
+    const bitangent = new THREE.Vector3().crossVectors(n, tangent).normalize();
+
+    // Project each 3D point to 2D coordinates in the tangent plane.
+    const pts2D = pts.map(p => {
+      return new THREE.Vector2(p.dot(tangent), p.dot(bitangent));
+    });
+
+    // Compute convex hull indices of the 2D points.
+    const hullIndices = convexHullIndices(pts2D);
+    if (hullIndices.length < 3) continue;
+    const hullPts2D = hullIndices.map(i => pts2D[i]);
+
+    // Convert the 2D hull points back to 3D by "lifting" them to the tangent plane and projecting onto the sphere.
+    const hullPts3D = hullPts2D.map(v => {
+      const p = n.clone().multiplyScalar(R)
+        .add(tangent.clone().multiplyScalar(v.x))
+        .add(bitangent.clone().multiplyScalar(v.y));
+      return p.normalize().multiplyScalar(R);
+    });
+
+    // Build geometry via fan triangulation.
+    const vertices = [];
+    hullPts3D.forEach(p => {
+      vertices.push(p.x, p.y, p.z);
+    });
+    const indices = [];
+    for (let i = 1; i < hullPts3D.length - 1; i++) {
+      indices.push(0, i, i + 1);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+
+    // Material: use a base color for the constellation with low opacity.
+    const color = getBaseColor(constellation);
+    const material = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.15,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+
+    const mesh = new THREE.Mesh(geometry, material);
+    overlays.push(mesh);
+  }
+  return overlays;
 }
 
-/**
- * Orders a set of points to form a polygon.
- * (Here we simply compute the centroid and sort by angle.)
- */
-function orderPoints(points) {
-  let sumRa = 0, sumDec = 0;
-  points.forEach(pt => { sumRa += pt.ra; sumDec += pt.dec; });
-  const center = { ra: sumRa / points.length, dec: sumDec / points.length };
-  points.sort((a, b) => {
-    const angleA = Math.atan2(a.dec - center.dec, a.ra - center.ra);
-    const angleB = Math.atan2(b.dec - center.dec, b.ra - center.ra);
-    return angleA - angleB;
-  });
-  return points;
-}
-
-/**
- * Converts spherical coordinates (ra, dec) to a 3D position on a sphere of radius R.
- * (This is the same conversion used for the Globe map.)
- */
+// Helper: convert spherical coordinates (in radians) to 3D position on a sphere.
 function radToSphere(ra, dec, R) {
   const x = -R * Math.cos(dec) * Math.cos(ra);
   const y = R * Math.sin(dec);
@@ -104,79 +109,57 @@ function radToSphere(ra, dec, R) {
   return new THREE.Vector3(x, y, z);
 }
 
-/**
- * Creates an overlay mesh for a given constellation.
- * @param {Array} points - An ordered array of points ({ra, dec}) defining the boundary.
- * @param {string} constellationName - The constellation’s name.
- * @param {number} radius - The sphere radius (default 100).
- * @returns {THREE.Mesh} - A low opacity mesh covering the constellation area.
- */
-function createOverlayMeshForConstellation(points, constellationName, radius = 100) {
-  // Create a 2D shape using ra (x) and dec (y)
-  const shape = new THREE.Shape();
-  if (points.length === 0) return null;
-  shape.moveTo(points[0].ra, points[0].dec);
+// Helper: remove duplicate points (within a given tolerance)
+function removeDuplicatePoints(points, tolerance = 1e-3) {
+  const unique = [];
+  points.forEach(p => {
+    if (!unique.some(q => p.distanceTo(q) < tolerance)) {
+      unique.push(p);
+    }
+  });
+  return unique;
+}
+
+// Helper: simple convex hull using Graham scan in 2D.
+function convexHullIndices(points) {
+  if (points.length < 3) return [];
+  let minIndex = 0;
   for (let i = 1; i < points.length; i++) {
-    shape.lineTo(points[i].ra, points[i].dec);
+    if (
+      points[i].y < points[minIndex].y ||
+      (points[i].y === points[minIndex].y && points[i].x < points[minIndex].x)
+    ) {
+      minIndex = i;
+    }
   }
-  shape.lineTo(points[0].ra, points[0].dec); // Close the shape
-
-  // Triangulate the shape.
-  const triangles = THREE.ShapeUtils.triangulateShape(shape.getPoints(), []);
-  // Convert each (ra, dec) to a 3D position on the sphere.
-  const vertices = points.map(pt => radToSphere(pt.ra, pt.dec, radius));
-  const geometry = new THREE.BufferGeometry();
-  const positions = new Float32Array(vertices.length * 3);
-  vertices.forEach((v, i) => {
-    positions[i * 3] = v.x;
-    positions[i * 3 + 1] = v.y;
-    positions[i * 3 + 2] = v.z;
-  });
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  // Build the index array from the triangulation.
-  const indices = [];
-  triangles.forEach(tri => {
-    indices.push(tri[0], tri[1], tri[2]);
-  });
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-
-  // Generate a color (using a simple hash on the constellation name) and set low opacity.
-  const hue = (Math.abs(hashString(constellationName)) % 360) / 360;
-  const color = new THREE.Color().setHSL(hue, 0.7, 0.5);
-  const material = new THREE.MeshBasicMaterial({
-    color: color,
-    transparent: true,
-    opacity: 0.15,
-    side: THREE.DoubleSide,
-    depthWrite: false
-  });
-  const mesh = new THREE.Mesh(geometry, material);
-  return mesh;
+  const sortedIndices = points
+    .map((p, i) => i)
+    .filter(i => i !== minIndex)
+    .sort((i, j) => {
+      const angleI = Math.atan2(points[i].y - points[minIndex].y, points[i].x - points[minIndex].x);
+      const angleJ = Math.atan2(points[j].y - points[minIndex].y, points[j].x - points[minIndex].x);
+      return angleI - angleJ;
+    });
+  const hull = [minIndex, sortedIndices[0]];
+  for (let k = 1; k < sortedIndices.length; k++) {
+    let top = hull[hull.length - 1];
+    let nextToTop = hull[hull.length - 2];
+    const current = sortedIndices[k];
+    while (
+      hull.length >= 2 &&
+      cross(points[nextToTop], points[top], points[current]) <= 0
+    ) {
+      hull.pop();
+      top = hull[hull.length - 1];
+      nextToTop = hull[hull.length - 2];
+    }
+    hull.push(current);
+  }
+  return hull;
 }
 
-// Simple hash function to derive a (consistent) number from a string.
-function hashString(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return hash;
+function cross(p, q, r) {
+  return (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
 }
 
-/**
- * Creates overlay meshes for each constellation on the globe map.
- * @returns {Promise<THREE.Mesh[]>} - An array of meshes representing constellation overlays.
- */
-export async function createConstellationOverlaysForGlobe() {
-  const boundaries = await loadConstellationBoundaries();
-  const groups = groupBoundaryPoints(boundaries);
-  const overlays = [];
-  for (const cname in groups) {
-    let pts = groups[cname];
-    pts = orderPoints(pts);
-    const mesh = createOverlayMeshForConstellation(pts, cname, 100);
-    if (mesh) overlays.push(mesh);
-  }
-  return overlays;
-}
+export { createConstellationOverlayForGlobe };
