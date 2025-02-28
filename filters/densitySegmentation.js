@@ -1,12 +1,66 @@
 // /filters/densitySegmentation.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getBlueColor, lightenColor, darkenColor, getIndividualBlueColor } from './densityColorUtils.js';
-import { loadDensityCenterData, getDensityCenterData } from './densityData.js';
-import { getConstellationForPoint, positionToSpherical } from './newConstellationMapping.js';
+import { getDensityCenterData } from './densityData.js';
+import { positionToSpherical } from './newConstellationMapping.js';
 
 /**
- * Helper: Standard 2D ray-casting point-in-polygon test.
- * point: {x, y}; vs: array of vertices {x, y}.
+ * --- Overlay-Based Constellation Lookup ---
+ * This function uses the overlay data created for the globe.
+ * It assumes that window.constellationOverlayGlobe is an array of THREE.Mesh overlays,
+ * each with userData.polygon (an ordered array of THREE.Vector3, on the sphere)
+ * and userData.constellation (the constellation label).
+ */
+function getConstellationForCellUsingOverlay(cell) {
+  if (!cell.globeMesh || !cell.globeMesh.position) {
+    throw new Error(`Cell id ${cell.id} is missing a valid globeMesh position.`);
+  }
+  // Ensure the cell position is projected onto the globe (assumed radius R = 100)
+  const cellPos = cell.globeMesh.position.clone();
+  cellPos.setLength(100);
+  
+  if (window.constellationOverlayGlobe && window.constellationOverlayGlobe.length > 0) {
+    for (const overlay of window.constellationOverlayGlobe) {
+      if (!overlay.userData || !overlay.userData.polygon) continue;
+      const poly = overlay.userData.polygon; // Array of THREE.Vector3 on the sphere.
+      
+      // Compute the centroid of the polygon.
+      const centroid = new THREE.Vector3(0, 0, 0);
+      poly.forEach(v => centroid.add(v));
+      centroid.divideScalar(poly.length);
+      
+      // Define tangent and bitangent vectors at the centroid.
+      const normal = centroid.clone().normalize();
+      let tangent = new THREE.Vector3(0, 1, 0);
+      if (Math.abs(normal.dot(tangent)) > 0.9) tangent = new THREE.Vector3(1, 0, 0);
+      tangent.sub(normal.clone().multiplyScalar(normal.dot(tangent))).normalize();
+      const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+      
+      // Project the polygon vertices onto the tangent plane.
+      const poly2D = poly.map(v => {
+        const diff = new THREE.Vector3().subVectors(v, centroid);
+        return { x: diff.dot(tangent), y: diff.dot(bitangent) };
+      });
+      
+      // Project the cell position onto the same plane.
+      const diffCell = new THREE.Vector3().subVectors(cellPos, centroid);
+      const cell2D = { x: diffCell.dot(tangent), y: diffCell.dot(bitangent) };
+      
+      // Standard 2D ray-casting point-in-polygon test.
+      if (pointInPolygon2D(cell2D, poly2D)) {
+        console.log(`Cell id ${cell.id} falls inside overlay for constellation ${overlay.userData.constellation}`);
+        return overlay.userData.constellation;
+      }
+    }
+  }
+  return "Unknown";
+}
+
+/**
+ * Standard 2D ray-casting point-in-polygon test.
+ * @param {Object} point - {x, y}
+ * @param {Array} vs - Array of vertices [{x, y}, ...]
+ * @returns {boolean} - true if the point is inside the polygon.
  */
 function pointInPolygon2D(point, vs) {
   let inside = false;
@@ -21,108 +75,15 @@ function pointInPolygon2D(point, vs) {
 }
 
 /**
- * Projects a THREE.Vector3 onto a plane defined by a center, tangent, and bitangent.
- * Returns an object with {x, y}.
- */
-function projectToPlane(pos, center, tangent, bitangent) {
-  const diff = new THREE.Vector3().subVectors(pos, center);
-  return {
-    x: diff.dot(tangent),
-    y: diff.dot(bitangent)
-  };
-}
-
-/**
- * Computes the centroid (average) of an array of THREE.Vector3.
- */
-function computeCentroidFromVertices(vertices) {
-  const centroid = new THREE.Vector3(0, 0, 0);
-  vertices.forEach(v => centroid.add(v));
-  centroid.divideScalar(vertices.length);
-  return centroid;
-}
-
-/**
- * Attempts to determine the constellation for a cell using the globe overlay zones.
- * Assumes that window.constellationOverlayGlobe is an array of THREE.Mesh overlays
- * each with userData.polygon (an ordered array of THREE.Vector3) and userData.constellation.
- */
-function getConstellationForCellUsingOverlay(cell) {
-  if (!cell.globeMesh || !cell.globeMesh.position) return "Unknown";
-  const cellPos = cell.globeMesh.position;
-  if (window.constellationOverlayGlobe && window.constellationOverlayGlobe.length > 0) {
-    for (const overlay of window.constellationOverlayGlobe) {
-      if (!overlay.userData || !overlay.userData.polygon) continue;
-      const poly = overlay.userData.polygon; // Array of THREE.Vector3
-      // Compute centroid of the polygon.
-      const centroid = computeCentroidFromVertices(poly);
-      // Define a tangent plane at the centroid.
-      const normal = centroid.clone().normalize();
-      let tangent = new THREE.Vector3(0, 1, 0);
-      if (Math.abs(normal.dot(tangent)) > 0.9) tangent = new THREE.Vector3(1, 0, 0);
-      tangent.sub(normal.clone().multiplyScalar(normal.dot(tangent))).normalize();
-      const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
-      // Project each polygon vertex onto the plane.
-      const poly2D = poly.map(v => projectToPlane(v, centroid, tangent, bitangent));
-      // Project the cell position onto the same plane.
-      const cell2D = projectToPlane(cellPos, centroid, tangent, bitangent);
-      // Check if the cell falls inside the polygon.
-      if (pointInPolygon2D(cell2D, poly2D)) {
-        console.log(`Cell id ${cell.id} is inside overlay for constellation ${overlay.userData.constellation}`);
-        return overlay.userData.constellation;
-      }
-    }
-  }
-  return "Unknown";
-}
-
-/**
- * Computes the angular distance (in degrees) between two points (ra, dec) in degrees.
- */
-export function angularDistance(ra1, dec1, ra2, dec2) {
-  const r1 = THREE.Math.degToRad(ra1);
-  const d1 = THREE.Math.degToRad(dec1);
-  const r2 = THREE.Math.degToRad(ra2);
-  const d2 = THREE.Math.degToRad(dec2);
-  const cosDist = Math.sin(d1) * Math.sin(d2) + Math.cos(d1) * Math.cos(d2) * Math.cos(r1 - r2);
-  const clamped = Math.min(Math.max(cosDist, -1), 1);
-  const dist = Math.acos(clamped);
-  return THREE.Math.radToDeg(dist);
-}
-
-/**
  * Returns the constellation for a given density cell.
- * First, it checks whether the cell's globe projection falls within any overlay zone.
- * If not, it falls back to the spherical method (using newConstellationMapping.js),
- * and then to density center data if necessary.
+ * This version relies solely on the overlay data.
+ * If the cell’s globe projection does not fall within any overlay polygon,
+ * an error is thrown.
  */
 export function getConstellationForCell(cell) {
-  let cons = getConstellationForCellUsingOverlay(cell);
-  if (cons !== "Unknown") return cons;
-  
-  // Fallback: use the spherical method.
-  const pos = cell.spherePosition ? cell.spherePosition : cell.tcPos;
-  if (!pos) return "Unknown";
-  const spherical = positionToSpherical(pos);
-  cons = getConstellationForPoint(spherical.ra, spherical.dec);
-  if (cons !== "Unknown") return cons;
-  
-  // Final fallback: density center data.
-  const centers = getDensityCenterData();
-  if (centers && centers.length > 0) {
-    let minDist = Infinity;
-    let bestCons = "Unknown";
-    centers.forEach(center => {
-      const centerRA = THREE.Math.radToDeg(center.ra);
-      const centerDec = THREE.Math.radToDeg(center.dec);
-      const d = angularDistance(spherical.ra, spherical.dec, centerRA, centerDec);
-      console.log(`Distance from cell id ${cell.id} to center ${center.name}: ${d.toFixed(2)}°`);
-      if (d < minDist) {
-        minDist = d;
-        bestCons = center.name;
-      }
-    });
-    cons = bestCons;
+  const cons = getConstellationForCellUsingOverlay(cell);
+  if (cons === "Unknown") {
+    throw new Error(`Cell id ${cell.id} did not fall inside any overlay polygon.`);
   }
   return cons;
 }
@@ -226,7 +187,8 @@ export function computeInterconnectedCell(cells) {
 
 /**
  * Determines the majority constellation of a set of cells.
- * If the majority vote is "Unknown" but some cells have valid labels, the best available non-"Unknown" label is chosen.
+ * If the majority vote is "Unknown" (which now should never happen since an error is thrown),
+ * then an error is logged.
  */
 export function getMajorityConstellation(cells) {
   const volumeByConstellation = {};
@@ -243,12 +205,7 @@ export function getMajorityConstellation(cells) {
     }
   }
   if (majority === "Unknown") {
-    for (const cons in volumeByConstellation) {
-      if (cons !== "Unknown" && volumeByConstellation[cons] > 0) {
-        majority = cons;
-        break;
-      }
-    }
+    throw new Error("Majority constellation for cluster is Unknown. Check overlay data.");
   }
   console.log(`Majority constellation for cluster: ${majority}`);
   return majority;
