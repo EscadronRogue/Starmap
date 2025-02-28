@@ -1,9 +1,9 @@
 // /filters/densitySegmentation.js
-// This module now uses the new spherical winding-number method with multiple fallbacks and detailed logging.
+// This module now uses the new spherical winding-number method with multiple fallbacks and extensive logging.
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getBlueColor, lightenColor, darkenColor, getIndividualBlueColor } from './densityColorUtils.js';
-import { loadDensityCenterData, parseRA, parseDec, degToRad, getDensityCenterData } from './densityData.js';
+import { loadDensityCenterData, getDensityCenterData } from './densityData.js';
 import { getConstellationForPoint, positionToSpherical } from './newConstellationMapping.js';
 
 /**
@@ -22,12 +22,11 @@ export function angularDistance(ra1, dec1, ra2, dec2) {
 
 /**
  * Returns the constellation for a given density cell.
- * It converts the cell’s globe-projected position (or true coordinates) into spherical coordinates (ra, dec in degrees)
+ * It converts the cell’s position (using spherePosition if available, else tcPos) into spherical coordinates (ra, dec in degrees)
  * and uses the new method to assign a constellation.
  * If the lookup returns "Unknown", a fallback using density center data is attempted.
  */
 export function getConstellationForCell(cell) {
-  // Use spherePosition if available; otherwise, fall back to tcPos.
   const pos = cell.spherePosition ? cell.spherePosition : cell.tcPos;
   if (!pos) return "Unknown";
   
@@ -35,30 +34,28 @@ export function getConstellationForCell(cell) {
   const ra = spherical.ra;
   const dec = spherical.dec;
   
-  // Log the computed spherical coordinates.
   console.log(`Cell id ${cell.id} computed position: ra=${ra.toFixed(2)}°, dec=${dec.toFixed(2)}°`);
   
   let cons = getConstellationForPoint(ra, dec);
   
-  // Fallback: if result is "Unknown", try density center data.
   if (cons === "Unknown") {
+    console.warn(`Cell id ${cell.id} did not fall inside any polygon.`);
     const centers = getDensityCenterData();
     if (centers && centers.length > 0) {
       let minDist = Infinity;
       let bestCons = "Unknown";
       centers.forEach(center => {
-        // Convert center's RA/Dec from radians to degrees.
         const centerRA = THREE.Math.radToDeg(center.ra);
         const centerDec = THREE.Math.radToDeg(center.dec);
         const d = angularDistance(ra, dec, centerRA, centerDec);
-        console.log(`Distance from cell to center ${center.name}: ${d.toFixed(2)}°`);
+        console.log(`Distance from cell id ${cell.id} to center ${center.name}: ${d.toFixed(2)}°`);
         if (d < minDist) {
           minDist = d;
           bestCons = center.name;
         }
       });
       cons = bestCons;
-      console.warn(`Fallback: Cell id ${cell.id} labeled using density center as ${cons}`);
+      console.warn(`Fallback: Cell id ${cell.id} labeled as ${cons} using density centers.`);
     }
   } else {
     console.log(`Cell id ${cell.id} assigned constellation ${cons} via polygon test.`);
@@ -166,8 +163,7 @@ export function computeInterconnectedCell(cells) {
 
 /**
  * Determines the majority constellation of a set of cells.
- * If the majority vote is "Unknown" but there exist non-"Unknown" labels among the cells,
- * one of the non-"Unknown" labels is chosen.
+ * If the majority vote is "Unknown" but some cells have valid labels, the best available non-"Unknown" label is chosen.
  */
 export function getMajorityConstellation(cells) {
   const volumeByConstellation = {};
