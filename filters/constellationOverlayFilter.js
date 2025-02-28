@@ -38,7 +38,7 @@ function computeNeighborMap() {
   return neighbors;
 }
 
-function computeConstellationColorMapping() {
+export function computeConstellationColorMapping() {
   const neighbors = computeNeighborMap();
   const allConsts = new Set();
   Object.keys(neighbors).forEach(c => allConsts.add(c));
@@ -151,7 +151,7 @@ function subdivideGeometry(geometry, iterations) {
 
 // --- Overlay Creation ---
 
-function createConstellationOverlayForGlobe() {
+export function createConstellationOverlayForGlobe() {
   const boundaries = getConstellationBoundaries();
   const groups = {};
   boundaries.forEach(seg => {
@@ -262,6 +262,10 @@ function createConstellationOverlayForGlobe() {
     });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.renderOrder = 1;
+    // <-- UPDATED: Store the polygon and constellation name in userData -->
+    mesh.userData.polygon = ordered;
+    mesh.userData.constellation = constellation;
+    // <-- End Update -->
     overlays.push(mesh);
   }
   return overlays;
