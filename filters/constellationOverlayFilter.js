@@ -1,22 +1,101 @@
 // /filters/constellationOverlayFilter.js
+
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getConstellationBoundaries } from './constellationFilter.js';
 
 const R = 100; // Globe radius
 
-// --- Spherical Geometry Helpers ---
-function radToSphere(ra, dec, R) {
-  // Converts RA and Dec (in radians) into a point on the sphere.
-  const x = -R * Math.cos(dec) * Math.cos(ra);
-  const y = R * Math.sin(dec);
-  const z = -R * Math.cos(dec) * Math.sin(ra);
-  return new THREE.Vector3(x, y, z);
+// --- Graph Coloring Helpers (Non-recursive Greedy) ---
+
+// Use a predefined distinct palette with 20 colors.
+const distinctPalette = [
+  "#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00",
+  "#ffff33", "#a65628", "#f781bf", "#66c2a5", "#fc8d62",
+  "#8da0cb", "#e78ac3", "#a6d854", "#ffd92f", "#e5c494",
+  "#b3b3b3", "#1b9e77", "#d95f02", "#7570b3", "#e7298a"
+];
+
+function computeNeighborMap() {
+  const boundaries = getConstellationBoundaries(); // Each segment: {ra1, dec1, ra2, dec2, const1, const2}
+  const neighbors = {};
+  boundaries.forEach(seg => {
+    if (seg.const1) {
+      const key1 = seg.const1.toUpperCase();
+      const key2 = seg.const2 ? seg.const2.toUpperCase() : null;
+      if (!neighbors[key1]) neighbors[key1] = new Set();
+      if (key2) neighbors[key1].add(key2);
+    }
+    if (seg.const2) {
+      const key2 = seg.const2.toUpperCase();
+      const key1 = seg.const1 ? seg.const1.toUpperCase() : null;
+      if (!neighbors[key2]) neighbors[key2] = new Set();
+      if (key1) neighbors[key2].add(key1);
+    }
+  });
+  Object.keys(neighbors).forEach(key => {
+    neighbors[key] = Array.from(neighbors[key]);
+  });
+  return neighbors;
 }
+
+function computeConstellationColorMapping() {
+  const neighbors = computeNeighborMap();
+  const allConsts = new Set();
+  Object.keys(neighbors).forEach(c => allConsts.add(c));
+  const boundaries = getConstellationBoundaries();
+  boundaries.forEach(seg => {
+    if (seg.const1) allConsts.add(seg.const1.toUpperCase());
+    if (seg.const2) allConsts.add(seg.const2.toUpperCase());
+  });
+  const constellations = Array.from(allConsts);
+  
+  // Determine maximum neighbor count (degree)
+  let maxDegree = 0;
+  constellations.forEach(c => {
+    const deg = neighbors[c] ? neighbors[c].length : 0;
+    if (deg > maxDegree) maxDegree = deg;
+  });
+  // Ensure our palette is large enough; if not, we'll cycle.
+  const palette = distinctPalette;
+  
+  // Sort constellations in descending order by neighbor count.
+  constellations.sort((a, b) => (neighbors[b] ? neighbors[b].length : 0) - (neighbors[a] ? neighbors[a].length : 0));
+  
+  const colorMapping = {};
+  for (const c of constellations) {
+    const used = new Set();
+    if (neighbors[c]) {
+      for (const nb of neighbors[c]) {
+        if (colorMapping[nb]) used.add(colorMapping[nb]);
+      }
+    }
+    // Find the first color in the palette that is not used.
+    let assigned = palette.find(color => !used.has(color));
+    if (!assigned) assigned = palette[0];
+    colorMapping[c] = assigned;
+  }
+  return colorMapping;
+}
+
+// --- Spherical Triangulation Helpers ---
 
 function computeSphericalCentroid(vertices) {
   const sum = new THREE.Vector3(0, 0, 0);
   vertices.forEach(v => sum.add(v));
   return sum.normalize().multiplyScalar(R);
+}
+
+function isPointInSphericalPolygon(point, vertices) {
+  let angleSum = 0;
+  for (let i = 0; i < vertices.length; i++) {
+    const v1 = vertices[i].clone().normalize();
+    const v2 = vertices[(i + 1) % vertices.length].clone().normalize();
+    const d1 = v1.clone().sub(point).normalize();
+    const d2 = v2.clone().sub(point).normalize();
+    let angle = Math.acos(THREE.MathUtils.clamp(d1.dot(d2), -1, 1));
+    angleSum += angle;
+  }
+  return Math.abs(angleSum - 2 * Math.PI) < 0.1;
 }
 
 function subdivideGeometry(geometry, iterations) {
@@ -71,54 +150,8 @@ function subdivideGeometry(geometry, iterations) {
 }
 
 // --- Overlay Creation ---
-function computeConstellationColorMapping() {
-  const boundaries = getConstellationBoundaries();
-  const neighbors = {};
-  boundaries.forEach(seg => {
-    if (seg.const1) {
-      const key1 = seg.const1.toUpperCase();
-      const key2 = seg.const2 ? seg.const2.toUpperCase() : null;
-      if (!neighbors[key1]) neighbors[key1] = new Set();
-      if (key2) neighbors[key1].add(key2);
-    }
-    if (seg.const2) {
-      const key2 = seg.const2.toUpperCase();
-      const key1 = seg.const1 ? seg.const1.toUpperCase() : null;
-      if (!neighbors[key2]) neighbors[key2] = new Set();
-      if (key1) neighbors[key2].add(key1);
-    }
-  });
-  const distinctPalette = [
-    "#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00",
-    "#ffff33", "#a65628", "#f781bf", "#66c2a5", "#fc8d62",
-    "#8da0cb", "#e78ac3", "#a6d854", "#ffd92f", "#e5c494",
-    "#b3b3b3", "#1b9e77", "#d95f02", "#7570b3", "#e7298a"
-  ];
-  const colorMapping = {};
-  const allConsts = new Set();
-  for (const key in neighbors) { allConsts.add(key); }
-  for (const seg of boundaries) {
-    if (seg.const1) allConsts.add(seg.const1.toUpperCase());
-    if (seg.const2) allConsts.add(seg.const2.toUpperCase());
-  }
-  const constellations = Array.from(allConsts);
-  constellations.sort((a, b) => (neighbors[b] ? neighbors[b].size : 0) - (neighbors[a] ? neighbors[a].size : 0));
-  const palette = distinctPalette;
-  for (const c of constellations) {
-    const used = new Set();
-    if (neighbors[c]) {
-      for (const nb of neighbors[c]) {
-        if (colorMapping[nb]) used.add(colorMapping[nb]);
-      }
-    }
-    let assigned = palette.find(color => !used.has(color));
-    if (!assigned) assigned = palette[0];
-    colorMapping[c] = assigned;
-  }
-  return colorMapping;
-}
 
-export function createConstellationOverlayForGlobe() {
+function createConstellationOverlayForGlobe() {
   const boundaries = getConstellationBoundaries();
   const groups = {};
   boundaries.forEach(seg => {
@@ -170,15 +203,56 @@ export function createConstellationOverlayForGlobe() {
       }
       iteration++;
     }
-    // Close polygon if not already closed.
-    if (ordered.length > 0 && ordered[0].distanceTo(ordered[ordered.length - 1]) > 0.01) {
-      ordered.push(ordered[0].clone());
+    if (ordered.length < 3) continue;
+    if (ordered[0].distanceTo(ordered[ordered.length - 1]) > 0.01) continue;
+    if (ordered[0].distanceTo(ordered[ordered.length - 1]) < 0.001) {
+      ordered.pop();
     }
-    // Create geometry (we don’t need triangulation for point-in-polygon tests).
-    const vertices = [];
-    ordered.forEach(p => vertices.push(p.x, p.y, p.z));
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    let geometry;
+    const centroid = computeSphericalCentroid(ordered);
+    if (isPointInSphericalPolygon(centroid, ordered)) {
+      const vertices = [];
+      ordered.forEach(p => vertices.push(p.x, p.y, p.z));
+      vertices.push(centroid.x, centroid.y, centroid.z);
+      const vertexArray = new Float32Array(vertices);
+      geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(vertexArray, 3));
+      const indices = [];
+      const n = ordered.length;
+      const centroidIndex = n;
+      for (let i = 0; i < n; i++) {
+        indices.push(i, (i + 1) % n, centroidIndex);
+      }
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+    } else {
+      const tangent = new THREE.Vector3();
+      const bitangent = new THREE.Vector3();
+      const tempCentroid = new THREE.Vector3(0, 0, 0);
+      ordered.forEach(p => tempCentroid.add(p));
+      tempCentroid.divideScalar(ordered.length);
+      const normal = tempCentroid.clone().normalize();
+      let up = new THREE.Vector3(0, 1, 0);
+      if (Math.abs(normal.dot(up)) > 0.9) up = new THREE.Vector3(1, 0, 0);
+      tangent.copy(up).sub(normal.clone().multiplyScalar(normal.dot(up))).normalize();
+      bitangent.crossVectors(normal, tangent).normalize();
+      const pts2D = ordered.map(p => new THREE.Vector2(p.dot(tangent), p.dot(bitangent)));
+      const indices2D = THREE.ShapeUtils.triangulateShape(pts2D, []);
+      const vertices = [];
+      ordered.forEach(p => vertices.push(p.x, p.y, p.z));
+      geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geometry.setIndex(indices2D.flat());
+      geometry.computeVertexNormals();
+      const posAttr = geometry.attributes.position;
+      for (let i = 0; i < posAttr.count; i++) {
+        const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
+        v.normalize().multiplyScalar(R);
+        posAttr.setXYZ(i, v.x, v.y, v.z);
+      }
+      posAttr.needsUpdate = true;
+    }
+    geometry = subdivideGeometry(geometry, 2);
     const material = new THREE.MeshBasicMaterial({
       color: new THREE.Color(colorMapping[constellation]),
       opacity: 0.15,
@@ -188,10 +262,16 @@ export function createConstellationOverlayForGlobe() {
     });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.renderOrder = 1;
-    // Store the ordered polygon in userData for use in cell lookup.
-    mesh.userData.polygon = ordered; 
-    mesh.userData.constellation = constellation;
     overlays.push(mesh);
   }
   return overlays;
 }
+
+function radToSphere(ra, dec, R) {
+  const x = -R * Math.cos(dec) * Math.cos(ra);
+  const y = R * Math.sin(dec);
+  const z = -R * Math.cos(dec) * Math.sin(ra);
+  return new THREE.Vector3(x, y, z);
+}
+
+export { createConstellationOverlayForGlobe, computeConstellationColorMapping };
