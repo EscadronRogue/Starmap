@@ -6,7 +6,6 @@ import { positionToSpherical, getConstellationForPoint } from './newConstellatio
 
 /**
  * Helper: Standard 2D ray-casting point-in-polygon test.
- * (Not used in the new spherical test but kept for reference.)
  * @param {Object} point - {x, y}
  * @param {Array} vs - Array of vertices [{x, y}, ...]
  * @returns {boolean} - true if the point is inside the polygon.
@@ -24,43 +23,42 @@ function pointInPolygon2D(point, vs) {
 }
 
 /**
- * New: Spherical point-in-polygon test.
- * Computes the angle between vectors from the test point to each pair of adjacent polygon vertices.
- * If the sum is nearly 2π, the point is considered inside.
- * @param {THREE.Vector3} point - Test point (assumed on sphere; e.g. length set to R)
- * @param {Array} vertices - Array of THREE.Vector3 vertices (assumed on sphere)
- * @returns {boolean} - true if the point is inside the spherical polygon.
+ * New: 3D point-in-polygon test via planar projection.
+ * For the given polygon (an array of THREE.Vector3 on the sphere) we compute its centroid and a basis (u,v)
+ * in the best-fit plane. Then, we project both the polygon and the test point onto that plane and perform
+ * a standard 2D point-in-polygon test.
+ * @param {THREE.Vector3} point - The test point (assumed to lie on the sphere, e.g. length set to R)
+ * @param {Array} polygon - Array of THREE.Vector3 vertices of the overlay polygon.
+ * @returns {boolean} - true if the point lies inside the projected polygon.
  */
-function isPointInSphericalPolygon(point, vertices) {
-  let totalAngle = 0;
-  const n = vertices.length;
-  for (let i = 0; i < n; i++) {
-    const v1 = vertices[i].clone().sub(point).normalize();
-    const v2 = vertices[(i + 1) % n].clone().sub(point).normalize();
-    totalAngle += Math.acos(THREE.MathUtils.clamp(v1.dot(v2), -1, 1));
-  }
-  // If totalAngle is close to 2π, the point is inside.
-  return Math.abs(totalAngle - 2 * Math.PI) < 0.3;
-}
+function isPointInPolygon3D(point, polygon) {
+  // Compute centroid of polygon
+  const centroid = new THREE.Vector3();
+  polygon.forEach(v => centroid.add(v));
+  centroid.divideScalar(polygon.length);
 
-/**
- * Helper: Computes the distance from a point to a line segment in 2D.
- * @param {Object} p - {x, y} point.
- * @param {Object} a - {x, y} segment start.
- * @param {Object} b - {x, y} segment end.
- * @returns {number} - Distance from p to the segment [a,b].
- */
-function pointToSegmentDistance(p, a, b) {
-  const AtoP = { x: p.x - a.x, y: p.y - a.y };
-  const AtoB = { x: b.x - a.x, y: b.y - a.y };
-  const len2 = AtoB.x * AtoB.x + AtoB.y * AtoB.y;
-  let t = 0;
-  if (len2 !== 0) {
-    t = (AtoP.x * AtoB.x + AtoP.y * AtoB.y) / len2;
-    t = Math.max(0, Math.min(1, t));
-  }
-  const proj = { x: a.x + t * AtoB.x, y: a.y + t * AtoB.y };
-  return Math.hypot(p.x - proj.x, p.y - proj.y);
+  // Compute a normal for the polygon using the first two vertices (if available)
+  if (polygon.length < 3) return false;
+  const v1 = polygon[0].clone().sub(centroid);
+  const v2 = polygon[1].clone().sub(centroid);
+  const normal = new THREE.Vector3().crossVectors(v1, v2).normalize();
+  
+  // Build a local coordinate system in the plane:
+  // Choose u as the normalized v1 (if it is not degenerate), and v = normal x u.
+  const u = v1.clone().normalize();
+  const v = new THREE.Vector3().crossVectors(normal, u).normalize();
+
+  // Project polygon vertices onto the (u,v) plane relative to the centroid.
+  const poly2D = polygon.map(p => {
+    const diff = p.clone().sub(centroid);
+    return { x: diff.dot(u), y: diff.dot(v) };
+  });
+
+  // Project the test point similarly.
+  const diffPoint = point.clone().sub(centroid);
+  const point2D = { x: diffPoint.dot(u), y: diffPoint.dot(v) };
+
+  return pointInPolygon2D(point2D, poly2D);
 }
 
 /**
@@ -69,14 +67,14 @@ function pointToSegmentDistance(p, a, b) {
  * It assumes that window.constellationOverlayGlobe is an array of THREE.Mesh overlays,
  * each with userData.polygon (an ordered array of THREE.Vector3 on the sphere)
  * and userData.constellation (the constellation label).
- * 
- * This updated version uses a spherical point‑in‑polygon test.
+ *
+ * In this updated version, we use the new isPointInPolygon3D test.
  */
 function getConstellationForCellUsingOverlay(cell) {
   if (!cell.globeMesh || !cell.globeMesh.position) {
     throw new Error(`Cell id ${cell.id} is missing a valid globeMesh position.`);
   }
-  // Ensure the cell position is projected onto the globe (assumed sphere radius R = 100)
+  // Ensure the cell position is projected onto the globe (assumed radius R = 100)
   const cellPos = cell.globeMesh.position.clone().setLength(100);
   
   if (window.constellationOverlayGlobe && window.constellationOverlayGlobe.length > 0) {
@@ -84,9 +82,8 @@ function getConstellationForCellUsingOverlay(cell) {
       if (!overlay.userData || !overlay.userData.polygon) continue;
       const poly = overlay.userData.polygon; // Array of THREE.Vector3 on the sphere.
       
-      // Use the new spherical test.
-      if (isPointInSphericalPolygon(cellPos, poly)) {
-        console.log(`Cell id ${cell.id} falls inside overlay for constellation ${overlay.userData.constellation} via spherical test.`);
+      if (isPointInPolygon3D(cellPos, poly)) {
+        console.log(`Cell id ${cell.id} falls inside overlay for constellation ${overlay.userData.constellation}.`);
         return overlay.userData.constellation;
       }
     }
