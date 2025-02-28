@@ -6,6 +6,7 @@ import { positionToSpherical, getConstellationForPoint } from './newConstellatio
 
 /**
  * Helper: Standard 2D ray-casting point-in-polygon test.
+ * (Not used in the new spherical test but kept for reference.)
  * @param {Object} point - {x, y}
  * @param {Array} vs - Array of vertices [{x, y}, ...]
  * @returns {boolean} - true if the point is inside the polygon.
@@ -20,6 +21,26 @@ function pointInPolygon2D(point, vs) {
     if (intersect) inside = !inside;
   }
   return inside;
+}
+
+/**
+ * New: Spherical point-in-polygon test.
+ * Computes the angle between vectors from the test point to each pair of adjacent polygon vertices.
+ * If the sum is nearly 2π, the point is considered inside.
+ * @param {THREE.Vector3} point - Test point (assumed on sphere; e.g. length set to R)
+ * @param {Array} vertices - Array of THREE.Vector3 vertices (assumed on sphere)
+ * @returns {boolean} - true if the point is inside the spherical polygon.
+ */
+function isPointInSphericalPolygon(point, vertices) {
+  let totalAngle = 0;
+  const n = vertices.length;
+  for (let i = 0; i < n; i++) {
+    const v1 = vertices[i].clone().sub(point).normalize();
+    const v2 = vertices[(i + 1) % n].clone().sub(point).normalize();
+    totalAngle += Math.acos(THREE.MathUtils.clamp(v1.dot(v2), -1, 1));
+  }
+  // If totalAngle is close to 2π, the point is inside.
+  return Math.abs(totalAngle - 2 * Math.PI) < 0.3;
 }
 
 /**
@@ -46,74 +67,26 @@ function pointToSegmentDistance(p, a, b) {
  * --- Overlay-Based Constellation Lookup ---
  * This function uses the overlay data created for the globe.
  * It assumes that window.constellationOverlayGlobe is an array of THREE.Mesh overlays,
- * each with userData.polygon (an ordered array of THREE.Vector3, on the sphere)
+ * each with userData.polygon (an ordered array of THREE.Vector3 on the sphere)
  * and userData.constellation (the constellation label).
  * 
- * This version now also computes the average edge length of the polygon in the tangent plane and
- * if the projected cell is within 10% of that length from an edge, it is considered "inside."
+ * This updated version uses a spherical point‑in‑polygon test.
  */
 function getConstellationForCellUsingOverlay(cell) {
   if (!cell.globeMesh || !cell.globeMesh.position) {
     throw new Error(`Cell id ${cell.id} is missing a valid globeMesh position.`);
   }
-  // Ensure the cell position is projected onto the globe (assumed radius R = 100)
-  const cellPos = cell.globeMesh.position.clone();
-  cellPos.setLength(100);
+  // Ensure the cell position is projected onto the globe (assumed sphere radius R = 100)
+  const cellPos = cell.globeMesh.position.clone().setLength(100);
   
   if (window.constellationOverlayGlobe && window.constellationOverlayGlobe.length > 0) {
     for (const overlay of window.constellationOverlayGlobe) {
       if (!overlay.userData || !overlay.userData.polygon) continue;
       const poly = overlay.userData.polygon; // Array of THREE.Vector3 on the sphere.
       
-      // Compute the centroid of the polygon.
-      const centroid = new THREE.Vector3(0, 0, 0);
-      poly.forEach(v => centroid.add(v));
-      centroid.divideScalar(poly.length);
-      
-      // Define tangent and bitangent vectors at the centroid.
-      const normal = centroid.clone().normalize();
-      let tangent = new THREE.Vector3(0, 1, 0);
-      if (Math.abs(normal.dot(tangent)) > 0.9) tangent = new THREE.Vector3(1, 0, 0);
-      tangent.sub(normal.clone().multiplyScalar(normal.dot(tangent))).normalize();
-      const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
-      
-      // Project the polygon vertices onto the tangent plane.
-      const poly2D = poly.map(v => {
-        const diff = new THREE.Vector3().subVectors(v, centroid);
-        return { x: diff.dot(tangent), y: diff.dot(bitangent) };
-      });
-      
-      // Project the cell position onto the same plane.
-      const diffCell = new THREE.Vector3().subVectors(cellPos, centroid);
-      const cell2D = { x: diffCell.dot(tangent), y: diffCell.dot(bitangent) };
-      
-      // First, use standard 2D point-in-polygon test.
-      if (pointInPolygon2D(cell2D, poly2D)) {
-        console.log(`Cell id ${cell.id} falls inside overlay for constellation ${overlay.userData.constellation}`);
-        return overlay.userData.constellation;
-      }
-      
-      // If not inside, compute the average edge length.
-      let totalEdge = 0;
-      for (let i = 0; i < poly2D.length; i++) {
-        const a = poly2D[i];
-        const b = poly2D[(i + 1) % poly2D.length];
-        totalEdge += Math.hypot(b.x - a.x, b.y - a.y);
-      }
-      const avgEdge = totalEdge / poly2D.length;
-      
-      // Compute minimum distance from cell2D to each edge.
-      let minDist = Infinity;
-      for (let i = 0; i < poly2D.length; i++) {
-        const a = poly2D[i];
-        const b = poly2D[(i + 1) % poly2D.length];
-        const d = pointToSegmentDistance(cell2D, a, b);
-        if (d < minDist) minDist = d;
-      }
-      
-      // If the minimum distance is less than 10% of the average edge length, consider it inside.
-      if (minDist < 0.1 * avgEdge) {
-        console.log(`Cell id ${cell.id} is within tolerance (minDist=${minDist.toFixed(2)} < 0.1*avgEdge=${(0.1 * avgEdge).toFixed(2)}) for constellation ${overlay.userData.constellation}`);
+      // Use the new spherical test.
+      if (isPointInSphericalPolygon(cellPos, poly)) {
+        console.log(`Cell id ${cell.id} falls inside overlay for constellation ${overlay.userData.constellation} via spherical test.`);
         return overlay.userData.constellation;
       }
     }
