@@ -276,5 +276,3 @@ function radToSphere(ra, dec, R) {
   const z = -R * Math.cos(dec) * Math.sin(ra);
   return new THREE.Vector3(x, y, z);
 }
-
-export { createConstellationOverlayForGlobe };
