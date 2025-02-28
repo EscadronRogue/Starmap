@@ -24,41 +24,71 @@ function pointInPolygon2D(point, vs) {
 
 /**
  * New: 3D point-in-polygon test via planar projection.
- * For the given polygon (an array of THREE.Vector3 on the sphere) we compute its centroid and a basis (u,v)
- * in the best-fit plane. Then, we project both the polygon and the test point onto that plane and perform
- * a standard 2D point-in-polygon test.
- * @param {THREE.Vector3} point - The test point (assumed to lie on the sphere, e.g. length set to R)
+ * For the given polygon (an array of THREE.Vector3 on the sphere) we:
+ *   1. Compute its centroid.
+ *   2. Build a local (u,v) basis in the plane defined by the first edge.
+ *   3. Project both the polygon vertices and the test point onto that plane.
+ *   4. Run a standard 2D point-in-polygon test.
+ * @param {THREE.Vector3} point - The test point (assumed to lie on the sphere; e.g. set to radius 100)
  * @param {Array} polygon - Array of THREE.Vector3 vertices of the overlay polygon.
  * @returns {boolean} - true if the point lies inside the projected polygon.
  */
 function isPointInPolygon3D(point, polygon) {
-  // Compute centroid of polygon
+  if (polygon.length < 3) return false;
   const centroid = new THREE.Vector3();
   polygon.forEach(v => centroid.add(v));
   centroid.divideScalar(polygon.length);
-
-  // Compute a normal for the polygon using the first two vertices (if available)
-  if (polygon.length < 3) return false;
-  const v1 = polygon[0].clone().sub(centroid);
-  const v2 = polygon[1].clone().sub(centroid);
-  const normal = new THREE.Vector3().crossVectors(v1, v2).normalize();
   
-  // Build a local coordinate system in the plane:
-  // Choose u as the normalized v1 (if it is not degenerate), and v = normal x u.
+  // Use first edge to define a local plane.
+  const v1 = polygon[0].clone().sub(centroid);
+  if (v1.lengthSq() < 1e-6) return false;
   const u = v1.clone().normalize();
+  const normal = new THREE.Vector3().crossVectors(v1, polygon[1].clone().sub(centroid)).normalize();
   const v = new THREE.Vector3().crossVectors(normal, u).normalize();
-
-  // Project polygon vertices onto the (u,v) plane relative to the centroid.
+  
+  // Project polygon vertices and point onto the plane.
   const poly2D = polygon.map(p => {
     const diff = p.clone().sub(centroid);
     return { x: diff.dot(u), y: diff.dot(v) };
   });
-
-  // Project the test point similarly.
   const diffPoint = point.clone().sub(centroid);
   const point2D = { x: diffPoint.dot(u), y: diffPoint.dot(v) };
-
+  
   return pointInPolygon2D(point2D, poly2D);
+}
+
+/**
+ * Fallback: For a given cell position and a polygon, compute the minimum angular distance.
+ * The method iterates over each edge of the polygon. For each edge (between v1 and v2),
+ * we compute the distance from cellPos (normalized) to the great circle defined by v1 and v2.
+ * If the perpendicular falls outside the arc, we use the smaller distance to an endpoint.
+ * @param {THREE.Vector3} cellPos - normalized test position.
+ * @param {Array} polygon - Array of THREE.Vector3 vertices (assumed normalized).
+ * @returns {number} - Minimal angular distance (in radians) from cellPos to the polygon.
+ */
+function minAngularDistanceToPolygon(cellPos, polygon) {
+  let minAngle = Infinity;
+  const n = polygon.length;
+  for (let i = 0; i < n; i++) {
+    const v1 = polygon[i].clone().normalize();
+    const v2 = polygon[(i + 1) % n].clone().normalize();
+    // Compute the great circle defined by v1 and v2.
+    const nEdge = new THREE.Vector3().crossVectors(v1, v2).normalize();
+    // Angular distance from cellPos to the great circle:
+    let angleDist = Math.asin(Math.abs(cellPos.dot(nEdge)));
+    // Now check if the perpendicular falls on the arc.
+    const angleToV1 = cellPos.angleTo(v1);
+    const angleToV2 = cellPos.angleTo(v2);
+    const edgeAngle = v1.angleTo(v2);
+    if (angleToV1 + angleToV2 > edgeAngle + 1e-3) {
+      // Perpendicular falls outside the arc; use min distance to endpoints.
+      angleDist = Math.min(angleToV1, angleToV2);
+    }
+    if (angleDist < minAngle) {
+      minAngle = angleDist;
+    }
+  }
+  return minAngle;
 }
 
 /**
@@ -68,24 +98,40 @@ function isPointInPolygon3D(point, polygon) {
  * each with userData.polygon (an ordered array of THREE.Vector3 on the sphere)
  * and userData.constellation (the constellation label).
  *
- * In this updated version, we use the new isPointInPolygon3D test.
+ * First it attempts an exact test using isPointInPolygon3D.
+ * If that fails, it falls back to choosing the overlay with the smallest angular distance
+ * (if that distance is below a threshold).
  */
 function getConstellationForCellUsingOverlay(cell) {
   if (!cell.globeMesh || !cell.globeMesh.position) {
     throw new Error(`Cell id ${cell.id} is missing a valid globeMesh position.`);
   }
-  // Ensure the cell position is projected onto the globe (assumed radius R = 100)
+  // Project cell position onto sphere of radius 100.
   const cellPos = cell.globeMesh.position.clone().setLength(100);
+  
+  let bestOverlay = null;
+  let bestDistance = Infinity;
   
   if (window.constellationOverlayGlobe && window.constellationOverlayGlobe.length > 0) {
     for (const overlay of window.constellationOverlayGlobe) {
       if (!overlay.userData || !overlay.userData.polygon) continue;
-      const poly = overlay.userData.polygon; // Array of THREE.Vector3 on the sphere.
-      
+      const poly = overlay.userData.polygon; // vertices on the sphere
       if (isPointInPolygon3D(cellPos, poly)) {
-        console.log(`Cell id ${cell.id} falls inside overlay for constellation ${overlay.userData.constellation}.`);
+        console.log(`Cell id ${cell.id} falls inside overlay for constellation ${overlay.userData.constellation} (exact test).`);
         return overlay.userData.constellation;
       }
+      // Fallback: compute minimal angular distance.
+      const angle = minAngularDistanceToPolygon(cellPos.clone().normalize(), poly.map(v => v.clone().normalize()));
+      if (angle < bestDistance) {
+        bestDistance = angle;
+        bestOverlay = overlay;
+      }
+    }
+    // Define a threshold (in radians) for acceptable distance (e.g. 0.2 rad ~ 11.5°).
+    const threshold = 0.2;
+    if (bestOverlay && bestDistance < threshold) {
+      console.log(`Cell id ${cell.id} assigned via fallback to constellation ${bestOverlay.userData.constellation} with angular distance ${bestDistance.toFixed(2)} rad.`);
+      return bestOverlay.userData.constellation;
     }
   }
   return "Unknown";
