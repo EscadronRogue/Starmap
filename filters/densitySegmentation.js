@@ -9,7 +9,7 @@ import { positionToSpherical } from './newConstellationMapping.js';
  * This function uses the overlay data created for the globe.
  * It assumes that window.constellationOverlayGlobe is an array of THREE.Mesh overlays,
  * each with userData.polygon (an ordered array of THREE.Vector3, on the sphere)
- * and userData.constellation (the constellation label).
+ * and userData.constellation (the constellation label). 
  */
 function getConstellationForCellUsingOverlay(cell) {
   if (!cell.globeMesh || !cell.globeMesh.position) {
