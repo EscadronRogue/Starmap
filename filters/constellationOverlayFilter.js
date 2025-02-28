@@ -262,10 +262,9 @@ export function createConstellationOverlayForGlobe() {
     });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.renderOrder = 1;
-    // <-- UPDATED: Store the polygon and constellation name in userData -->
+    // Store the polygon and constellation name in userData for later lookup.
     mesh.userData.polygon = ordered;
     mesh.userData.constellation = constellation;
-    // <-- End Update -->
     overlays.push(mesh);
   }
   return overlays;
@@ -278,4 +277,4 @@ function radToSphere(ra, dec, R) {
   return new THREE.Vector3(x, y, z);
 }
 
-export { createConstellationOverlayForGlobe, computeConstellationColorMapping };
+export { createConstellationOverlayForGlobe };
