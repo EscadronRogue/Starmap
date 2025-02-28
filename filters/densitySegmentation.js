@@ -2,14 +2,55 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getBlueColor, lightenColor, darkenColor, getIndividualBlueColor } from './densityColorUtils.js';
 import { getDensityCenterData } from './densityData.js';
-import { positionToSpherical } from './newConstellationMapping.js';
+import { positionToSpherical, getConstellationForPoint } from './newConstellationMapping.js';
+
+/**
+ * Helper: Standard 2D ray-casting point-in-polygon test.
+ * @param {Object} point - {x, y}
+ * @param {Array} vs - Array of vertices [{x, y}, ...]
+ * @returns {boolean} - true if the point is inside the polygon.
+ */
+function pointInPolygon2D(point, vs) {
+  let inside = false;
+  for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+    const xi = vs[i].x, yi = vs[i].y;
+    const xj = vs[j].x, yj = vs[j].y;
+    const intersect = ((yi > point.y) !== (yj > point.y)) &&
+                      (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * Helper: Computes the distance from a point to a line segment in 2D.
+ * @param {Object} p - {x, y} point.
+ * @param {Object} a - {x, y} segment start.
+ * @param {Object} b - {x, y} segment end.
+ * @returns {number} - Distance from p to the segment [a,b].
+ */
+function pointToSegmentDistance(p, a, b) {
+  const AtoP = { x: p.x - a.x, y: p.y - a.y };
+  const AtoB = { x: b.x - a.x, y: b.y - a.y };
+  const len2 = AtoB.x * AtoB.x + AtoB.y * AtoB.y;
+  let t = 0;
+  if (len2 !== 0) {
+    t = (AtoP.x * AtoB.x + AtoP.y * AtoB.y) / len2;
+    t = Math.max(0, Math.min(1, t));
+  }
+  const proj = { x: a.x + t * AtoB.x, y: a.y + t * AtoB.y };
+  return Math.hypot(p.x - proj.x, p.y - proj.y);
+}
 
 /**
  * --- Overlay-Based Constellation Lookup ---
  * This function uses the overlay data created for the globe.
  * It assumes that window.constellationOverlayGlobe is an array of THREE.Mesh overlays,
  * each with userData.polygon (an ordered array of THREE.Vector3, on the sphere)
- * and userData.constellation (the constellation label). 
+ * and userData.constellation (the constellation label).
+ * 
+ * This version now also computes the average edge length of the polygon in the tangent plane and
+ * if the projected cell is within 10% of that length from an edge, it is considered "inside."
  */
 function getConstellationForCellUsingOverlay(cell) {
   if (!cell.globeMesh || !cell.globeMesh.position) {
@@ -46,32 +87,38 @@ function getConstellationForCellUsingOverlay(cell) {
       const diffCell = new THREE.Vector3().subVectors(cellPos, centroid);
       const cell2D = { x: diffCell.dot(tangent), y: diffCell.dot(bitangent) };
       
-      // Standard 2D ray-casting point-in-polygon test.
+      // First, use standard 2D point-in-polygon test.
       if (pointInPolygon2D(cell2D, poly2D)) {
         console.log(`Cell id ${cell.id} falls inside overlay for constellation ${overlay.userData.constellation}`);
+        return overlay.userData.constellation;
+      }
+      
+      // If not inside, compute the average edge length.
+      let totalEdge = 0;
+      for (let i = 0; i < poly2D.length; i++) {
+        const a = poly2D[i];
+        const b = poly2D[(i + 1) % poly2D.length];
+        totalEdge += Math.hypot(b.x - a.x, b.y - a.y);
+      }
+      const avgEdge = totalEdge / poly2D.length;
+      
+      // Compute minimum distance from cell2D to each edge.
+      let minDist = Infinity;
+      for (let i = 0; i < poly2D.length; i++) {
+        const a = poly2D[i];
+        const b = poly2D[(i + 1) % poly2D.length];
+        const d = pointToSegmentDistance(cell2D, a, b);
+        if (d < minDist) minDist = d;
+      }
+      
+      // If the minimum distance is less than 10% of the average edge length, consider it inside.
+      if (minDist < 0.1 * avgEdge) {
+        console.log(`Cell id ${cell.id} is within tolerance (minDist=${minDist.toFixed(2)} < 0.1*avgEdge=${(0.1 * avgEdge).toFixed(2)}) for constellation ${overlay.userData.constellation}`);
         return overlay.userData.constellation;
       }
     }
   }
   return "Unknown";
-}
-
-/**
- * Standard 2D ray-casting point-in-polygon test.
- * @param {Object} point - {x, y}
- * @param {Array} vs - Array of vertices [{x, y}, ...]
- * @returns {boolean} - true if the point is inside the polygon.
- */
-function pointInPolygon2D(point, vs) {
-  let inside = false;
-  for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-    const xi = vs[i].x, yi = vs[i].y;
-    const xj = vs[j].x, yj = vs[j].y;
-    const intersect = ((yi > point.y) !== (yj > point.y)) &&
-                      (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
 }
 
 /**
@@ -86,6 +133,35 @@ export function getConstellationForCell(cell) {
     throw new Error(`Cell id ${cell.id} did not fall inside any overlay polygon.`);
   }
   return cons;
+}
+
+/**
+ * Computes connected components among cells.
+ */
+function computeConnectedComponents(cells) {
+  const components = [];
+  const visited = new Set();
+  for (const cell of cells) {
+    if (visited.has(cell.id)) continue;
+    const comp = [];
+    const stack = [cell];
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (visited.has(current.id)) continue;
+      visited.add(current.id);
+      comp.push(current);
+      cells.forEach(other => {
+        if (!visited.has(other.id) &&
+            Math.abs(current.grid.ix - other.grid.ix) <= 1 &&
+            Math.abs(current.grid.iy - other.grid.iy) <= 1 &&
+            Math.abs(current.grid.iz - other.grid.iz) <= 1) {
+          stack.push(other);
+        }
+      });
+    }
+    components.push(comp);
+  }
+  return components;
 }
 
 /**
@@ -131,36 +207,7 @@ export function computeCentroid(cells) {
 }
 
 /**
- * Computes connected components among the active cells.
- */
-function computeConnectedComponents(cells) {
-  const components = [];
-  const visited = new Set();
-  for (const cell of cells) {
-    if (visited.has(cell.id)) continue;
-    const comp = [];
-    const stack = [cell];
-    while (stack.length > 0) {
-      const current = stack.pop();
-      if (visited.has(current.id)) continue;
-      visited.add(current.id);
-      comp.push(current);
-      cells.forEach(other => {
-        if (!visited.has(other.id) &&
-            Math.abs(current.grid.ix - other.grid.ix) <= 1 &&
-            Math.abs(current.grid.iy - other.grid.iy) <= 1 &&
-            Math.abs(current.grid.iz - other.grid.iz) <= 1) {
-          stack.push(other);
-        }
-      });
-    }
-    components.push(comp);
-  }
-  return components;
-}
-
-/**
- * Finds the cell most “interconnected” with its neighbors.
+ * Finds the cell most "interconnected" with its neighbors.
  */
 export function computeInterconnectedCell(cells) {
   let bestCell = cells[0];
