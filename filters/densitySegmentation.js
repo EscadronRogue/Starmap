@@ -1,5 +1,5 @@
 // /filters/densitySegmentation.js
-// This module now uses the new constellation mapping process.
+// This module now uses the new constellation mapping process with a fallback mechanism.
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getBlueColor, lightenColor, darkenColor, getIndividualBlueColor } from './densityColorUtils.js';
@@ -10,6 +10,8 @@ import { getConstellationForPoint, positionToSpherical } from './newConstellatio
  * Returns the constellation for a given density cell.
  * It converts the cell’s globe-projected position (or true coordinates if unavailable)
  * into spherical coordinates (ra, dec in degrees) and then looks up the appropriate constellation.
+ * If no triangle contains the point (returning "Unknown"), a fallback is used:
+ * the nearest density center from the preloaded center data.
  */
 export function getConstellationForCell(cell) {
   // Prefer the globe-projected position since boundaries are defined on the sphere.
@@ -18,7 +20,31 @@ export function getConstellationForCell(cell) {
   const spherical = positionToSpherical(pos);
   const ra = spherical.ra;
   const dec = spherical.dec;
-  return getConstellationForPoint(ra, dec);
+  
+  // Use the new mapping to look up the constellation.
+  let cons = getConstellationForPoint(ra, dec);
+  
+  // If not found, fallback to density center data (if available)
+  if (cons === "Unknown") {
+    const centers = getDensityCenterData();
+    if (centers && centers.length > 0) {
+      let minDist = Infinity;
+      let bestCons = "Unknown";
+      centers.forEach(center => {
+        // Note: density center data is stored in radians, so convert to degrees.
+        const centerRA = THREE.Math.radToDeg(center.ra);
+        const centerDec = THREE.Math.radToDeg(center.dec);
+        const d = angularDistance(ra, dec, centerRA, centerDec);
+        if (d < minDist) {
+          minDist = d;
+          bestCons = center.name;
+        }
+      });
+      cons = bestCons;
+    }
+  }
+  
+  return cons;
 }
 
 /**
@@ -139,7 +165,7 @@ export function getMajorityConstellation(cells) {
 }
 
 /**
- * Computes the angular distance between two points (in degrees) given their spherical coordinates.
+ * Computes the angular distance (in degrees) between two points given in spherical coordinates.
  */
 export function angularDistance(ra1, dec1, ra2, dec2) {
   const r1 = THREE.Math.degToRad(ra1);
