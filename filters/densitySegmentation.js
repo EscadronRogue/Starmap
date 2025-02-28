@@ -1,59 +1,29 @@
-// densitySegmentation.js
-// This module uses the constellation polygons (loaded via the boundaries parser)
-// to assign each cell a constellation based on its position on the celestial sphere.
+// /filters/densitySegmentation.js
+// This module now uses the new constellation mapping process.
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { getBaseColor, lightenColor, darkenColor, getBlueColor, getIndividualBlueColor } from './densityColorUtils.js';
+import { getBlueColor, lightenColor, darkenColor, getIndividualBlueColor } from './densityColorUtils.js';
 import { loadDensityCenterData, parseRA, parseDec, degToRad, getDensityCenterData } from './densityData.js';
+import { getConstellationForPoint, positionToSpherical } from './newConstellationMapping.js';
 
-// The getConstellationForCell function now uses the constellationPolygons that were
-// loaded (for example, by constellationFilter.js). We assume that constellationPolygons
-// is available as a global variable. (Alternatively, you could import it if you export it.)
+/**
+ * Returns the constellation for a given density cell.
+ * It converts the cell’s globe-projected position (or true coordinates if unavailable)
+ * into spherical coordinates (ra, dec in degrees) and then looks up the appropriate constellation.
+ */
 export function getConstellationForCell(cell) {
-  // Use the globe-projected position (or fallback to true coordinates) because the boundaries are defined on the sphere.
+  // Prefer the globe-projected position since boundaries are defined on the sphere.
   const pos = cell.spherePosition ? cell.spherePosition : cell.tcPos;
-  const r = pos.length();
-  if (r < 1e-6) return "Unknown";
-  let ra = Math.atan2(-pos.z, -pos.x);
-  if (ra < 0) ra += 2 * Math.PI;
-  ra = THREE.Math.radToDeg(ra);
-  const dec = Math.asin(pos.y / r);
-  const decDeg = THREE.Math.radToDeg(dec);
-  
-  // Check that constellationPolygons is available
-  if (typeof constellationPolygons === "undefined") {
-    return "Unknown";
-  }
-  
-  // For each constellation, check all its polygons to see if the point lies inside.
-  for (const constName in constellationPolygons) {
-    const polygons = constellationPolygons[constName];
-    for (const polygon of polygons) {
-      if (isPointInPolygon({ ra, dec: decDeg }, polygon)) {
-        return constName;
-      }
-    }
-  }
-  return "Unknown";
+  if (!pos) return "Unknown";
+  const spherical = positionToSpherical(pos);
+  const ra = spherical.ra;
+  const dec = spherical.dec;
+  return getConstellationForPoint(ra, dec);
 }
 
-// Standard ray-casting algorithm for a point-in-polygon test.
-// Assumes polygon is an array of vertices with {ra, dec} in degrees.
-function isPointInPolygon(point, polygon) {
-  let intersections = 0;
-  const { ra: testRA, dec: testDec } = point;
-  for (let i = 0; i < polygon.length; i++) {
-    const current = polygon[i];
-    const next = polygon[(i + 1) % polygon.length];
-    // Check if the edge crosses the horizontal line at testDec.
-    if ((current.dec > testDec) !== (next.dec > testDec)) {
-      const intersectRA = current.ra + (next.ra - current.ra) * ((testDec - current.dec) / (next.dec - current.dec));
-      if (testRA < intersectRA) intersections++;
-    }
-  }
-  return intersections % 2 === 1;
-}
-
+/**
+ * Segments an ocean candidate by looking for a narrow "neck" between connected components.
+ */
 export function segmentOceanCandidate(cells) {
   for (const candidate of cells) {
     let neighborCount = 0;
@@ -84,12 +54,18 @@ export function segmentOceanCandidate(cells) {
   return { segmented: false, cores: [cells] };
 }
 
+/**
+ * Computes the centroid of a set of cells (using their true coordinate positions).
+ */
 export function computeCentroid(cells) {
   let sum = new THREE.Vector3(0, 0, 0);
   cells.forEach(c => sum.add(c.tcPos));
   return sum.divideScalar(cells.length);
 }
 
+/**
+ * Computes connected components among the active cells.
+ */
 function computeConnectedComponents(cells) {
   const components = [];
   const visited = new Set();
@@ -116,6 +92,9 @@ function computeConnectedComponents(cells) {
   return components;
 }
 
+/**
+ * Finds the cell most “interconnected” with its neighbors.
+ */
 export function computeInterconnectedCell(cells) {
   let bestCell = cells[0];
   let maxCount = 0;
@@ -139,6 +118,9 @@ export function computeInterconnectedCell(cells) {
   return bestCell;
 }
 
+/**
+ * Determines the majority constellation of a set of cells.
+ */
 export function getMajorityConstellation(cells) {
   const volumeByConstellation = {};
   cells.forEach(cell => {
@@ -156,6 +138,9 @@ export function getMajorityConstellation(cells) {
   return majority;
 }
 
+/**
+ * Computes the angular distance between two points (in degrees) given their spherical coordinates.
+ */
 export function angularDistance(ra1, dec1, ra2, dec2) {
   const r1 = THREE.Math.degToRad(ra1);
   const d1 = THREE.Math.degToRad(dec1);
@@ -167,6 +152,9 @@ export function angularDistance(ra1, dec1, ra2, dec2) {
   return THREE.Math.radToDeg(dist);
 }
 
+/**
+ * Generates points along the great‐circle path between two points on a sphere.
+ */
 export function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
   const start = p1.clone().normalize().multiplyScalar(R);
@@ -182,6 +170,9 @@ export function getGreatCirclePoints(p1, p2, R, segments) {
   return points;
 }
 
+/**
+ * Assigns distinct colors to regions.
+ */
 export function assignDistinctColorsToIndependent(regions) {
   regions.forEach(region => {
     region.color = getIndividualBlueColor(region.clusterId + region.constName + region.type);
