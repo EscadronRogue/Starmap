@@ -1,5 +1,5 @@
 // /filters/densitySegmentation.js
-// This module now uses the new constellation mapping process with enhanced fallbacks.
+// This module now uses the new spherical point-in-polygon method with fallbacks.
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getBlueColor, lightenColor, darkenColor, getIndividualBlueColor } from './densityColorUtils.js';
@@ -8,29 +8,26 @@ import { getConstellationForPoint, positionToSpherical } from './newConstellatio
 
 /**
  * Returns the constellation for a given density cell.
- * It converts the cell’s globe-projected position (or true coordinates if unavailable)
- * into spherical coordinates (ra, dec in degrees) and then looks up the appropriate constellation.
+ * Converts the cell’s globe-projected position (or true coordinates) into spherical coordinates (ra, dec in degrees)
+ * and uses the new method to assign a constellation.
  * If the lookup returns "Unknown", a fallback using density center data is attempted.
  */
 export function getConstellationForCell(cell) {
-  // Prefer the globe-projected position since boundaries are defined on the sphere.
   const pos = cell.spherePosition ? cell.spherePosition : cell.tcPos;
   if (!pos) return "Unknown";
   const spherical = positionToSpherical(pos);
   const ra = spherical.ra;
   const dec = spherical.dec;
   
-  // Use the new mapping to look up the constellation.
   let cons = getConstellationForPoint(ra, dec);
   
-  // Fallback using density center data, if available.
+  // Fallback using density center data if necessary.
   if (cons === "Unknown") {
     const centers = getDensityCenterData();
     if (centers && centers.length > 0) {
       let minDist = Infinity;
       let bestCons = "Unknown";
       centers.forEach(center => {
-        // Density center data is in radians; convert to degrees.
         const centerRA = THREE.Math.radToDeg(center.ra);
         const centerDec = THREE.Math.radToDeg(center.dec);
         const d = angularDistance(ra, dec, centerRA, centerDec);
@@ -42,6 +39,9 @@ export function getConstellationForCell(cell) {
       cons = bestCons;
     }
   }
+  
+  // Debug: Log cell position and final constellation label.
+  // console.log(`Cell at (ra:${ra.toFixed(2)}, dec:${dec.toFixed(2)}) labeled as ${cons}`);
   
   return cons;
 }
@@ -145,7 +145,8 @@ export function computeInterconnectedCell(cells) {
 
 /**
  * Determines the majority constellation of a set of cells.
- * If the initial vote is "Unknown", then it checks for any non‑"Unknown" labels among the cells.
+ * If the majority vote is "Unknown" but there exist non-"Unknown" labels among the cells,
+ * one of the non-"Unknown" labels is chosen.
  */
 export function getMajorityConstellation(cells) {
   const volumeByConstellation = {};
@@ -161,7 +162,6 @@ export function getMajorityConstellation(cells) {
       majority = cons;
     }
   }
-  // Fallback: if majority is "Unknown" but there is at least one non-"Unknown" label, pick it.
   if (majority === "Unknown") {
     for (const cons in volumeByConstellation) {
       if (cons !== "Unknown" && volumeByConstellation[cons] > 0) {
