@@ -1,5 +1,5 @@
 // /filters/densitySegmentation.js
-// This module now uses the new spherical point-in-polygon method with fallbacks.
+// This module now uses the new spherical winding-number method with multiple fallbacks and detailed logging.
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getBlueColor, lightenColor, darkenColor, getIndividualBlueColor } from './densityColorUtils.js';
@@ -7,41 +7,62 @@ import { loadDensityCenterData, parseRA, parseDec, degToRad, getDensityCenterDat
 import { getConstellationForPoint, positionToSpherical } from './newConstellationMapping.js';
 
 /**
+ * Computes the angular distance (in degrees) between two points given in spherical coordinates.
+ */
+export function angularDistance(ra1, dec1, ra2, dec2) {
+  const r1 = THREE.Math.degToRad(ra1);
+  const d1 = THREE.Math.degToRad(dec1);
+  const r2 = THREE.Math.degToRad(ra2);
+  const d2 = THREE.Math.degToRad(dec2);
+  const cosDist = Math.sin(d1) * Math.sin(d2) + Math.cos(d1) * Math.cos(d2) * Math.cos(r1 - r2);
+  const clamped = Math.min(Math.max(cosDist, -1), 1);
+  const dist = Math.acos(clamped);
+  return THREE.Math.radToDeg(dist);
+}
+
+/**
  * Returns the constellation for a given density cell.
- * Converts the cell’s globe-projected position (or true coordinates) into spherical coordinates (ra, dec in degrees)
+ * It converts the cell’s globe-projected position (or true coordinates) into spherical coordinates (ra, dec in degrees)
  * and uses the new method to assign a constellation.
  * If the lookup returns "Unknown", a fallback using density center data is attempted.
  */
 export function getConstellationForCell(cell) {
+  // Use spherePosition if available; otherwise, fall back to tcPos.
   const pos = cell.spherePosition ? cell.spherePosition : cell.tcPos;
   if (!pos) return "Unknown";
+  
   const spherical = positionToSpherical(pos);
   const ra = spherical.ra;
   const dec = spherical.dec;
   
+  // Log the computed spherical coordinates.
+  console.log(`Cell id ${cell.id} computed position: ra=${ra.toFixed(2)}°, dec=${dec.toFixed(2)}°`);
+  
   let cons = getConstellationForPoint(ra, dec);
   
-  // Fallback using density center data if necessary.
+  // Fallback: if result is "Unknown", try density center data.
   if (cons === "Unknown") {
     const centers = getDensityCenterData();
     if (centers && centers.length > 0) {
       let minDist = Infinity;
       let bestCons = "Unknown";
       centers.forEach(center => {
+        // Convert center's RA/Dec from radians to degrees.
         const centerRA = THREE.Math.radToDeg(center.ra);
         const centerDec = THREE.Math.radToDeg(center.dec);
         const d = angularDistance(ra, dec, centerRA, centerDec);
+        console.log(`Distance from cell to center ${center.name}: ${d.toFixed(2)}°`);
         if (d < minDist) {
           minDist = d;
           bestCons = center.name;
         }
       });
       cons = bestCons;
+      console.warn(`Fallback: Cell id ${cell.id} labeled using density center as ${cons}`);
     }
+  } else {
+    console.log(`Cell id ${cell.id} assigned constellation ${cons} via polygon test.`);
   }
-  
-  // Debug: Log cell position and final constellation label.
-  // console.log(`Cell at (ra:${ra.toFixed(2)}, dec:${dec.toFixed(2)}) labeled as ${cons}`);
   
   return cons;
 }
@@ -170,25 +191,12 @@ export function getMajorityConstellation(cells) {
       }
     }
   }
+  console.log(`Majority constellation for cluster: ${majority}`);
   return majority;
 }
 
 /**
- * Computes the angular distance (in degrees) between two points given in spherical coordinates.
- */
-export function angularDistance(ra1, dec1, ra2, dec2) {
-  const r1 = THREE.Math.degToRad(ra1);
-  const d1 = THREE.Math.degToRad(dec1);
-  const r2 = THREE.Math.degToRad(ra2);
-  const d2 = THREE.Math.degToRad(dec2);
-  const cosDist = Math.sin(d1) * Math.sin(d2) + Math.cos(d1) * Math.cos(d2) * Math.cos(r1 - r2);
-  const clamped = Math.min(Math.max(cosDist, -1), 1);
-  const dist = Math.acos(clamped);
-  return THREE.Math.radToDeg(dist);
-}
-
-/**
- * Generates points along the great‐circle path between two points on a sphere.
+ * Generates points along the great‑circle path between two points on a sphere.
  */
 export function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
