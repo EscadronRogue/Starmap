@@ -2,7 +2,7 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 
 /**
- * Utility: Parse a time string "hh:mm:ss" into hours.
+ * Parse a time string "hh:mm:ss" into hours.
  */
 function parseTimeString(timeStr) {
   const parts = timeStr.split(':').map(Number);
@@ -90,29 +90,28 @@ function raDecToVector(ra, dec) {
 
 /**
  * Spherical point-in-polygon test using the winding number method.
- * polygon: array of vertices {ra, dec} (in degrees).
- * point: {ra, dec} in degrees.
- * Returns true if the computed winding sum is close to 2π.
+ * @param {Object} point - {ra, dec} in degrees.
+ * @param {Array} polygon - array of vertices {ra, dec} (in degrees).
+ * @param {number} tolerance - tolerance (default 0.2 radians).
+ * @returns {boolean} - true if the computed winding sum is near 2π.
  */
 function isPointInSphericalPolygon(point, polygon, tolerance = 0.2) {
   const pVec = raDecToVector(point.ra, point.dec);
   let totalAngle = 0;
   const n = polygon.length;
   if (n < 3) return false;
-  // Convert polygon vertices to unit vectors.
   const verts = polygon.map(pt => raDecToVector(pt.ra, pt.dec));
   for (let i = 0; i < n; i++) {
     const v1 = verts[i];
     const v2 = verts[(i + 1) % n];
-    // Compute the angle between vectors v1 and v2 as seen from pVec.
-    // Use the formula: angle = atan2(|(v1×v2)·pVec|, v1·v2 - (pVec·v1)(pVec·v2))
+    // Compute the angle between v1 and v2 as seen from pVec.
     const cross = new THREE.Vector3().crossVectors(v1, v2);
     const numerator = Math.abs(cross.dot(pVec));
     const denominator = v1.dot(v2) - (pVec.dot(v1) * pVec.dot(v2));
     const angle = Math.atan2(numerator, denominator);
     totalAngle += angle;
   }
-  // Debug: Uncomment the next line to see the winding sum for a point.
+  // Debug: Uncomment to log the winding angle.
   // console.log(`Winding angle for point (${point.ra.toFixed(2)}, ${point.dec.toFixed(2)}) = ${totalAngle.toFixed(2)}`);
   return Math.abs(Math.abs(totalAngle) - 2 * Math.PI) < tolerance;
 }
@@ -137,12 +136,12 @@ export function getConstellationForPoint(ra, dec) {
     const poly = constellationPolygons[cons];
     if (poly.length < 3) continue;
     if (isPointInSphericalPolygon({ ra, dec }, poly)) {
-      // Debug: Uncomment to log successful matches.
+      // Uncomment below to log successful matches.
       // console.log(`Point (${ra.toFixed(2)}, ${dec.toFixed(2)}) is inside constellation ${cons}`);
       return cons;
     }
   }
-  // Debug: Uncomment to log failure cases.
+  // Uncomment below to log failure cases.
   // console.warn(`Point (${ra.toFixed(2)}, ${dec.toFixed(2)}) did not fall into any polygon.`);
   return "Unknown";
 }
