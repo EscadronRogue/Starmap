@@ -125,12 +125,13 @@ function getConstellationForCellUsingOverlay(cell) {
  * Returns the constellation for a given density cell.
  * This version relies solely on the overlay data.
  * If the cell’s globe projection does not fall within any overlay polygon,
- * an error is thrown.
+ * a warning is logged and "Unknown" is returned.
  */
 export function getConstellationForCell(cell) {
   const cons = getConstellationForCellUsingOverlay(cell);
   if (cons === "Unknown") {
-    throw new Error(`Cell id ${cell.id} did not fall inside any overlay polygon.`);
+    console.warn(`Cell id ${cell.id} did not fall inside any overlay polygon. Returning "Unknown".`);
+    return "Unknown";
   }
   return cons;
 }
@@ -234,8 +235,7 @@ export function computeInterconnectedCell(cells) {
 
 /**
  * Determines the majority constellation of a set of cells.
- * If the majority vote is "Unknown" (which now should never happen since an error is thrown),
- * then an error is logged.
+ * If the majority vote is "Unknown", a warning is logged.
  */
 export function getMajorityConstellation(cells) {
   const volumeByConstellation = {};
@@ -252,7 +252,7 @@ export function getMajorityConstellation(cells) {
     }
   }
   if (majority === "Unknown") {
-    throw new Error("Majority constellation for cluster is Unknown. Check overlay data.");
+    console.warn("Majority constellation for cluster is Unknown. Check overlay data.");
   }
   console.log(`Majority constellation for cluster: ${majority}`);
   return majority;
