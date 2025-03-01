@@ -13,6 +13,7 @@ import { loadConstellationCenters, getConstellationCenters, loadConstellationBou
 
 /**
  * Mapping from 3‑letter constellation abbreviations to full proper names.
+ * Note: All keys are uppercase; values are in Title Case.
  */
 const CONSTELLATION_FULL_NAMES = {
   "AND": "Andromeda",
@@ -68,7 +69,8 @@ const CONSTELLATION_FULL_NAMES = {
   "PUP": "Puppis",
   "VOL": "Volans",
   "PSA": "Pisces Austrinus",
-  "TRA": "Triangulum Australe"
+  "TRA": "Triangulum Australe",
+  "VIR": "Virgo"
 };
 
 export class DensityGridOverlay {
@@ -291,7 +293,7 @@ export class DensityGridOverlay {
       const z = -R * Math.cos(dec) * Math.sin(ra);
       return new THREE.Vector3(x, y, z);
     }
-    // Helper: compute minimal angular distance (in degrees) from a point (cellPos) to a great‐circle segment (p1-p2)
+    // Helper: compute minimal angular distance (in degrees) from a point (cellPos) to a great‑circle segment (p1-p2)
     function minAngularDistanceToSegment(cellPos, p1, p2) {
       const angleToP1 = cellPos.angleTo(p1);
       const angleToP2 = cellPos.angleTo(p2);
@@ -334,7 +336,6 @@ export class DensityGridOverlay {
       // Retrieve the two constellations separated by the boundary.
       const abbr1 = nearestBoundary.const1.toUpperCase();
       const abbr2 = nearestBoundary.const2 ? nearestBoundary.const2.toUpperCase() : null;
-      // Get full names via the mapping.
       const fullName1 = CONSTELLATION_FULL_NAMES[abbr1] || abbr1;
       const fullName2 = abbr2 ? (CONSTELLATION_FULL_NAMES[abbr2] || abbr2) : null;
       
@@ -359,8 +360,7 @@ export class DensityGridOverlay {
          const { ra: cellRA, dec: cellDec } = vectorToRaDec(cellPos);
          let bestConstellation = "UNKNOWN";
          let minAngle = Infinity;
-         [center1, centers.find(c => c.name.toUpperCase() === abbr2)]?.forEach(center => {
-            if (!center) return;
+         centers.forEach(center => {
             const centerRAdeg = THREE.Math.radToDeg(center.ra);
             const centerDecdeg = THREE.Math.radToDeg(center.dec);
             const angDist = angularDistance(cellRA, cellDec, centerRAdeg, centerDecdeg);
@@ -501,7 +501,7 @@ export class DensityGridOverlay {
         });
       } else if (region.type === 'Fretum') {
         let parentColor = getBlueColor(region.constName);
-        region.color = lightenColor(parentColor, 0.1);
+        region.color = lightenColor(getBlueColor(region.constName), 0.1);
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color);
           cell.globeMesh.material.color.set(region.color);
@@ -561,7 +561,7 @@ export class DensityGridOverlay {
     const regions = [];
     clusters.forEach((cells, idx) => {
       const majority = this.getMajorityConstellation(cells);
-      // Use thresholds to classify clusters:
+      // Use thresholds to classify clusters with Latin names:
       if (cells.length < 0.1 * V_max) {
         regions.push({
           clusterId: idx,
