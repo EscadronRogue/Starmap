@@ -37,7 +37,17 @@ async function loadConstellationFullNames() {
   return constellationFullNames;
 }
 
-// --- Spherical Triangulation Helpers ---
+/** 
+ * Helper function to convert RA and DEC (in radians) to a position on the sphere of radius R.
+ */
+function radToSphere(ra, dec, R) {
+  const x = -R * Math.cos(dec) * Math.cos(ra);
+  const y = R * Math.sin(dec);
+  const z = -R * Math.cos(dec) * Math.sin(ra);
+  return new THREE.Vector3(x, y, z);
+}
+
+/** --- Spherical Triangulation Helpers --- **/
 
 function computeSphericalCentroid(vertices) {
   const sum = new THREE.Vector3(0, 0, 0);
@@ -109,7 +119,7 @@ function subdivideGeometry(geometry, iterations) {
   return geo;
 }
 
-// --- Helper to convert a sphere point (THREE.Vector3) to RA/DEC in degrees ---
+/** --- Helper to convert a sphere point (THREE.Vector3) to RA/DEC in degrees --- **/
 function vectorToRaDec(vector) {
   const R = 100;
   const dec = Math.asin(vector.y / R);
@@ -119,10 +129,10 @@ function vectorToRaDec(vector) {
   return { ra: raDeg, dec: dec * 180 / Math.PI };
 }
 
-// --- Overlay Creation ---
+/** --- Overlay Creation --- **/
 
 export function createConstellationOverlayForGlobe() {
-  const boundaries = getConstellationBoundaries();
+  const boundaries = getConstellationBoundaries(); // Each segment: {ra1, dec1, ra2, dec2, const1, const2}
   const groups = {};
   boundaries.forEach(seg => {
     if (seg.const1) {
@@ -136,6 +146,7 @@ export function createConstellationOverlayForGlobe() {
       groups[key].push(seg);
     }
   });
+  // Begin building overlay meshes
   const namesMappingPromise = loadConstellationFullNames();
   const overlays = [];
   for (const constellation in groups) {
@@ -143,12 +154,12 @@ export function createConstellationOverlayForGlobe() {
     const ordered = [];
     const used = new Array(segs.length).fill(false);
     const convert = (seg, endpoint) =>
-      radToSphere(endpoint === 0 ? seg.ra1 : seg.ra2, endpoint === 0 ? seg.dec1 : seg.dec2, 100);
+      radToSphere(endpoint === 0 ? seg.ra1 : seg.dec1, endpoint === 0 ? seg.dec1 : seg.dec2, 100);
     if (segs.length === 0) continue;
-    let currentPoint = convert(segs[0], 0);
+    let currentPoint = radToSphere(segs[0].ra1, segs[0].dec1, 100);
     ordered.push(currentPoint);
     used[0] = true;
-    let currentEnd = convert(segs[0], 1);
+    let currentEnd = radToSphere(segs[0].ra2, segs[0].dec2, 100);
     ordered.push(currentEnd);
     let changed = true;
     let iteration = 0;
@@ -157,8 +168,8 @@ export function createConstellationOverlayForGlobe() {
       for (let i = 0; i < segs.length; i++) {
         if (used[i]) continue;
         const seg = segs[i];
-        const p0 = convert(seg, 0);
-        const p1 = convert(seg, 1);
+        const p0 = radToSphere(seg.ra1, seg.dec1, 100);
+        const p1 = radToSphere(seg.ra2, seg.dec2, 100);
         if (p0.distanceTo(currentEnd) < 0.001) {
           ordered.push(p1);
           currentEnd = p1;
@@ -223,8 +234,7 @@ export function createConstellationOverlayForGlobe() {
       posAttr.needsUpdate = true;
     }
     geometry = subdivideGeometry(geometry, 2);
-    // Instead of a hard-coded color, we will use the external mapping.
-    // Wait for the constellation full names mapping to be available.
+    // Wait for the constellation full names mapping before creating the mesh.
     namesMappingPromise.then(namesMapping => {
       const fullName = namesMapping[constellation] || toTitleCase(constellation);
       const material = new THREE.MeshBasicMaterial({
@@ -255,12 +265,14 @@ export async function assignConstellationsToCells() {
     console.warn("No constellation boundaries available!");
     return;
   }
+  // Helper: convert RA/DEC (in radians) into a position on the sphere (radius R).
   function radToSphere(ra, dec, R) {
     const x = -R * Math.cos(dec) * Math.cos(ra);
     const y = R * Math.sin(dec);
     const z = -R * Math.cos(dec) * Math.sin(ra);
     return new THREE.Vector3(x, y, z);
   }
+  // Helper: compute minimal angular distance (in degrees) from a point (cellPos) to a segment defined by p1 and p2.
   function minAngularDistanceToSegment(cellPos, p1, p2) {
     const angleToP1 = cellPos.angleTo(p1);
     const angleToP2 = cellPos.angleTo(p2);
@@ -272,6 +284,7 @@ export async function assignConstellationsToCells() {
       return THREE.Math.radToDeg(Math.min(angleToP1, angleToP2));
     }
   }
+  // Helper: Convert position vector (on sphere) to RA/DEC (degrees).
   function vectorToRaDec(vector) {
     const R = 100;
     const dec = Math.asin(vector.y / R);
@@ -281,7 +294,7 @@ export async function assignConstellationsToCells() {
     return { ra: raDeg, dec: dec * 180 / Math.PI };
   }
   
-  // Load the constellation full names mapping from the JSON file.
+  // Load constellation full names mapping.
   const namesMapping = await loadConstellationFullNames();
   
   this.cubesData.forEach(cell => {
@@ -290,53 +303,58 @@ export async function assignConstellationsToCells() {
     let nearestBoundary = null;
     let minBoundaryDist = Infinity;
     boundaries.forEach(boundary => {
-       const p1 = radToSphere(boundary.ra1, boundary.dec1, 100);
-       const p2 = radToSphere(boundary.ra2, boundary.dec2, 100);
-       const angDist = minAngularDistanceToSegment(cellPos, p1, p2);
-       if (angDist < minBoundaryDist) {
-         minBoundaryDist = angDist;
-         nearestBoundary = boundary;
-       }
+      const p1 = radToSphere(boundary.ra1, boundary.dec1, 100);
+      const p2 = radToSphere(boundary.ra2, boundary.dec2, 100);
+      const angDist = minAngularDistanceToSegment(cellPos, p1, p2);
+      if (angDist < minBoundaryDist) {
+        minBoundaryDist = angDist;
+        nearestBoundary = boundary;
+      }
     });
     if (!nearestBoundary) {
-       cell.constellation = "Unknown";
-       return;
+      cell.constellation = "Unknown";
+      return;
     }
+    // Retrieve the two constellations separated by the boundary.
     const abbr1 = nearestBoundary.const1.toUpperCase();
     const abbr2 = nearestBoundary.const2 ? nearestBoundary.const2.toUpperCase() : null;
     const fullName1 = namesMapping[abbr1] || toTitleCase(abbr1);
     const fullName2 = abbr2 ? (namesMapping[abbr2] || toTitleCase(abbr2)) : null;
     
+    // Compute the 3D positions for the boundary endpoints.
     const bp1 = radToSphere(nearestBoundary.ra1, nearestBoundary.dec1, 100);
     const bp2 = radToSphere(nearestBoundary.ra2, nearestBoundary.dec2, 100);
+    // Compute the boundary's normal.
     let normal = bp1.clone().cross(bp2).normalize();
+    // Force the normal to point toward fullName1.
     const center1 = centers.find(c => {
       const nameUp = c.name.toUpperCase();
       return nameUp === abbr1 || nameUp === fullName1.toUpperCase();
     });
     let center1Pos = center1 ? radToSphere(center1.ra, center1.dec, 100) : null;
     if (center1Pos && normal.dot(center1Pos) < 0) {
-       normal.negate();
+      normal.negate();
     }
     const cellSide = normal.dot(cellPos);
     if (cellSide >= 0) {
-       cell.constellation = toTitleCase(fullName1);
+      cell.constellation = toTitleCase(fullName1);
     } else if (fullName2) {
-       cell.constellation = toTitleCase(fullName2);
+      cell.constellation = toTitleCase(fullName2);
     } else {
-       const { ra: cellRA, dec: cellDec } = vectorToRaDec(cellPos);
-       let bestConstellation = "Unknown";
-       let minAngle = Infinity;
-       centers.forEach(center => {
-          const centerRAdeg = THREE.Math.radToDeg(center.ra);
-          const centerDecdeg = THREE.Math.radToDeg(center.dec);
-          const angDist = angularDistance(cellRA, cellDec, centerRAdeg, centerDecdeg);
-          if (angDist < minAngle) {
-            minAngle = angDist;
-            bestConstellation = toTitleCase(center.name);
-          }
-       });
-       cell.constellation = bestConstellation;
+      // Fallback to nearest-center check
+      const { ra: cellRA, dec: cellDec } = vectorToRaDec(cellPos);
+      let bestConstellation = "Unknown";
+      let minAngle = Infinity;
+      centers.forEach(center => {
+        const centerRAdeg = THREE.Math.radToDeg(center.ra);
+        const centerDecdeg = THREE.Math.radToDeg(center.dec);
+        const angDist = angularDistance(cellRA, cellDec, centerRAdeg, centerDecdeg);
+        if (angDist < minAngle) {
+          minAngle = angDist;
+          bestConstellation = toTitleCase(center.name);
+        }
+      });
+      cell.constellation = bestConstellation;
     }
     console.log(`Cell ID ${cell.id} assigned to constellation ${cell.constellation} via boundary attribution.`);
     
@@ -418,5 +436,3 @@ export function createConstellationLabelsForGlobe() {
   });
   return labels;
 }
-
-// (Other helper functions remain unchanged)
