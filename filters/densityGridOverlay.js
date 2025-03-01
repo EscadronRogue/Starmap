@@ -6,11 +6,10 @@ import {
   lightenColor, 
   darkenColor, 
   getBlueColor,
-  // Removed hexToRGBA because it’s not provided by densityColorUtils.js
 } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate } from './densitySegmentation.js';
-// Instead of constellation centers, we now import boundaries:
-import { getConstellationBoundaries } from './constellationFilter.js';
+// Import both constellation centers and boundaries loaders and getters:
+import { loadConstellationCenters, getConstellationCenters, loadConstellationBoundaries, getConstellationBoundaries } from './constellationFilter.js';
 
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
@@ -77,8 +76,7 @@ export class DensityGridOverlay {
           };
 
           // Calculate RA/DEC directly from the grid cell.
-          // RA: map x from [-halfExt, halfExt] to [0,360]
-          // DEC: map y from [-halfExt, halfExt] to [-90,+90]
+          // (This is used for logging only now.)
           const cellRa = ((posTC.x + halfExt) / (2 * halfExt)) * 360;
           const cellDec = ((posTC.y + halfExt) / (2 * halfExt)) * 180 - 90;
           cell.ra = cellRa;
@@ -215,137 +213,371 @@ export class DensityGridOverlay {
     });
   }
   
-  // ------------------ NEW: Constellation Attribution using Boundaries ------------------
-  // This method now groups the boundary segments (from the TXT file) to build full RA/DEC polygons
-  // for each constellation and then uses a point‑in‑polygon test to assign each active cell
-  // the constellation that actually contains its (RA,DEC) coordinates.
+  // ------------------ NEW: Constellation Attribution via Nearest Boundary ------------------
+  // For each active cell we look for the nearest constellation boundary.
+  // Each boundary separates two constellations. We then check on which side of the boundary the cell is.
   async assignConstellationsToCells() {
+    await loadConstellationCenters();
+    await loadConstellationBoundaries();
+    const centers = getConstellationCenters();
     const boundaries = getConstellationBoundaries();
-    if (!boundaries || boundaries.length === 0) {
+    if (boundaries.length === 0) {
       console.warn("No constellation boundaries available!");
       return;
     }
-    
-    // Helper: Convert a 3D point (on a sphere of radius R) to {ra, dec} in degrees.
-    function vectorToRaDec(vector, R) {
+    // Helper: convert RA/DEC (in radians) to a position on sphere of radius R.
+    function radToSphere(ra, dec, R) {
+      const x = -R * Math.cos(dec) * Math.cos(ra);
+      const y = R * Math.sin(dec);
+      const z = -R * Math.cos(dec) * Math.sin(ra);
+      return new THREE.Vector3(x, y, z);
+    }
+    // Helper: compute minimal angular distance (in degrees) from cellPos to a great‐circle segment defined by p1 and p2.
+    function minAngularDistanceToSegment(cellPos, p1, p2) {
+      const angleToP1 = cellPos.angleTo(p1);
+      const angleToP2 = cellPos.angleTo(p2);
+      const arcAngle = p1.angleTo(p2);
+      // Compute perpendicular angular distance to the great circle.
+      const perpAngle = Math.asin(Math.abs(cellPos.clone().normalize().dot(p1.clone().cross(p2).normalize())));
+      // Check if the perpendicular falls within the segment.
+      if (angleToP1 + angleToP2 - arcAngle < 1e-3) {
+        return THREE.Math.radToDeg(perpAngle);
+      } else {
+        return THREE.Math.radToDeg(Math.min(angleToP1, angleToP2));
+      }
+    }
+    // Helper: convert a position vector (on sphere) to RA/DEC (degrees).
+    function vectorToRaDec(vector) {
+      const R = 100;
       const dec = Math.asin(vector.y / R);
       let ra = Math.atan2(-vector.z, -vector.x);
-      let raDeg = THREE.Math.radToDeg(ra);
+      let raDeg = ra * 180 / Math.PI;
       if (raDeg < 0) raDeg += 360;
-      return { ra: raDeg, dec: THREE.Math.radToDeg(dec) };
+      return { ra: raDeg, dec: dec * 180 / Math.PI };
     }
     
-    // Helper: Group boundary segments by constellation and order them to form a polygon.
-    function getConstellationPolygons() {
-      const groups = {};
-      boundaries.forEach(seg => {
-        if (seg.const1) {
-          const key = seg.const1.toUpperCase();
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(seg);
-        }
-        if (seg.const2 && seg.const2.toUpperCase() !== (seg.const1 ? seg.const1.toUpperCase() : '')) {
-          const key = seg.const2.toUpperCase();
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(seg);
-        }
-      });
-  
-      const R = 100;
-      const constellationPolygons = {};
-  
-      for (const constellation in groups) {
-        const segs = groups[constellation];
-        const ordered = [];
-        const used = new Array(segs.length).fill(false);
-  
-        // Convert a segment endpoint to a 3D point using the pre-loaded radian values.
-        function convert(seg, endpoint) {
-          const ra = endpoint === 0 ? seg.ra1 : seg.ra2;
-          const dec = endpoint === 0 ? seg.dec1 : seg.dec2;
-          return radToSphere(ra, dec, R);
-        }
-  
-        if (segs.length === 0) continue;
-        let currentPoint = convert(segs[0], 0);
-        ordered.push(currentPoint);
-        used[0] = true;
-        let currentEnd = convert(segs[0], 1);
-        ordered.push(currentEnd);
-        let changed = true;
-        let iteration = 0;
-        while (changed && iteration < segs.length) {
-          changed = false;
-          for (let i = 0; i < segs.length; i++) {
-            if (used[i]) continue;
-            const seg = segs[i];
-            const p0 = convert(seg, 0);
-            const p1 = convert(seg, 1);
-            if (p0.distanceTo(currentEnd) < 0.01) {
-              ordered.push(p1);
-              currentEnd = p1;
-              used[i] = true;
-              changed = true;
-            } else if (p1.distanceTo(currentEnd) < 0.01) {
-              ordered.push(p0);
-              currentEnd = p0;
-              used[i] = true;
-              changed = true;
-            }
-          }
-          iteration++;
-        }
-        if (ordered.length < 3) continue;
-        // Check if the polygon is closed
-        if (ordered[0].distanceTo(ordered[ordered.length - 1]) > 0.1) {
-          // Not a closed loop: skip this constellation
-          continue;
-        } else {
-          if (ordered[0].distanceTo(ordered[ordered.length - 1]) < 0.01) {
-            ordered.pop();
-          }
-        }
-        // Map ordered 3D points to RA/DEC in degrees
-        const polygon = ordered.map(p => vectorToRaDec(p, R));
-        constellationPolygons[constellation] = polygon;
-      }
-      return constellationPolygons;
-    }
-    
-    // Helper: Standard ray-casting point-in-polygon test (for RA/DEC space).
-    function pointInPolygonRADEC(point, polygon) {
-      let inside = false;
-      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const xi = polygon[i].ra, yi = polygon[i].dec;
-        const xj = polygon[j].ra, yj = polygon[j].dec;
-        const intersect = ((yi > point.dec) !== (yj > point.dec)) &&
-                          (point.ra < (xj - xi) * (point.dec - yi) / (yj - yi + 1e-9) + xi);
-        if (intersect) inside = !inside;
-      }
-      return inside;
-    }
-    
-    // Get all constellation polygons as {CONSTELLATION_NAME: [{ra, dec}, ...], ...}
-    const constellationPolygons = getConstellationPolygons();
-    
-    // Now, for each active cell, check in which constellation polygon (if any) it falls.
     this.cubesData.forEach(cell => {
       if (!cell.active) return;
-      const cellPoint = { ra: cell.ra, dec: cell.dec };
-      let assigned = "UNKNOWN";
-      for (const constName in constellationPolygons) {
-        const polygon = constellationPolygons[constName];
-        if (pointInPolygonRADEC(cellPoint, polygon)) {
-          assigned = constName;
-          break;
-        }
+      // Use the cell's globe mesh position (assumed to be near radius=100)
+      const cellPos = cell.globeMesh.position.clone();
+      
+      // Find the nearest boundary segment
+      let nearestBoundary = null;
+      let minBoundaryDist = Infinity;
+      boundaries.forEach(boundary => {
+         const p1 = radToSphere(boundary.ra1, boundary.dec1, 100);
+         const p2 = radToSphere(boundary.ra2, boundary.dec2, 100);
+         const angDist = minAngularDistanceToSegment(cellPos, p1, p2);
+         if (angDist < minBoundaryDist) {
+           minBoundaryDist = angDist;
+           nearestBoundary = boundary;
+         }
+      });
+      if (!nearestBoundary) {
+         cell.constellation = "UNKNOWN";
+         return;
       }
-      cell.constellation = assigned;
-      console.log(`Cell ID ${cell.id} assigned to constellation ${cell.constellation}`);
+      // For the nearest boundary, retrieve the two constellations that it separates.
+      const const1Name = nearestBoundary.const1.toUpperCase();
+      const const2Name = nearestBoundary.const2 ? nearestBoundary.const2.toUpperCase() : null;
+      
+      // Compute the 3D positions for the boundary endpoints.
+      const bp1 = radToSphere(nearestBoundary.ra1, nearestBoundary.dec1, 100);
+      const bp2 = radToSphere(nearestBoundary.ra2, nearestBoundary.dec2, 100);
+      // Compute the normal to the boundary’s great circle.
+      let normal = bp1.clone().cross(bp2).normalize();
+      // Enforce a convention: have normal point toward constellation const1.
+      const center1 = centers.find(c => c.name.toUpperCase() === const1Name);
+      let center1Pos = center1 ? radToSphere(center1.ra, center1.dec, 100) : null;
+      if (center1Pos && normal.dot(center1Pos) < 0) {
+         normal.negate();
+      }
+      // Check which side of the boundary the cell is on:
+      const cellSide = normal.dot(cellPos);
+      // If cellSide is positive, assign to const1; otherwise, if available, to const2.
+      if (cellSide >= 0) {
+         cell.constellation = nearestBoundary.const1;
+      } else if (const2Name) {
+         cell.constellation = nearestBoundary.const2;
+      } else {
+         // Fallback: use nearest center among const1 and (if available) const2.
+         const { ra: cellRA, dec: cellDec } = vectorToRaDec(cellPos);
+         let bestConstellation = "UNKNOWN";
+         let minAngle = Infinity;
+         [center1, centers.find(c => c.name.toUpperCase() === const2Name)].forEach(center => {
+            if (!center) return;
+            const centerRAdeg = THREE.Math.radToDeg(center.ra);
+            const centerDecdeg = THREE.Math.radToDeg(center.dec);
+            const angDist = angularDistance(cellRA, cellDec, centerRAdeg, centerDecdeg);
+            if (angDist < minAngle) {
+               minAngle = angDist;
+               bestConstellation = center.name;
+            }
+         });
+         cell.constellation = bestConstellation;
+      }
+      console.log(`Cell ID ${cell.id} assigned to constellation ${cell.constellation} via boundary attribution.`);
     });
+    
+    // Local helper: angular distance between two (RA,DEC) points (in degrees)
+    function angularDistance(ra1, dec1, ra2, dec2) {
+      const ra1Rad = THREE.Math.degToRad(ra1);
+      const dec1Rad = THREE.Math.degToRad(dec1);
+      const ra2Rad = THREE.Math.degToRad(ra2);
+      const dec2Rad = THREE.Math.degToRad(dec2);
+      const cosDelta = Math.sin(dec1Rad) * Math.sin(dec2Rad) +
+                       Math.cos(dec1Rad) * Math.cos(dec2Rad) * Math.cos(ra1Rad - ra2Rad);
+      const delta = Math.acos(THREE.MathUtils.clamp(cosDelta, -1, 1));
+      return THREE.Math.radToDeg(delta);
+    }
   }
   // ------------------ End Constellation Attribution ------------------
 
+  createRegionLabel(text, position, mapType) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const baseFontSize = (mapType === 'Globe' ? 300 : 400);
+    ctx.font = `${baseFontSize}px Arial`;
+    const textWidth = ctx.measureText(text).width;
+    canvas.width = textWidth + 20;
+    canvas.height = baseFontSize * 1.2;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = `${baseFontSize}px Arial`;
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 10, canvas.height / 2);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    let labelObj;
+    if (mapType === 'Globe') {
+      const planeGeom = new THREE.PlaneGeometry(canvas.width / 100, canvas.height / 100);
+      const material = getDoubleSidedLabelMaterial(texture, 1.0);
+      labelObj = new THREE.Mesh(planeGeom, material);
+      labelObj.renderOrder = 1;
+      const normal = position.clone().normalize();
+      const globalUp = new THREE.Vector3(0, 1, 0);
+      let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
+      if (desiredUp.lengthSq() < 1e-6) desiredUp = new THREE.Vector3(0, 0, 1);
+      else desiredUp.normalize();
+      const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
+      const matrix = new THREE.Matrix4().makeBasis(desiredRight, desiredUp, normal);
+      labelObj.setRotationFromMatrix(matrix);
+    } else {
+      const spriteMaterial = new THREE.SpriteMaterial({
+        map: texture,
+        depthWrite: true,
+        depthTest: true,
+        transparent: true,
+      });
+      labelObj = new THREE.Sprite(spriteMaterial);
+      const scaleFactor = 0.22;
+      labelObj.scale.set((canvas.width / 100) * scaleFactor, (canvas.height / 100) * scaleFactor, 1);
+    }
+    labelObj.position.copy(position);
+    return labelObj;
+  }
+  
+  projectToGlobe(position) {
+    const dist = position.length();
+    if (dist < 1e-6) return new THREE.Vector3(0, 0, 0);
+    const ra = Math.atan2(-position.z, -position.x);
+    const dec = Math.asin(position.y / dist);
+    const radius = 100;
+    return new THREE.Vector3(
+      -radius * Math.cos(dec) * Math.cos(ra),
+       radius * Math.sin(dec),
+      -radius * Math.cos(dec) * Math.sin(ra)
+    );
+  }
+  
+  computeCentroid(cells) {
+    let sum = new THREE.Vector3(0, 0, 0);
+    cells.forEach(c => sum.add(c.tcPos));
+    return sum.divideScalar(cells.length);
+  }
+  
+  addRegionLabelsToScene(scene, mapType) {
+    if (mapType === 'TrueCoordinates') {
+      if (this.regionLabelsGroupTC.parent) scene.remove(this.regionLabelsGroupTC);
+      this.regionLabelsGroupTC = new THREE.Group();
+    } else if (mapType === 'Globe') {
+      if (this.regionLabelsGroupGlobe.parent) scene.remove(this.regionLabelsGroupGlobe);
+      this.regionLabelsGroupGlobe = new THREE.Group();
+    }
+    this.updateRegionColors();
+    const regions = this.classifyEmptyRegions();
+    console.log("=== DEBUG: Checking cluster distribution after assignment ===");
+    regions.forEach((region, idx) => {
+      console.log(`Cluster #${idx} => Type: ${region.type}, Label: ${region.label}, Constellation: ${region.constName}`);
+      let cellStr = "Cells: [";
+      region.cells.forEach(cell => {
+        cellStr += `ID${cell.id}:${cell.constellation || "UNKNOWN"}, `;
+      });
+      cellStr += "]";
+      console.log(cellStr);
+    });
+    regions.forEach(region => {
+      let labelPos;
+      if (region.bestCell) {
+        labelPos = region.bestCell.tcPos;
+      } else {
+        labelPos = this.computeCentroid(region.cells);
+      }
+      if (mapType === 'Globe') {
+        labelPos = this.projectToGlobe(labelPos);
+      }
+      const labelSprite = this.createRegionLabel(region.label, labelPos, mapType);
+      labelSprite.userData.labelScale = region.labelScale;
+      if (mapType === 'TrueCoordinates') {
+        this.regionLabelsGroupTC.add(labelSprite);
+      } else if (mapType === 'Globe') {
+        this.regionLabelsGroupGlobe.add(labelSprite);
+      }
+    });
+    scene.add(mapType === 'TrueCoordinates' ? this.regionLabelsGroupTC : this.regionLabelsGroupGlobe);
+  }
+  
+  updateRegionColors() {
+    const regions = this.classifyEmptyRegions();
+    regions.forEach(region => {
+      if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
+        region.cells.forEach(cell => {
+          cell.tcMesh.material.color.set(region.color || getBlueColor(region.constName));
+          cell.globeMesh.material.color.set(region.color || getBlueColor(region.constName));
+        });
+      } else if (region.type === 'Strait') {
+        let parentColor = getBlueColor(region.constName);
+        region.color = lightenColor(parentColor, 0.1);
+        region.cells.forEach(cell => {
+          cell.tcMesh.material.color.set(region.color);
+          cell.globeMesh.material.color.set(region.color);
+        });
+      }
+    });
+  }
+  
+  // ------------------ NEW: Region Classification ------------------
+  classifyEmptyRegions() {
+    // Reset cell IDs and clear any previous cluster info.
+    this.cubesData.forEach((cell, index) => {
+      cell.id = index;
+      cell.clusterId = null;
+    });
+    const gridMap = new Map();
+    this.cubesData.forEach((cell, index) => {
+      if (cell.active) {
+        const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
+        gridMap.set(key, index);
+      }
+    });
+    const clusters = [];
+    const visited = new Set();
+    for (let i = 0; i < this.cubesData.length; i++) {
+      const cell = this.cubesData[i];
+      if (!cell.active || visited.has(cell.id)) continue;
+      let clusterCells = [];
+      let stack = [cell];
+      while (stack.length > 0) {
+        const current = stack.pop();
+        if (visited.has(current.id)) continue;
+        visited.add(current.id);
+        clusterCells.push(current);
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dz = -1; dz <= 1; dz++) {
+              if (dx === 0 && dy === 0 && dz === 0) continue;
+              const neighborKey = `${current.grid.ix + dx},${current.grid.iy + dy},${current.grid.iz + dz}`;
+              if (gridMap.has(neighborKey)) {
+                const neighborIndex = gridMap.get(neighborKey);
+                const neighborCell = this.cubesData[neighborIndex];
+                if (!visited.has(neighborCell.id)) {
+                  stack.push(neighborCell);
+                }
+              }
+            }
+          }
+        }
+      }
+      clusters.push(clusterCells);
+    }
+    let V_max = 0;
+    clusters.forEach(cells => {
+      if (cells.length > V_max) V_max = cells.length;
+    });
+    const regions = [];
+    clusters.forEach((cells, idx) => {
+      const majority = this.getMajorityConstellation(cells);
+      if (cells.length < 0.1 * V_max) {
+        regions.push({
+          clusterId: idx,
+          cells,
+          volume: cells.length,
+          constName: majority,
+          type: "Lake",
+          label: `Lake ${majority}`,
+          labelScale: 0.8,
+          bestCell: computeInterconnectedCell(cells)
+        });
+      } else if (cells.length < 0.5 * V_max) {
+        regions.push({
+          clusterId: idx,
+          cells,
+          volume: cells.length,
+          constName: majority,
+          type: "Sea",
+          label: `Sea ${majority}`,
+          labelScale: 0.9,
+          bestCell: computeInterconnectedCell(cells)
+        });
+      } else {
+        const segResult = segmentOceanCandidate(cells);
+        if (!segResult.segmented) {
+          regions.push({
+            clusterId: idx,
+            cells,
+            volume: cells.length,
+            constName: majority,
+            type: "Ocean",
+            label: `Ocean ${majority}`,
+            labelScale: 1.0,
+            bestCell: computeInterconnectedCell(cells)
+          });
+        } else {
+          segResult.cores.forEach((core, i) => {
+            const coreMajority = this.getMajorityConstellation(core);
+            regions.push({
+              clusterId: idx + "_sea_" + i,
+              cells: core,
+              volume: core.length,
+              constName: coreMajority,
+              type: "Sea",
+              label: `Sea ${coreMajority}`,
+              labelScale: 0.9,
+              bestCell: computeInterconnectedCell(core)
+            });
+          });
+          if (segResult.neck && segResult.neck.length > 0) {
+            const neckMajority = this.getMajorityConstellation(segResult.neck);
+            let straitColor = lightenColor(getBlueColor(neckMajority), 0.1);
+            regions.push({
+              clusterId: idx + "_neck",
+              cells: segResult.neck,
+              volume: segResult.neck.length,
+              constName: neckMajority,
+              type: "Strait",
+              label: `Strait ${neckMajority}`,
+              labelScale: 0.7,
+              bestCell: computeInterconnectedCell(segResult.neck),
+              color: straitColor
+            });
+          }
+        }
+      }
+    });
+    this.regionClusters = regions;
+    return regions;
+  }
+  
   getMajorityConstellation(cells) {
     const freq = {};
     cells.forEach(cell => {
@@ -487,138 +719,4 @@ export class DensityGridOverlay {
       }
     });
   }
-  
-  // ------------------ Region Classification ------------------
-  classifyEmptyRegions() {
-    // Reset cell IDs and clear any previous cluster info.
-    this.cubesData.forEach((cell, index) => {
-      cell.id = index;
-      cell.clusterId = null;
-    });
-    const gridMap = new Map();
-    this.cubesData.forEach((cell, index) => {
-      if (cell.active) {
-        const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
-        gridMap.set(key, index);
-      }
-    });
-    const clusters = [];
-    const visited = new Set();
-    for (let i = 0; i < this.cubesData.length; i++) {
-      const cell = this.cubesData[i];
-      if (!cell.active || visited.has(cell.id)) continue;
-      let clusterCells = [];
-      let stack = [cell];
-      while (stack.length > 0) {
-        const current = stack.pop();
-        if (visited.has(current.id)) continue;
-        visited.add(current.id);
-        clusterCells.push(current);
-        for (let dx = -1; dx <= 1; dx++) {
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dz = -1; dz <= 1; dz++) {
-              if (dx === 0 && dy === 0 && dz === 0) continue;
-              const neighborKey = `${current.grid.ix + dx},${current.grid.iy + dy},${current.grid.iz + dz}`;
-              if (gridMap.has(neighborKey)) {
-                const neighborIndex = gridMap.get(neighborKey);
-                const neighborCell = this.cubesData[neighborIndex];
-                if (!visited.has(neighborCell.id)) {
-                  stack.push(neighborCell);
-                }
-              }
-            }
-          }
-        }
-      }
-      clusters.push(clusterCells);
-    }
-    let V_max = 0;
-    clusters.forEach(cells => {
-      if (cells.length > V_max) V_max = cells.length;
-    });
-    const regions = [];
-    clusters.forEach((cells, idx) => {
-      const majority = this.getMajorityConstellation(cells);
-      // Use thresholds to classify clusters:
-      if (cells.length < 0.1 * V_max) {
-        regions.push({
-          clusterId: idx,
-          cells,
-          volume: cells.length,
-          constName: majority,
-          type: "Lake",
-          label: `Lake ${majority}`,
-          labelScale: 0.8,
-          bestCell: computeInterconnectedCell(cells)
-        });
-      } else if (cells.length < 0.5 * V_max) {
-        regions.push({
-          clusterId: idx,
-          cells,
-          volume: cells.length,
-          constName: majority,
-          type: "Sea",
-          label: `Sea ${majority}`,
-          labelScale: 0.9,
-          bestCell: computeInterconnectedCell(cells)
-        });
-      } else {
-        const segResult = segmentOceanCandidate(cells);
-        if (!segResult.segmented) {
-          regions.push({
-            clusterId: idx,
-            cells,
-            volume: cells.length,
-            constName: majority,
-            type: "Ocean",
-            label: `Ocean ${majority}`,
-            labelScale: 1.0,
-            bestCell: computeInterconnectedCell(cells)
-          });
-        } else {
-          segResult.cores.forEach((core, i) => {
-            const coreMajority = this.getMajorityConstellation(core);
-            regions.push({
-              clusterId: idx + "_sea_" + i,
-              cells: core,
-              volume: core.length,
-              constName: coreMajority,
-              type: "Sea",
-              label: `Sea ${coreMajority}`,
-              labelScale: 0.9,
-              bestCell: computeInterconnectedCell(core)
-            });
-          });
-          if (segResult.neck && segResult.neck.length > 0) {
-            const neckMajority = this.getMajorityConstellation(segResult.neck);
-            let straitColor = lightenColor(getBlueColor(neckMajority), 0.1);
-            regions.push({
-              clusterId: idx + "_neck",
-              cells: segResult.neck,
-              volume: segResult.neck.length,
-              constName: neckMajority,
-              type: "Strait",
-              label: `Strait ${neckMajority}`,
-              labelScale: 0.7,
-              bestCell: computeInterconnectedCell(segResult.neck),
-              color: straitColor
-            });
-          }
-        }
-      }
-    });
-    this.regionClusters = regions;
-    return regions;
-  }
-  
-  // ------------------ End Region Classification ------------------
-}
-
-// Helper: Converts RA and DEC in radians into a 3D point on a sphere of radius R.
-// (x and z reversed so that celestial north appears at (0,R,0))
-function radToSphere(ra, dec, R) {
-  const x = -R * Math.cos(dec) * Math.cos(ra);
-  const y = R * Math.sin(dec);
-  const z = -R * Math.cos(dec) * Math.sin(ra);
-  return new THREE.Vector3(x, y, z);
 }
