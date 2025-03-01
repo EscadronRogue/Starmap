@@ -257,6 +257,28 @@ function updateSelectedStarHighlight() {
   });
 }
 
+// --- NEW: Download constellation_boundaries.json automatically ---
+// Note: Some browsers may block auto-download without user interaction.
+function downloadConstellationBoundariesJSON() {
+  // Generate the overlays and extract RA/DEC polygon data
+  const overlays = createConstellationOverlayForGlobe();
+  const data = overlays.map(mesh => ({
+    constellation: mesh.userData.constellation,
+    raDecPolygon: mesh.userData.raDecPolygon
+  }));
+  const jsonStr = JSON.stringify(data, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'constellation_boundaries.json';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 window.onload = async () => {
   const loader = document.getElementById('loader');
   loader.classList.remove('hidden');
@@ -313,6 +335,10 @@ window.onload = async () => {
     });
     globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
+    
+    // --- NEW: Trigger download of constellation_boundaries.json ---
+    downloadConstellationBoundariesJSON();
+    
     loader.classList.add('hidden');
   } catch (err) {
     console.error('Error initializing starmap:', err);
