@@ -32,7 +32,6 @@ let constellationLabelsGlobe = [];
 let constellationOverlayGlobe = [];
 let globeSurfaceSphere = null;
 let densityOverlay = null;
-let globeGrid = null;
 
 /**
  * Convert star RA/DEC to x,y,z for each map.
@@ -340,7 +339,7 @@ window.onload = async () => {
     });
 
     // Optional: Add globe grid overlay
-    globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
+    const globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
 
     buildAndApplyFilters(); // Initial filter application
@@ -446,7 +445,8 @@ async function buildAndApplyFilters() {
       densityOverlay = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars);
       densityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.add(c.tcMesh);
-        globeMap.scene.add(c.globeMesh);
+        // Remove density squares from the Globe map:
+        // globeMap.scene.add(c.globeMesh);
       });
       densityOverlay.adjacentLines.forEach(obj => {
         globeMap.scene.add(obj.line);
