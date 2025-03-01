@@ -2,7 +2,6 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getBlueColor, lightenColor, darkenColor, getIndividualBlueColor } from './densityColorUtils.js';
 import { getDensityCenterData } from './densityData.js';
-import { positionToSpherical, getConstellationForPoint } from './newConstellationMapping.js';
 
 /**
  * Helper: Standard 2D ray-casting point-in-polygon test.
