@@ -5,8 +5,7 @@ import {
   getBaseColor, 
   lightenColor, 
   darkenColor, 
-  getBlueColor, 
-  hexToRGBA 
+  getBlueColor 
 } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate } from './densitySegmentation.js';
 // Import the constellation centers loader from the constellation filter.
@@ -229,7 +228,8 @@ export class DensityGridOverlay {
       const dec1Rad = THREE.Math.degToRad(dec1);
       const ra2Rad = THREE.Math.degToRad(ra2);
       const dec2Rad = THREE.Math.degToRad(dec2);
-      const cosDelta = Math.sin(dec1Rad) * Math.sin(dec2Rad) + Math.cos(dec1Rad) * Math.cos(dec2Rad) * Math.cos(ra1Rad - ra2Rad);
+      const cosDelta = Math.sin(dec1Rad) * Math.sin(dec2Rad) +
+                       Math.cos(dec1Rad) * Math.cos(dec2Rad) * Math.cos(ra1Rad - ra2Rad);
       const delta = Math.acos(THREE.MathUtils.clamp(cosDelta, -1, 1));
       return THREE.Math.radToDeg(delta);
     };
