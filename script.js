@@ -185,15 +185,12 @@ class MapManager {
 
   animate() {
     requestAnimationFrame(() => this.animate());
-    // For the Globe map, update overlays (if any) to ensure they are always drawn on top.
     if (this.mapType === 'Globe' && window.constellationOverlayGlobe) {
       window.constellationOverlayGlobe.forEach(mesh => {
-        // When the camera is outside the globe, disable depth test so the overlay appears on top.
         if (this.camera.position.length() > 100) {
           mesh.material.depthTest = false;
           mesh.renderOrder = 2;
         } else {
-          // When inside, enable depth test so the opaque surface occludes the overlay.
           mesh.material.depthTest = true;
           mesh.renderOrder = 0;
         }
@@ -260,6 +257,26 @@ function updateSelectedStarHighlight() {
   });
 }
 
+// --- NEW: Function to download constellation boundary JSON data ---
+function downloadConstellationBoundariesJSON() {
+  const overlays = createConstellationOverlayForGlobe();
+  const data = overlays.map(mesh => ({
+    constellation: mesh.userData.constellation,
+    raDecPolygon: mesh.userData.raDecPolygon
+  }));
+  const jsonStr = JSON.stringify(data, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'constellation_boundaries.json';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 window.onload = async () => {
   const loader = document.getElementById('loader');
   loader.classList.remove('hidden');
@@ -316,6 +333,10 @@ window.onload = async () => {
     });
     globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
+    
+    // --- NEW: Trigger download of constellation boundaries JSON data ---
+    downloadConstellationBoundariesJSON();
+    
     loader.classList.add('hidden');
   } catch (err) {
     console.error('Error initializing starmap:', err);
@@ -446,7 +467,6 @@ function applyGlobeSurface(isOpaque) {
     globeSurfaceSphere = null;
   }
   if (isOpaque) {
-    // Use a slightly smaller radius (99 instead of 100) so that the opaque surface is always beneath overlays.
     const geom = new THREE.SphereGeometry(99, 32, 32);
     const mat = new THREE.MeshBasicMaterial({
       color: 0x000000,
