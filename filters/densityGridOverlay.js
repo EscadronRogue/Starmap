@@ -1,37 +1,23 @@
 // densityGridOverlay.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { 
-  getBlueColor, lightenColor, darkenColor, getIndividualBlueColor 
-} from './densityColorUtils.js';
+import { getBlueColor, lightenColor, darkenColor, getIndividualBlueColor } from './densityColorUtils.js';
 import { computeInterconnectedCell, segmentOceanCandidate, computeCentroid } from './densitySegmentation.js';
+import { getConstellationCenters } from './constellationFilter.js';
 
-// We assume that constellation center data is loaded via the TXT file
-// and is available globally as "centerData" (or you can import it appropriately).
-if (typeof centerData === 'undefined') {
-  var centerData = []; // Fallback if not loaded
-}
-
-/**
- * The DensityGridOverlay class creates a 3D grid overlay of “cells” covering the sky,
- * computes distances to stars, clusters cells and assigns them a constellation
- * based on the TXT‑derived constellation centers.
- */
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
     this.maxDistance = maxDistance;
     this.gridSize = gridSize;
     this.cubesData = [];       // Array of cell objects
     this.adjacentLines = [];   // For drawing connection lines (if needed)
-    this.regionClusters = [];  // Regions (ocean/sea/lake/strait) after clustering
+    this.regionClusters = [];  // Regions (Ocean/Sea/Lake/Strait)
     this.regionLabelsGroupTC = null;
     this.regionLabelsGroupGlobe = null;
   }
 
   /**
    * Creates a grid of cubic cells covering the sky.
-   * Each cell gets a "tcPos" (true coordinate position), a grid index,
-   * and an initial inactive state.
-   * @param {Array} stars - The star array (used later for distance computations)
+   * Each cell is centered and assigned a grid index.
    */
   createGrid(stars) {
     this.cubesData = [];
@@ -39,13 +25,13 @@ export class DensityGridOverlay {
     for (let x = -halfExt; x <= halfExt; x += this.gridSize) {
       for (let y = -halfExt; y <= halfExt; y += this.gridSize) {
         for (let z = -halfExt; z <= halfExt; z += this.gridSize) {
-          // Center of cell
+          // Center of the cell
           const pos = new THREE.Vector3(
             x + this.gridSize / 2,
             y + this.gridSize / 2,
             z + this.gridSize / 2
           );
-          // Only include cells within maxDistance (a sphere)
+          // Only include cells within a sphere of radius maxDistance
           if (pos.length() > this.maxDistance) continue;
           const cell = {
             id: this.cubesData.length,
@@ -68,16 +54,14 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Computes the distance from each cell to every star.
-   * @param {Array} stars - Array of star objects.
+   * For each cell, compute its distances to all stars.
    */
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
       const dArr = stars.map(star => {
-        // Use star.truePosition if available; otherwise fallback to coordinates.
-        const starPos = star.truePosition 
-                          ? star.truePosition 
-                          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+        const starPos = star.truePosition
+          ? star.truePosition
+          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
         return starPos.distanceTo(cell.tcPos);
       });
       dArr.sort((a, b) => a - b);
@@ -86,28 +70,78 @@ export class DensityGridOverlay {
   }
 
   /**
-   * (Optional) Computes adjacent connection lines between cells.
+   * Computes adjacent cell connection lines (if desired).
    */
   computeAdjacentLines() {
-    // For now we clear any previous lines.
     this.adjacentLines = [];
-    // Implementation for drawing grid connections can be added as needed.
+    const cellMap = new Map();
+    this.cubesData.forEach(cell => {
+      const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
+      cellMap.set(key, cell);
+    });
+    const directions = [];
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dz = -1; dz <= 1; dz++) {
+          if (dx === 0 && dy === 0 && dz === 0) continue;
+          if (dx > 0 || (dx === 0 && dy > 0) || (dx === 0 && dy === 0 && dz > 0)) {
+            directions.push({ dx, dy, dz });
+          }
+        }
+      }
+    }
+    directions.forEach(dir => {
+      this.cubesData.forEach(cell => {
+        const neighborKey = `${cell.grid.ix + dir.dx},${cell.grid.iy + dir.dy},${cell.grid.iz + dir.dz}`;
+        if (cellMap.has(neighborKey)) {
+          const neighbor = cellMap.get(neighborKey);
+          const points = this.getGreatCirclePoints(cell.tcPos, neighbor.tcPos, 100, 16);
+          const geometry = new THREE.BufferGeometry().setFromPoints(points);
+          const mat = new THREE.LineBasicMaterial({
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.3,
+            linewidth: 1
+          });
+          const line = new THREE.Line(geometry, mat);
+          this.adjacentLines.push({ line, cell1: cell, cell2: neighbor });
+        }
+      });
+    });
   }
 
   /**
-   * Updates the grid cells based on the current star data.
-   * Here you could update which cells are active by applying a threshold
-   * based on the cell's distance to its nth-nearest star.
-   * @param {Array} stars - Array of star objects.
+   * Helper: Computes points along a great‐circle path between two points on a sphere.
+   */
+  getGreatCirclePoints(p1, p2, R, segments) {
+    const points = [];
+    const start = p1.clone().normalize().multiplyScalar(R);
+    const end = p2.clone().normalize().multiplyScalar(R);
+    const axis = new THREE.Vector3().crossVectors(start, end).normalize();
+    const angle = start.angleTo(end);
+    for (let i = 0; i <= segments; i++) {
+      const theta = (i / segments) * angle;
+      const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, theta);
+      const point = start.clone().applyQuaternion(quaternion);
+      points.push(point);
+    }
+    return points;
+  }
+
+  /**
+   * Updates the grid cells based on the star data.
+   * Here we set each cell's active status based on a threshold.
    */
   update(stars) {
     this.computeDistances(stars);
-    // Optionally update cell "active" status based on some criteria.
+    const densityThreshold = 7; // Adjust as needed.
+    this.cubesData.forEach(cell => {
+      cell.active = (cell.distances.length > 0 && cell.distances[0] >= densityThreshold);
+    });
   }
 
   /**
-   * Clusters adjacent active cells using a flood-fill (DFS) algorithm.
-   * @returns {Array} - Array of clusters (each cluster is an array of cells).
+   * Computes clusters (connected components) of adjacent active cells.
    */
   computeClusters() {
     const clusters = [];
@@ -146,7 +180,7 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Counts the number of neighboring cells (in a 3x3x3 neighborhood) within the given cluster.
+   * Counts the number of neighboring cells (in a 3×3×3 neighborhood) within the given cluster.
    */
   countNeighbors(cell, cells) {
     let count = 0;
@@ -181,8 +215,8 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Clusters the cells and classifies them as Oceans, Seas, Lakes, or Straits.
-   * Uses the old logic based on cell volume thresholds.
+   * Classifies clusters into regions (Ocean, Sea, Lake, Strait) based on cell counts.
+   * Uses the old logic based on volume thresholds.
    */
   classifyEmptyRegions() {
     const clusters = this.computeClusters();
@@ -195,7 +229,6 @@ export class DensityGridOverlay {
       } else if (cells.length < 0.5 * V_max) {
         regionType = "Sea";
       }
-      // Check if any cell in the cluster has a small neighbor count, marking a Strait.
       const hasStrait = cells.some(cell => {
         const n = this.countNeighbors(cell, cells);
         return (n >= 2 && n <= 5);
@@ -222,26 +255,25 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Assigns each active cell a constellation based on the TXT‑derived constellation centers.
-   * The horizontal (RA) axis is reversed in the conversion.
+   * Assigns each active cell a constellation based on the constellation centers.
+   * The conversion reverses the horizontal (RA) axis.
    */
-  async assignConstellationsToCells() {
-    if (!centerData.length) {
+  assignConstellationsToCells() {
+    const centers = getConstellationCenters();
+    if (!centers || centers.length === 0) {
       console.error("Center data is not loaded!");
       return;
     }
     const R = 100;
-    // Conversion function that reverses the horizontal axis.
     const degToSphereReversed = (raDeg, decDeg, R) => {
       const raRad = THREE.Math.degToRad(raDeg);
       const decRad = THREE.Math.degToRad(decDeg);
-      const x = R * Math.cos(decRad) * Math.cos(raRad); // positive x now
+      const x = R * Math.cos(decRad) * Math.cos(raRad); // positive x: reversed horizontal
       const y = R * Math.sin(decRad);
       const z = -R * Math.cos(decRad) * Math.sin(raRad);
       return new THREE.Vector3(x, y, z);
     };
 
-    // For each active cell, compute its RA and DEC from its tcPos.
     this.cubesData.forEach(cell => {
       if (!cell.active) return;
       const pos = cell.tcPos.clone().normalize().multiplyScalar(R);
@@ -250,15 +282,11 @@ export class DensityGridOverlay {
       const dec = Math.asin(pos.y / R);
       cell.ra = THREE.Math.radToDeg(ra);
       cell.dec = THREE.Math.radToDeg(dec);
-    });
 
-    // Assign constellation by finding the center with the smallest angular distance.
-    this.cubesData.forEach(cell => {
-      if (!cell.active) return;
       let bestConstellation = "UNKNOWN";
       let minAngle = Infinity;
       const cellVec = degToSphereReversed(cell.ra, cell.dec, R);
-      centerData.forEach(center => {
+      centers.forEach(center => {
         const centerVec = degToSphereReversed(center.ra, center.dec, R);
         const angle = cellVec.angleTo(centerVec);
         if (angle < minAngle) {
@@ -288,7 +316,7 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Creates a region label object at the given position.
+   * Creates a region label at the given position.
    */
   createRegionLabel(text, position, mapType) {
     const canvas = document.createElement('canvas');
@@ -335,7 +363,6 @@ export class DensityGridOverlay {
       });
       labelObj = new THREE.Mesh(planeGeom, material);
       labelObj.renderOrder = 1;
-      // Orient the label tangent to the sphere.
       const normal = position.clone().normalize();
       const globalUp = new THREE.Vector3(0, 1, 0);
       let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
@@ -358,6 +385,34 @@ export class DensityGridOverlay {
     labelObj.position.copy(position);
     return labelObj;
   }
-}
 
-// Note: The duplicate local definition of computeCentroid has been removed since it is imported.
+  /**
+   * Creates region labels from the classified regions and adds them to the provided scene.
+   * @param {THREE.Scene} scene
+   * @param {string} mapType - Either "Globe" or "TrueCoordinates"
+   */
+  addRegionLabelsToScene(scene, mapType) {
+    const regions = this.classifyEmptyRegions();
+    const group = new THREE.Group();
+    regions.forEach(region => {
+      let labelPos;
+      if (region.bestCell) {
+        labelPos = region.bestCell.tcPos.clone();
+      } else {
+        labelPos = computeCentroid(region.cells);
+      }
+      if (mapType === 'Globe') {
+        labelPos = this.projectToGlobe(labelPos);
+      }
+      const labelSprite = this.createRegionLabel(region.label, labelPos, mapType);
+      labelSprite.userData.labelScale = region.labelScale;
+      group.add(labelSprite);
+    });
+    if (mapType === 'Globe') {
+      this.regionLabelsGroupGlobe = group;
+    } else {
+      this.regionLabelsGroupTC = group;
+    }
+    scene.add(group);
+  }
+}
