@@ -1,6 +1,12 @@
 // /filters/densityGridOverlay.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor, getBlueColor } from './densityColorUtils.js';
+import { 
+  getDoubleSidedLabelMaterial, 
+  getBaseColor, 
+  lightenColor, 
+  darkenColor, 
+  getBlueColor 
+} from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate } from './densitySegmentation.js';
 
 export class DensityGridOverlay {
@@ -76,7 +82,9 @@ export class DensityGridOverlay {
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
       const dArr = stars.map(star => {
-        let starPos = star.truePosition ? star.truePosition : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+        let starPos = star.truePosition 
+                      ? star.truePosition 
+                      : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
         const dx = cell.tcPos.x - starPos.x;
         const dy = cell.tcPos.y - starPos.y;
         const dz = cell.tcPos.z - starPos.z;
@@ -241,7 +249,7 @@ export class DensityGridOverlay {
     });
     const regions = [];
     clusters.forEach((cells, idx) => {
-      // NEW: Determine majority constellation among the cells in the cluster.
+      // Determine majority constellation among the cells in the cluster.
       const majority = this.getMajorityConstellation(cells);
       // Use the majority constellation for the region label.
       if (cells.length < 0.1 * V_max) {
@@ -315,7 +323,7 @@ export class DensityGridOverlay {
     return regions;
   }
   
-  // NEW: Helper method to determine the majority constellation among an array of cells.
+  // Helper method to determine the majority constellation among an array of cells.
   getMajorityConstellation(cells) {
     const freq = {};
     cells.forEach(cell => {
@@ -454,7 +462,7 @@ export class DensityGridOverlay {
     });
   }
   
-  // NEW: This method assigns a constellation name to each active cell based on a loaded boundaries JSON.
+  // This method assigns a constellation name to each active cell based on a loaded boundaries JSON.
   assignConstellationsToCells(constellationData) {
     this.cubesData.forEach(cell => {
       if (!cell.active) return; // Only consider active cells
@@ -480,7 +488,7 @@ export class DensityGridOverlay {
     });
   }
   
-  // NEW: Helper method to convert a THREE.Vector3 (assumed on sphere of radius 100) to an object with ra/dec in degrees.
+  // Helper method to convert a THREE.Vector3 (assumed on sphere of radius 100) to an object with ra/dec in degrees.
   vectorToRaDec(vector) {
     const dec = Math.asin(vector.y / 100);
     let ra = Math.atan2(-vector.z, -vector.x);
@@ -489,8 +497,7 @@ export class DensityGridOverlay {
     return { ra: raDeg, dec: dec * 180 / Math.PI };
   }
   
-  // NEW: A point-in-polygon test for RA/DEC points.
-  // This version normalizes the point and polygon vertices.
+  // A point-in-polygon test for RA/DEC points.
   pointInPolygon(point, vs) {
     const normalizedPoint = { ra: ((point.ra % 360) + 360) % 360, dec: point.dec };
     const normalizedVs = vs.map(v => ({ ra: ((v.ra % 360) + 360) % 360, dec: v.dec }));
@@ -515,7 +522,7 @@ export class DensityGridOverlay {
     return inside;
   }
   
-  // NEW: Compute the centroid of a set of cells (using their true coordinate positions)
+  // Compute the centroid of a set of cells (using their true coordinate positions)
   computeCentroid(cells) {
     let sum = new THREE.Vector3(0, 0, 0);
     cells.forEach(c => sum.add(c.tcPos));
@@ -523,22 +530,5 @@ export class DensityGridOverlay {
   }
 }
 
-//
-// Helper function outside the class – note: getGreatCirclePoints is defined here once.
-//
-function getGreatCirclePoints(p1, p2, R, segments) {
-  const points = [];
-  const start = p1.clone().normalize().multiplyScalar(R);
-  const end = p2.clone().normalize().multiplyScalar(R);
-  const axis = new THREE.Vector3().crossVectors(start, end).normalize();
-  const angle = start.angleTo(end);
-  for (let i = 0; i <= segments; i++) {
-    const theta = (i / segments) * angle;
-    const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, theta);
-    const point = start.clone().applyQuaternion(quaternion);
-    points.push(point);
-  }
-  return points;
-}
-
-// Note: computeInterconnectedCell and segmentOceanCandidate are imported from densitySegmentation.js
+// Note: The duplicate definition of getGreatCirclePoints has been removed,
+// as we are now exclusively using the imported version from densitySegmentation.js.
