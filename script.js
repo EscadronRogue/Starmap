@@ -3,10 +3,7 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { applyFilters, setupFilterUI } from './filters/index.js';
 import { createConnectionLines, mergeConnectionLines } from './filters/connectionsFilter.js';
-import {
-  createConstellationBoundariesForGlobe,
-  createConstellationLabelsForGlobe
-} from './filters/constellationFilter.js';
+import { createConstellationBoundariesForGlobe, createConstellationLabelsForGlobe } from './filters/constellationFilter.js';
 import { createConstellationOverlayForGlobe } from './filters/constellationOverlayFilter.js';
 import { initDensityOverlay, updateDensityMapping } from './filters/densityFilter.js';
 import { globeSurfaceOpaque } from './filters/globeSurfaceFilter.js';
@@ -14,8 +11,6 @@ import { ThreeDControls } from './cameraControls.js';
 import { LabelManager } from './labelManager.js';
 import { showTooltip, hideTooltip } from './tooltips.js';
 
-// ---------------------------------------------------------
-// Global variables
 let cachedStars = null;
 let currentFilteredStars = [];
 let currentConnections = [];
@@ -30,7 +25,7 @@ let globeMap;
 
 let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
-let constellationOverlayGlobe = []; // overlays for constellation zones
+let constellationOverlayGlobe = [];
 let globeSurfaceSphere = null;
 let densityOverlay = null;
 let globeGrid = null;
@@ -258,9 +253,7 @@ function updateSelectedStarHighlight() {
 }
 
 // --- NEW: Download constellation_boundaries.json automatically ---
-// Note: Some browsers may block auto-download without user interaction.
 function downloadConstellationBoundariesJSON() {
-  // Generate the overlays and extract RA/DEC polygon data
   const overlays = createConstellationOverlayForGlobe();
   const data = overlays.map(mesh => ({
     constellation: mesh.userData.constellation,
@@ -328,6 +321,7 @@ window.onload = async () => {
     window.globeMap = globeMap;
     initStarInteractions(trueCoordinatesMap);
     initStarInteractions(globeMap);
+    // IMPORTANT: First update the density mapping…
     buildAndApplyFilters();
     cachedStars.forEach(star => {
       star.spherePosition = projectStarGlobe(star);
@@ -338,6 +332,21 @@ window.onload = async () => {
     
     // --- NEW: Trigger download of constellation_boundaries.json ---
     downloadConstellationBoundariesJSON();
+    
+    // --- NEW: Fetch the constellation boundaries JSON and assign constellation names to density cells before labeling regions.
+    if (getCurrentFilters().enableDensityMapping) {
+      fetch('constellation_boundaries.json')
+        .then(resp => resp.json())
+        .then(data => {
+           if (densityOverlay && typeof densityOverlay.assignConstellationsToCells === 'function') {
+             densityOverlay.assignConstellationsToCells(data);
+           }
+           // Now that cells have constellation names, update region labels:
+           densityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
+           densityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
+        })
+        .catch(err => console.error("Error loading constellation boundaries JSON:", err));
+    }
     
     loader.classList.add('hidden');
   } catch (err) {
@@ -429,29 +438,7 @@ function buildAndApplyFilters() {
       });
     }
     updateDensityMapping(currentFilteredStars);
-    densityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
-    densityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
-    
-    // --- NEW: Load constellation_boundaries.json and assign constellation names to each active density cell ---
-    fetch('constellation_boundaries.json')
-      .then(resp => resp.json())
-      .then(data => {
-         if (densityOverlay && typeof densityOverlay.assignConstellationsToCells === 'function') {
-           densityOverlay.assignConstellationsToCells(data);
-         }
-      })
-      .catch(err => console.error("Error loading constellation boundaries JSON:", err));
-  } else {
-    if (densityOverlay) {
-      densityOverlay.cubesData.forEach(c => {
-        trueCoordinatesMap.scene.remove(c.tcMesh);
-        globeMap.scene.remove(c.globeMesh);
-      });
-      densityOverlay.adjacentLines.forEach(obj => {
-        globeMap.scene.remove(obj.line);
-      });
-      densityOverlay = null;
-    }
+    // Region labeling now occurs after constellation assignment in window.onload's fetch.
   }
 }
 
