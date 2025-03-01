@@ -257,26 +257,6 @@ function updateSelectedStarHighlight() {
   });
 }
 
-// --- NEW: Function to download constellation boundary JSON data ---
-function downloadConstellationBoundariesJSON() {
-  const overlays = createConstellationOverlayForGlobe();
-  const data = overlays.map(mesh => ({
-    constellation: mesh.userData.constellation,
-    raDecPolygon: mesh.userData.raDecPolygon
-  }));
-  const jsonStr = JSON.stringify(data, null, 2);
-  const blob = new Blob([jsonStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'constellation_boundaries.json';
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 window.onload = async () => {
   const loader = document.getElementById('loader');
   loader.classList.remove('hidden');
@@ -333,10 +313,6 @@ window.onload = async () => {
     });
     globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
-    
-    // --- NEW: Trigger download of constellation boundaries JSON data ---
-    downloadConstellationBoundariesJSON();
-    
     loader.classList.add('hidden');
   } catch (err) {
     console.error('Error initializing starmap:', err);
@@ -429,6 +405,16 @@ function buildAndApplyFilters() {
     updateDensityMapping(currentFilteredStars);
     densityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
     densityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
+    
+    // --- NEW: Load constellation_boundaries.json and assign constellation names to each active density cell ---
+    fetch('constellation_boundaries.json')
+      .then(resp => resp.json())
+      .then(data => {
+         if (densityOverlay && typeof densityOverlay.assignConstellationsToCells === 'function') {
+           densityOverlay.assignConstellationsToCells(data);
+         }
+      })
+      .catch(err => console.error("Error loading constellation boundaries JSON:", err));
   } else {
     if (densityOverlay) {
       densityOverlay.cubesData.forEach(c => {
