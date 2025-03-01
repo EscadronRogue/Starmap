@@ -194,6 +194,7 @@ export class DensityGridOverlay {
   
   // UPDATED: Classify empty regions (clusters) and assign region labels using the majority constellation name.
   classifyEmptyRegions() {
+    // First, ensure that cells already have their constellation assignments.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -241,10 +242,11 @@ export class DensityGridOverlay {
     });
     const regions = [];
     clusters.forEach((cells, idx) => {
-      // NEW: Determine the majority constellation in this cluster
+      // NEW: Determine the majority constellation in this cluster.
+      // Only count cells with a valid constellation (not "Unknown" or null)
       const freq = {};
       cells.forEach(cell => {
-        if (cell.constellation) {
+        if (cell.constellation && cell.constellation !== "Unknown") {
           freq[cell.constellation] = (freq[cell.constellation] || 0) + 1;
         }
       });
@@ -256,7 +258,7 @@ export class DensityGridOverlay {
           majority = key;
         }
       }
-      const regionConst = majority; // use the most common constellation in the cluster
+      const regionConst = majority; // use the most common valid constellation in the cluster
       
       // Determine region type based on cluster size
       if (cells.length < 0.1 * V_max) {
@@ -451,8 +453,8 @@ export class DensityGridOverlay {
           break;
         }
       }
-      cell.constellation = foundConstellation;
-      if (foundConstellation) {
+      cell.constellation = foundConstellation || "Unknown";
+      if (foundConstellation && foundConstellation !== "Unknown") {
         console.log(`Cell ID ${cell.id} belongs to constellation ${foundConstellation}`);
       } else {
         console.log(`Cell ID ${cell.id} does not belong to any constellation`);
