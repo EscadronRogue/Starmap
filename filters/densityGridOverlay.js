@@ -462,23 +462,52 @@ export class DensityGridOverlay {
     });
   }
   
+  // =================== UPDATED: Constellation Attribution ===================
   // This method assigns a constellation name to each active cell based on a loaded boundaries JSON.
+  // It uses a spherical point‑in‑polygon test.
   assignConstellationsToCells(constellationData) {
+    // Helper: Convert (ra, dec) in degrees to a 3D vector on a sphere of radius R.
+    const degToSphere = (raDeg, decDeg, R) => {
+      const raRad = THREE.Math.degToRad(raDeg);
+      const decRad = THREE.Math.degToRad(decDeg);
+      return new THREE.Vector3(
+        -R * Math.cos(decRad) * Math.cos(raRad),
+         R * Math.sin(decRad),
+        -R * Math.cos(decRad) * Math.sin(raRad)
+      );
+    };
+
+    // Spherical point‑in‑polygon test using angle summation.
+    const isPointInSphericalPolygon = (point, polygon) => {
+      let totalAngle = 0;
+      const n = polygon.length;
+      for (let i = 0; i < n; i++) {
+        const v1 = polygon[i].clone().sub(point).normalize();
+        const v2 = polygon[(i + 1) % n].clone().sub(point).normalize();
+        totalAngle += Math.acos(THREE.MathUtils.clamp(v1.dot(v2), -1, 1));
+      }
+      return Math.abs(totalAngle - 2 * Math.PI) < 0.3;
+    };
+
     this.cubesData.forEach(cell => {
       if (!cell.active) return; // Only consider active cells
-      // Project the cell's true coordinate onto a sphere of radius 100
+      // Project the cell's true coordinate onto a sphere of radius 100.
       const projected = cell.tcPos.clone().normalize().multiplyScalar(100);
+      // Compute RA/DEC (for logging) from the projected position.
       const cellRaDec = this.vectorToRaDec(projected);
-      // Normalize cell RA to 0–360
+      // Normalize RA to 0–360.
       cellRaDec.ra = ((cellRaDec.ra % 360) + 360) % 360;
+      // Convert back to a 3D point using our degToSphere helper.
+      const cellPoint = degToSphere(cellRaDec.ra, cellRaDec.dec, 100);
+
       let foundConstellation = null;
       for (const constellationObj of constellationData) {
-        // Normalize each vertex RA value to 0–360
-        const normalizedPolygon = constellationObj.raDecPolygon.map(v => ({
-          ra: ((v.ra % 360) + 360) % 360,
-          dec: v.dec
-        }));
-        if (this.pointInPolygon(cellRaDec, normalizedPolygon)) {
+        // Convert the constellation's polygon vertices (in degrees) to 3D points.
+        const polygon3D = constellationObj.raDecPolygon.map(v => {
+          let raNorm = ((v.ra % 360) + 360) % 360;
+          return degToSphere(raNorm, v.dec, 100);
+        });
+        if (isPointInSphericalPolygon(cellPoint, polygon3D)) {
           foundConstellation = constellationObj.constellation;
           break;
         }
@@ -488,7 +517,8 @@ export class DensityGridOverlay {
     });
   }
   
-  // Helper method to convert a THREE.Vector3 (assumed on sphere of radius 100) to an object with ra/dec in degrees.
+  // =================== End of Updated Constellation Attribution ===================
+
   vectorToRaDec(vector) {
     const dec = Math.asin(vector.y / 100);
     let ra = Math.atan2(-vector.z, -vector.x);
@@ -496,39 +526,7 @@ export class DensityGridOverlay {
     if (raDeg < 0) raDeg += 360;
     return { ra: raDeg, dec: dec * 180 / Math.PI };
   }
-  
-  // A point-in-polygon test for RA/DEC points.
-  pointInPolygon(point, vs) {
-    const normalizedPoint = { ra: ((point.ra % 360) + 360) % 360, dec: point.dec };
-    const normalizedVs = vs.map(v => ({ ra: ((v.ra % 360) + 360) % 360, dec: v.dec }));
-    let inside = false;
-    for (let i = 0, j = normalizedVs.length - 1; i < normalizedVs.length; j = i++) {
-      const xi = normalizedVs[i].ra, yi = normalizedVs[i].dec;
-      const xj = normalizedVs[j].ra, yj = normalizedVs[j].dec;
-      let xip = xi, xjp = xj, rp = normalizedPoint.ra;
-      if (Math.abs(xi - xj) > 180) {
-        if (xi > xj) {
-          xjp += 360;
-          if (rp < 180) rp += 360;
-        } else {
-          xip += 360;
-          if (rp < 180) rp += 360;
-        }
-      }
-      const intersect = ((yi > normalizedPoint.dec) !== (yj > normalizedPoint.dec)) &&
-        (rp < (xjp - xip) * (normalizedPoint.dec - yi) / ((yj - yi) || 1e-10) + xip);
-      if (intersect) inside = !inside;
-    }
-    return inside;
-  }
-  
-  // Compute the centroid of a set of cells (using their true coordinate positions)
-  computeCentroid(cells) {
-    let sum = new THREE.Vector3(0, 0, 0);
-    cells.forEach(c => sum.add(c.tcPos));
-    return sum.divideScalar(cells.length);
-  }
 }
 
-// Note: The duplicate definition of getGreatCirclePoints has been removed,
-// as we are now exclusively using the imported version from densitySegmentation.js.
+// Note: The duplicate local definition of getGreatCirclePoints has been removed.
+// We are now exclusively using the imported version from densitySegmentation.js.
