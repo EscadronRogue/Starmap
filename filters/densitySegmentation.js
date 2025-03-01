@@ -45,7 +45,7 @@ function isPointInSphericalPolygon(point, polygon) {
 /**
  * Computes the minimal angular distance (in radians) from a cell's position to a polygon’s edge.
  * For each edge (between vertices v1 and v2), we compute the perpendicular distance
- * (using great-circle geometry). If the perpendicular falls outside the edge segment,
+ * (using great‑circle geometry). If the perpendicular falls outside the edge segment,
  * the distance to the closer endpoint is used.
  * @param {THREE.Vector3} cellPos - The cell’s position (should be set to length 100)
  * @param {Array} polygon - Array of THREE.Vector3 vertices (the overlay boundary)
@@ -74,68 +74,6 @@ function minAngularDistanceToPolygon(cellPos, polygon) {
     }
   }
   return minAngle;
-}
-
-/**
- * Determines the constellation for a given cell.
- * The process:
- *   1. Project the cell's globeMesh position onto the sphere (radius 100).
- *   2. For each overlay (from window.constellationOverlayGlobe), first check if the cell is inside
- *      the overlay's polygon using the spherical point-in-polygon test.
- *   3. If not inside, compute the minimal angular distance from the cell to the polygon's edges.
- *   4. Always assign the cell to the overlay whose boundary is nearest.
- * @param {Object} cell - A density cell (with a globeMesh having a valid position).
- * @returns {string} - The constellation name assigned to this cell.
- */
-function getConstellationForCellUsingOverlay(cell) {
-  if (!cell.globeMesh || !cell.globeMesh.position) {
-    throw new Error(`Cell id ${cell.id} is missing a valid globeMesh position.`);
-  }
-  // Project cell position onto sphere of radius 100.
-  const cellPos = cell.globeMesh.position.clone().setLength(100);
-  
-  let bestOverlay = null;
-  let bestDistance = Infinity;
-  
-  if (window.constellationOverlayGlobe && window.constellationOverlayGlobe.length > 0) {
-    for (const overlay of window.constellationOverlayGlobe) {
-      if (!overlay.userData || !overlay.userData.polygon) continue;
-      const poly = overlay.userData.polygon; // Array of THREE.Vector3
-      
-      // First, if the cell is inside the overlay, distance is zero.
-      if (isPointInSphericalPolygon(cellPos, poly)) {
-        console.log(`Cell id ${cell.id} is inside overlay for constellation ${overlay.userData.constellation}.`);
-        return overlay.userData.constellation;
-      }
-      // Otherwise, compute minimal angular distance from cellPos to the overlay's boundary.
-      const distance = minAngularDistanceToPolygon(cellPos, poly);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestOverlay = overlay;
-      }
-    }
-    if (bestOverlay) {
-      console.log(
-        `Cell id ${cell.id} assigned to constellation ${bestOverlay.userData.constellation} ` +
-        `(min angular distance = ${bestDistance.toFixed(2)} rad).`
-      );
-      return bestOverlay.userData.constellation;
-    }
-  }
-  return "Unknown";
-}
-
-/**
- * Returns the constellation for a given density cell.
- * This version uses the nearest-overlay approach (by checking inside and then by minimal distance).
- */
-export function getConstellationForCell(cell) {
-  const cons = getConstellationForCellUsingOverlay(cell);
-  if (cons === "Unknown") {
-    console.warn(`Cell id ${cell.id} did not find a nearby overlay. Returning "Unknown".`);
-    return "Unknown";
-  }
-  return cons;
 }
 
 /**
@@ -233,31 +171,6 @@ export function computeInterconnectedCell(cells) {
     }
   });
   return bestCell;
-}
-
-/**
- * Determines the majority constellation of a set of cells.
- * If the majority vote is "Unknown", a warning is logged.
- */
-export function getMajorityConstellation(cells) {
-  const volumeByConstellation = {};
-  cells.forEach(cell => {
-    const cons = getConstellationForCell(cell);
-    volumeByConstellation[cons] = (volumeByConstellation[cons] || 0) + 1;
-  });
-  let majority = "Unknown";
-  let maxVolume = 0;
-  for (const cons in volumeByConstellation) {
-    if (volumeByConstellation[cons] > maxVolume) {
-      maxVolume = volumeByConstellation[cons];
-      majority = cons;
-    }
-  }
-  if (majority === "Unknown") {
-    console.warn("Majority constellation for cluster is Unknown. Check overlay data.");
-  }
-  console.log(`Majority constellation for cluster: ${majority}`);
-  return majority;
 }
 
 /**
