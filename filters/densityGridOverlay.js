@@ -12,100 +12,33 @@ import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate 
 import { loadConstellationCenters, getConstellationCenters, loadConstellationBoundaries, getConstellationBoundaries } from './constellationFilter.js';
 
 /**
- * Mapping from three‑letter constellation abbreviations to full proper names.
- * This updated list covers all 88 official constellations.
- * Note: All keys are uppercase; values are in Title Case.
+ * Helper function to convert a string to Title Case.
  */
-const CONSTELLATION_FULL_NAMES = {
-  "AND": "Andromeda",
-  "ANT": "Antlia",
-  "APS": "Apus",
-  "AQR": "Aquarius",
-  "AQL": "Aquila",
-  "ARA": "Ara",
-  "ARI": "Aries",
-  "AUR": "Auriga",
-  "BOO": "Boötes",
-  "CAE": "Caelum",
-  "CAM": "Camelopardalis",
-  "CNC": "Cancer",
-  "CVN": "Canes Venatici",
-  "CAP": "Capricornus",
-  "CAR": "Carina",
-  "CAS": "Cassiopeia",
-  "CEN": "Centaurus",
-  "CEP": "Cepheus",
-  "CET": "Cetus",
-  "CHA": "Chamaeleon",
-  "CIR": "Circinus",
-  "COL": "Columba",
-  "COM": "Coma Berenices",
-  "CRA": "Corona Australis",
-  "CRB": "Corona Borealis",
-  "CRV": "Corvus",
-  "CRT": "Crater",
-  "CRU": "Crux",
-  "CYG": "Cygnus",
-  "DEL": "Delphinus",
-  "DOR": "Dorado",
-  "DRA": "Draco",
-  "EQU": "Equuleus",
-  "ERI": "Eridanus",
-  "FOR": "Fornax",
-  "GEM": "Gemini",
-  "GRU": "Grus",
-  "HER": "Hercules",
-  "HOR": "Horologium",
-  "HYA": "Hydra",
-  "HYR": "Hydrus",
-  "IND": "Indus",
-  "LAC": "Lacerta",
-  "LEO": "Leo",
-  "LMI": "Leo Minor",
-  "LEP": "Lepus",
-  "LIB": "Libra",
-  "LUP": "Lupus",
-  "LYN": "Lynx",
-  "LYR": "Lyra",
-  "MEN": "Mensa",
-  "MIC": "Microscopium",
-  "MON": "Monoceros",
-  "MUS": "Musca",
-  "NOR": "Norma",
-  "OCT": "Octans",
-  "OPH": "Ophiuchus",
-  "ORI": "Orion",
-  "PAV": "Pavo",
-  "PEG": "Pegasus",
-  "PER": "Perseus",
-  "PHO": "Phoenix",
-  "PIC": "Pictor",
-  "PSC": "Pisces",
-  "PSA": "Pisces Austrinus",
-  "PUP": "Puppis",
-  "PYX": "Pyxis",
-  "RET": "Reticulum",
-  "SAG": "Sagitta",
-  "SGR": "Sagittarius",
-  "SCO": "Scorpius",
-  "SCL": "Sculptor",
-  "SCT": "Scutum",
-  "SER": "Serpens",
-  "SEX": "Sextans",
-  "TAU": "Taurus",
-  "TEL": "Telescopium",
-  "TRA": "Triangulum Australe",
-  "TRI": "Triangulum",
-  "TUC": "Tucana",
-  "UMA": "Ursa Major",
-  "UMI": "Ursa Minor",
-  "VEL": "Vela",
-  "VIR": "Virgo",
-  "VOL": "Volans",
-  "VUL": "Vulpecula"
-};
+function toTitleCase(str) {
+  if (!str || typeof str !== "string") return str;
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
 
-// --- Helper functions for the Globe overlay ---
+/**
+ * NEW: Load constellation full names from an external JSON file.
+ */
+let constellationFullNames = null;
+async function loadConstellationFullNames() {
+  if (constellationFullNames) return constellationFullNames;
+  try {
+    const resp = await fetch('constellation_full_names.json');
+    if (!resp.ok) throw new Error(`Failed to load constellation_full_names.json: ${resp.status}`);
+    constellationFullNames = await resp.json();
+    console.log("Constellation full names loaded successfully.");
+  } catch (err) {
+    console.error("Error loading constellation full names:", err);
+    constellationFullNames = {};
+  }
+  return constellationFullNames;
+}
+
+// --- Spherical Triangulation Helpers ---
+
 function computeSphericalCentroid(vertices) {
   const sum = new THREE.Vector3(0, 0, 0);
   vertices.forEach(v => sum.add(v));
@@ -176,9 +109,10 @@ function subdivideGeometry(geometry, iterations) {
   return geo;
 }
 
-// Helper to convert a sphere point (THREE.Vector3) to RA/DEC in degrees.
+// --- Helper to convert a sphere point (THREE.Vector3) to RA/DEC in degrees ---
 function vectorToRaDec(vector) {
-  const dec = Math.asin(vector.y / 100);
+  const R = 100;
+  const dec = Math.asin(vector.y / R);
   let ra = Math.atan2(-vector.z, -vector.x);
   let raDeg = ra * 180 / Math.PI;
   if (raDeg < 0) raDeg += 360;
@@ -186,6 +120,7 @@ function vectorToRaDec(vector) {
 }
 
 // --- Overlay Creation ---
+
 export function createConstellationOverlayForGlobe() {
   const boundaries = getConstellationBoundaries();
   const groups = {};
@@ -201,7 +136,7 @@ export function createConstellationOverlayForGlobe() {
       groups[key].push(seg);
     }
   });
-  const colorMapping = computeConstellationColorMapping();
+  const namesMappingPromise = loadConstellationFullNames();
   const overlays = [];
   for (const constellation in groups) {
     const segs = groups[constellation];
@@ -288,92 +223,200 @@ export function createConstellationOverlayForGlobe() {
       posAttr.needsUpdate = true;
     }
     geometry = subdivideGeometry(geometry, 2);
-    const material = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(colorMapping[constellation]),
-      opacity: 0.15,
-      transparent: true,
-      side: THREE.DoubleSide,
-      depthWrite: false
+    // Instead of a hard-coded color, we will use the external mapping.
+    // Wait for the constellation full names mapping to be available.
+    namesMappingPromise.then(namesMapping => {
+      const fullName = namesMapping[constellation] || toTitleCase(constellation);
+      const material = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(fullName),
+        opacity: 0.15,
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.renderOrder = 1;
+      mesh.userData.polygon = ordered;
+      mesh.userData.constellation = constellation;
+      const orderedRADEC = ordered.map(p => vectorToRaDec(p));
+      mesh.userData.raDecPolygon = orderedRADEC;
+      overlays.push(mesh);
     });
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.renderOrder = 1;
-    mesh.userData.polygon = ordered;
-    mesh.userData.constellation = constellation;
-    const orderedRADEC = ordered.map(p => vectorToRaDec(p));
-    mesh.userData.raDecPolygon = orderedRADEC;
-    overlays.push(mesh);
   }
   return overlays;
 }
 
-function computeConstellationColorMapping() {
-  const neighbors = computeNeighborMap();
-  const allConsts = new Set();
-  Object.keys(neighbors).forEach(c => allConsts.add(c));
+export async function assignConstellationsToCells() {
+  await loadConstellationCenters();
+  await loadConstellationBoundaries();
+  const centers = getConstellationCenters();
   const boundaries = getConstellationBoundaries();
-  boundaries.forEach(seg => {
-    if (seg.const1) allConsts.add(seg.const1.toUpperCase());
-    if (seg.const2) allConsts.add(seg.const2.toUpperCase());
-  });
-  const constellations = Array.from(allConsts);
-  
-  let maxDegree = 0;
-  constellations.forEach(c => {
-    const deg = neighbors[c] ? neighbors[c].length : 0;
-    if (deg > maxDegree) maxDegree = deg;
-  });
-  const palette = [
-    "#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00",
-    "#ffff33", "#a65628", "#f781bf", "#66c2a5", "#fc8d62",
-    "#8da0cb", "#e78ac3", "#a6d854", "#ffd92f", "#e5c494",
-    "#b3b3b3", "#1b9e77", "#d95f02", "#7570b3", "#e7298a"
-  ];
-  
-  constellations.sort((a, b) => (neighbors[b] ? neighbors[b].length : 0) - (neighbors[a] ? neighbors[a].length : 0));
-  
-  const colorMapping = {};
-  for (const c of constellations) {
-    const used = new Set();
-    if (neighbors[c]) {
-      for (const nb of neighbors[c]) {
-        if (colorMapping[nb]) used.add(colorMapping[nb]);
-      }
-    }
-    let assigned = palette.find(color => !used.has(color));
-    if (!assigned) assigned = palette[0];
-    colorMapping[c] = assigned;
+  if (boundaries.length === 0) {
+    console.warn("No constellation boundaries available!");
+    return;
   }
-  return colorMapping;
-}
-
-function computeNeighborMap() {
-  const boundaries = getConstellationBoundaries(); 
-  const neighbors = {};
-  boundaries.forEach(seg => {
-    if (seg.const1) {
-      const key1 = seg.const1.toUpperCase();
-      const key2 = seg.const2 ? seg.const2.toUpperCase() : null;
-      if (!neighbors[key1]) neighbors[key1] = new Set();
-      if (key2) neighbors[key1].add(key2);
+  function radToSphere(ra, dec, R) {
+    const x = -R * Math.cos(dec) * Math.cos(ra);
+    const y = R * Math.sin(dec);
+    const z = -R * Math.cos(dec) * Math.sin(ra);
+    return new THREE.Vector3(x, y, z);
+  }
+  function minAngularDistanceToSegment(cellPos, p1, p2) {
+    const angleToP1 = cellPos.angleTo(p1);
+    const angleToP2 = cellPos.angleTo(p2);
+    const arcAngle = p1.angleTo(p2);
+    const perpAngle = Math.asin(Math.abs(cellPos.clone().normalize().dot(p1.clone().cross(p2).normalize())));
+    if (angleToP1 + angleToP2 - arcAngle < 1e-3) {
+      return THREE.Math.radToDeg(perpAngle);
+    } else {
+      return THREE.Math.radToDeg(Math.min(angleToP1, angleToP2));
     }
-    if (seg.const2) {
-      const key2 = seg.const2.toUpperCase();
-      const key1 = seg.const1 ? seg.const1.toUpperCase() : null;
-      if (!neighbors[key2]) neighbors[key2] = new Set();
-      if (key1) neighbors[key2].add(key1);
+  }
+  function vectorToRaDec(vector) {
+    const R = 100;
+    const dec = Math.asin(vector.y / R);
+    let ra = Math.atan2(-vector.z, -vector.x);
+    let raDeg = ra * 180 / Math.PI;
+    if (raDeg < 0) raDeg += 360;
+    return { ra: raDeg, dec: dec * 180 / Math.PI };
+  }
+  
+  // Load the constellation full names mapping from the JSON file.
+  const namesMapping = await loadConstellationFullNames();
+  
+  this.cubesData.forEach(cell => {
+    if (!cell.active) return;
+    const cellPos = cell.globeMesh.position.clone();
+    let nearestBoundary = null;
+    let minBoundaryDist = Infinity;
+    boundaries.forEach(boundary => {
+       const p1 = radToSphere(boundary.ra1, boundary.dec1, 100);
+       const p2 = radToSphere(boundary.ra2, boundary.dec2, 100);
+       const angDist = minAngularDistanceToSegment(cellPos, p1, p2);
+       if (angDist < minBoundaryDist) {
+         minBoundaryDist = angDist;
+         nearestBoundary = boundary;
+       }
+    });
+    if (!nearestBoundary) {
+       cell.constellation = "Unknown";
+       return;
+    }
+    const abbr1 = nearestBoundary.const1.toUpperCase();
+    const abbr2 = nearestBoundary.const2 ? nearestBoundary.const2.toUpperCase() : null;
+    const fullName1 = namesMapping[abbr1] || toTitleCase(abbr1);
+    const fullName2 = abbr2 ? (namesMapping[abbr2] || toTitleCase(abbr2)) : null;
+    
+    const bp1 = radToSphere(nearestBoundary.ra1, nearestBoundary.dec1, 100);
+    const bp2 = radToSphere(nearestBoundary.ra2, nearestBoundary.dec2, 100);
+    let normal = bp1.clone().cross(bp2).normalize();
+    const center1 = centers.find(c => {
+      const nameUp = c.name.toUpperCase();
+      return nameUp === abbr1 || nameUp === fullName1.toUpperCase();
+    });
+    let center1Pos = center1 ? radToSphere(center1.ra, center1.dec, 100) : null;
+    if (center1Pos && normal.dot(center1Pos) < 0) {
+       normal.negate();
+    }
+    const cellSide = normal.dot(cellPos);
+    if (cellSide >= 0) {
+       cell.constellation = toTitleCase(fullName1);
+    } else if (fullName2) {
+       cell.constellation = toTitleCase(fullName2);
+    } else {
+       const { ra: cellRA, dec: cellDec } = vectorToRaDec(cellPos);
+       let bestConstellation = "Unknown";
+       let minAngle = Infinity;
+       centers.forEach(center => {
+          const centerRAdeg = THREE.Math.radToDeg(center.ra);
+          const centerDecdeg = THREE.Math.radToDeg(center.dec);
+          const angDist = angularDistance(cellRA, cellDec, centerRAdeg, centerDecdeg);
+          if (angDist < minAngle) {
+            minAngle = angDist;
+            bestConstellation = toTitleCase(center.name);
+          }
+       });
+       cell.constellation = bestConstellation;
+    }
+    console.log(`Cell ID ${cell.id} assigned to constellation ${cell.constellation} via boundary attribution.`);
+    
+    function angularDistance(ra1, dec1, ra2, dec2) {
+      const ra1Rad = THREE.Math.degToRad(ra1);
+      const dec1Rad = THREE.Math.degToRad(dec1);
+      const ra2Rad = THREE.Math.degToRad(ra2);
+      const dec2Rad = THREE.Math.degToRad(dec2);
+      const cosDelta = Math.sin(dec1Rad) * Math.sin(dec2Rad) +
+                       Math.cos(dec1Rad) * Math.cos(dec2Rad) * Math.cos(ra1Rad - ra2Rad);
+      const delta = Math.acos(THREE.MathUtils.clamp(cosDelta, -1, 1));
+      return THREE.Math.radToDeg(delta);
     }
   });
-  Object.keys(neighbors).forEach(key => {
-    neighbors[key] = Array.from(neighbors[key]);
+  // End of assignConstellationsToCells
+}
+
+/**
+ * Creates constellation label meshes for the Globe.
+ */
+export function createConstellationLabelsForGlobe() {
+  const labels = [];
+  const R = 100;
+  const centers = getConstellationCenters();
+  centers.forEach(c => {
+    const p = radToSphere(c.ra, c.dec, R);
+    const baseFontSize = 300;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.font = `${baseFontSize}px Arial`;
+    const textWidth = ctx.measureText(c.name).width;
+    canvas.width = textWidth + 20;
+    canvas.height = baseFontSize * 1.2;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = `${baseFontSize}px Arial`;
+    ctx.fillStyle = '#888888';
+    ctx.fillText(c.name, 10, baseFontSize);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        map: { value: texture },
+        opacity: { value: 0.5 }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D map;
+        uniform float opacity;
+        varying vec2 vUv;
+        void main() {
+          vec2 uvCorrected = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);
+          vec4 color = texture2D(map, uvCorrected);
+          gl_FragColor = vec4(color.rgb, color.a * opacity);
+        }
+      `,
+      transparent: true,
+      side: THREE.DoubleSide
+    });
+    const planeGeom = new THREE.PlaneGeometry(canvas.width / 100, canvas.height / 100);
+    const label = new THREE.Mesh(planeGeom, material);
+    label.position.copy(p);
+    const normal = p.clone().normalize();
+    const globalUp = new THREE.Vector3(0, 1, 0);
+    let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
+    if (desiredUp.lengthSq() < 1e-6) desiredUp = new THREE.Vector3(0, 0, 1);
+    else desiredUp.normalize();
+    const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
+    const matrix = new THREE.Matrix4();
+    matrix.makeBasis(desiredRight, desiredUp, normal);
+    label.setRotationFromMatrix(matrix);
+    label.renderOrder = 1;
+    labels.push(label);
   });
-  return neighbors;
+  return labels;
 }
 
-function radToSphere(ra, dec, R) {
-  const x = -R * Math.cos(dec) * Math.cos(ra);
-  const y = R * Math.sin(dec);
-  const z = -R * Math.cos(dec) * Math.sin(ra);
-  return new THREE.Vector3(x, y, z);
-}
-
-export { CONSTELLATION_FULL_NAMES };
+// (Other helper functions remain unchanged)
