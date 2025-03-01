@@ -1,18 +1,18 @@
 // /filters/densityGridOverlay.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import {
-  getDoubleSidedLabelMaterial,
-  getBaseColor,
-  lightenColor,
-  darkenColor,
-  getBlueColor
+import { 
+  getDoubleSidedLabelMaterial, 
+  getBaseColor, 
+  lightenColor, 
+  darkenColor, 
+  getBlueColor 
 } from './densityColorUtils.js';
-import {
-  getGreatCirclePoints,
-  computeInterconnectedCell,
-  segmentOceanCandidate,
-  computeCentroid,
-  assignDistinctColorsToIndependent
+import { 
+  getGreatCirclePoints, 
+  computeInterconnectedCell, 
+  segmentOceanCandidate, 
+  computeCentroid, 
+  assignDistinctColorsToIndependent 
 } from './densitySegmentation.js';
 
 export class DensityGridOverlay {
@@ -88,7 +88,9 @@ export class DensityGridOverlay {
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
       const dArr = stars.map(star => {
-        let starPos = star.truePosition ? star.truePosition : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+        let starPos = star.truePosition 
+          ? star.truePosition 
+          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
         const dx = cell.tcPos.x - starPos.x;
         const dy = cell.tcPos.y - starPos.y;
         const dz = cell.tcPos.z - starPos.z;
@@ -208,7 +210,6 @@ export class DensityGridOverlay {
   getMostCommonConstellation(cells) {
     const counts = {};
     cells.forEach(cell => {
-      // Count even "UNKNOWN" so we can decide if there are any valid entries.
       const con = (cell.constellation || "UNKNOWN").toUpperCase();
       counts[con] = (counts[con] || 0) + 1;
     });
@@ -226,8 +227,8 @@ export class DensityGridOverlay {
   // NEW: Assign constellation names to active cells using the RA/DEC polygon data.
   assignConstellationsToCells(constellationData) {
     this.cubesData.forEach(cell => {
-      if (!cell.active) return; // Only consider active cells
-      // Project the cell's true coordinate (tcPos) onto a sphere of radius 100
+      if (!cell.active) return;
+      // Project the cell's tcPos onto a sphere of radius 100.
       const projected = cell.tcPos.clone().normalize().multiplyScalar(100);
       const cellRaDec = vectorToRaDec(projected);
       let foundConstellation = null;
@@ -244,7 +245,6 @@ export class DensityGridOverlay {
   }
   
   classifyEmptyRegions() {
-    // Reset IDs and clear cluster info
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -292,6 +292,7 @@ export class DensityGridOverlay {
     });
     const regions = [];
     clusters.forEach((cells, idx) => {
+      // Determine the most common constellation in the cluster.
       const commonConstellation = this.getMostCommonConstellation(cells);
       if (cells.length < 0.1 * V_max) {
         regions.push({
@@ -362,6 +363,28 @@ export class DensityGridOverlay {
     });
     this.regionClusters = regions;
     return regions;
+  }
+  
+  // NEW: Restore updateRegionColors method.
+  updateRegionColors() {
+    const regions = this.classifyEmptyRegions();
+    const independentRegions = regions.filter(r => r.type === 'Ocean' || r.type === 'Sea' || r.type === 'Lake');
+    assignDistinctColorsToIndependent(independentRegions);
+    regions.forEach(region => {
+      if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
+        region.cells.forEach(cell => {
+          cell.tcMesh.material.color.set(region.color || getBlueColor(region.constName));
+          cell.globeMesh.material.color.set(region.color || getBlueColor(region.constName));
+        });
+      } else if (region.type === 'Strait') {
+        let parentColor = getBlueColor(region.constName);
+        region.color = lightenColor(parentColor, 0.1);
+        region.cells.forEach(cell => {
+          cell.tcMesh.material.color.set(region.color);
+          cell.globeMesh.material.color.set(region.color);
+        });
+      }
+    });
   }
   
   createRegionLabel(text, position, mapType) {
@@ -436,7 +459,7 @@ export class DensityGridOverlay {
       if (region.bestCell) {
         labelPos = region.bestCell.tcPos;
       } else {
-        labelPos = computeCentroid(region.cells); // Imported from densitySegmentation.js
+        labelPos = computeCentroid(region.cells); // using the imported computeCentroid
       }
       if (mapType === 'Globe') {
         labelPos = this.projectToGlobe(labelPos);
@@ -455,7 +478,6 @@ export class DensityGridOverlay {
 
 // --- Helper functions for RA/DEC conversion and point-in-polygon testing ---
 
-// Modified pointInPolygon to handle RA wrap-around if needed.
 function pointInPolygon(point, vs) {
   // point: {ra, dec} with ra in [0,360) and dec in degrees
   let minRa = Infinity, maxRa = -Infinity;
