@@ -1,4 +1,4 @@
-// filters/densityfilter.js
+// densityFilter.js
 
 import { DensityGridOverlay } from './densityGridOverlay.js';
 
