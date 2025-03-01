@@ -63,7 +63,6 @@ export class DensityGridOverlay {
             },
             active: false
           };
-          // assign an ID for later logging
           cell.id = this.cubesData.length;
           this.cubesData.push(cell);
         }
