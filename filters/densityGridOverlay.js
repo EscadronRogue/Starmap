@@ -63,6 +63,7 @@ export class DensityGridOverlay {
             },
             active: false
           };
+          // assign an ID (used later for logging and for clustering)
           cell.id = this.cubesData.length;
           this.cubesData.push(cell);
         }
@@ -75,7 +76,9 @@ export class DensityGridOverlay {
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
       const dArr = stars.map(star => {
-        let starPos = star.truePosition ? star.truePosition : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+        let starPos = star.truePosition
+          ? star.truePosition
+          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
         const dx = cell.tcPos.x - starPos.x;
         const dy = cell.tcPos.y - starPos.y;
         const dz = cell.tcPos.z - starPos.z;
@@ -192,6 +195,7 @@ export class DensityGridOverlay {
   }
   
   classifyEmptyRegions() {
+    // First, ensure each active cell already has its constellation assigned (via assignConstellationsToCells)
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -239,7 +243,9 @@ export class DensityGridOverlay {
     });
     const regions = [];
     clusters.forEach((cells, idx) => {
-      const regionConst = "Unknown";
+      // NEW: compute the most common constellation for this cluster
+      const regionConst = computeMostCommonConstellation(cells);
+      // Use the region type based on the volume (number of cells)
       if (cells.length < 0.1 * V_max) {
         regions.push({
           clusterId: idx,
@@ -277,7 +283,7 @@ export class DensityGridOverlay {
           });
         } else {
           segResult.cores.forEach((core, i) => {
-            const seaConst = "Unknown";
+            const seaConst = computeMostCommonConstellation(core);
             regions.push({
               clusterId: idx + "_sea_" + i,
               cells: core,
@@ -290,7 +296,7 @@ export class DensityGridOverlay {
             });
           });
           if (segResult.neck && segResult.neck.length > 0) {
-            const neckConst = "Unknown";
+            const neckConst = computeMostCommonConstellation(segResult.neck);
             let straitColor = lightenColor(getBlueColor(neckConst), 0.1);
             regions.push({
               clusterId: idx + "_neck",
@@ -424,7 +430,6 @@ export class DensityGridOverlay {
   assignConstellationsToCells(constellationData) {
     this.cubesData.forEach(cell => {
       if (!cell.active) return; // Only consider active cells
-      // Project the cell's true coordinate onto a sphere of radius 100
       const projected = cell.tcPos.clone().normalize().multiplyScalar(100);
       const cellRaDec = vectorToRaDec(projected);
       let foundConstellation = null;
@@ -467,4 +472,23 @@ function pointInPolygon(point, vs) {
     if (intersect) inside = !inside;
   }
   return inside;
+}
+
+// --- NEW: Helper to compute the most common constellation among a set of cells ---
+function computeMostCommonConstellation(cells) {
+  const counts = {};
+  cells.forEach(cell => {
+    if (cell.constellation) {
+      counts[cell.constellation] = (counts[cell.constellation] || 0) + 1;
+    }
+  });
+  let maxCount = 0;
+  let mostCommon = "Unknown";
+  for (const cons in counts) {
+    if (counts[cons] > maxCount) {
+      maxCount = counts[cons];
+      mostCommon = cons;
+    }
+  }
+  return mostCommon;
 }
