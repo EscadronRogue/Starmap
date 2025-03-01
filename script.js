@@ -30,7 +30,7 @@ let globeMap;
 
 let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
-let constellationOverlayGlobe = []; // overlays for constellation zones
+let constellationOverlayGlobe = [];
 let globeSurfaceSphere = null;
 let densityOverlay = null;
 let globeGrid = null;
@@ -257,6 +257,23 @@ function updateSelectedStarHighlight() {
   });
 }
 
+/**
+ * Debug function to log cluster data after we do everything
+ */
+function debugClusterData() {
+  if (!densityOverlay) return;
+  // Force cluster classification so we can see what the code is seeing
+  const regions = densityOverlay.classifyEmptyRegions();
+  regions.forEach((reg, idx) => {
+    console.log(
+      `Cluster #${idx} => Type: ${reg.type}, Label: ${reg.label}, Constellation: ${reg.constName}`
+    );
+    // Show the cells in that cluster
+    const cellIDs = reg.cells.map(c => `ID${c.id}:${c.constellation}`);
+    console.log(`Cells: [${cellIDs.join(", ")}]`);
+  });
+}
+
 window.onload = async () => {
   const loader = document.getElementById('loader');
   loader.classList.remove('hidden');
@@ -352,6 +369,9 @@ function getCurrentFilters() {
   };
 }
 
+/**
+ * The main function that runs after any filter changes.
+ */
 function buildAndApplyFilters() {
   if (!cachedStars) return;
   const {
@@ -376,8 +396,10 @@ function buildAndApplyFilters() {
   trueCoordinatesMap.labelManager.refreshLabels(currentFilteredStars);
   globeMap.updateMap(currentGlobeFilteredStars, currentGlobeConnections);
   globeMap.labelManager.refreshLabels(currentGlobeFilteredStars);
+
   removeConstellationObjectsFromGlobe();
   removeConstellationOverlayObjectsFromGlobe();
+
   if (showConstellationBoundaries) {
     constellationLinesGlobe = createConstellationBoundariesForGlobe();
     constellationLinesGlobe.forEach(ln => globeMap.scene.add(ln));
@@ -390,8 +412,10 @@ function buildAndApplyFilters() {
     constellationOverlayGlobe = createConstellationOverlayForGlobe();
     constellationOverlayGlobe.forEach(mesh => globeMap.scene.add(mesh));
   }
+
   applyGlobeSurface(globeOpaqueSurface);
-  if (getCurrentFilters().enableDensityMapping) {
+
+  if (enableDensityMapping) {
     if (!densityOverlay) {
       densityOverlay = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars);
       densityOverlay.cubesData.forEach(c => {
@@ -403,19 +427,28 @@ function buildAndApplyFilters() {
       });
     }
     updateDensityMapping(currentFilteredStars);
-    densityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
-    densityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
-    
-    // --- NEW: Load constellation_boundaries.json and assign constellation names to each active density cell ---
+
+    // 1) We update density mapping, which sets which cells are active
+    // 2) We fetch the constellation boundaries
     fetch('constellation_boundaries.json')
       .then(resp => resp.json())
       .then(data => {
+         // 3) We assign constellations to each active cell
          if (densityOverlay && typeof densityOverlay.assignConstellationsToCells === 'function') {
            densityOverlay.assignConstellationsToCells(data);
          }
+         // 4) We forcibly re-run the cluster classification and labeling
+         //    to ensure it sees the final assigned constellation values
+         //    and then log them for debug
+         densityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
+         densityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
+
+         console.log("=== DEBUG: Checking cluster distribution after assignment ===");
+         debugClusterData();
       })
       .catch(err => console.error("Error loading constellation boundaries JSON:", err));
   } else {
+    // If not enabling density mapping, remove old references
     if (densityOverlay) {
       densityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.remove(c.tcMesh);
