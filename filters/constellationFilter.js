@@ -67,6 +67,11 @@ export async function loadConstellationCenters() {
   }
 }
 
+// NEW: Export a getter for the loaded constellation centers.
+export function getConstellationCenters() {
+  return centerData;
+}
+
 export function createConstellationBoundariesForGlobe() {
   const lines = [];
   const R = 100;
