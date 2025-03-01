@@ -76,8 +76,7 @@ export class DensityGridOverlay {
           };
 
           // Compute RA/DEC directly from grid coordinates.
-          // Here we assume that the grid spans from -halfExt to +halfExt along x and y.
-          // We map x to RA (0° to 360°) and y to DEC (-90° to +90°).
+          // Map x to RA (0° to 360°) and y to DEC (-90° to +90°) given the grid extent.
           const cellRa = ((posTC.x + halfExt) / (2 * halfExt)) * 360;
           const cellDec = ((posTC.y + halfExt) / (2 * halfExt)) * 180 - 90;
           cell.ra = cellRa;
@@ -230,7 +229,7 @@ export class DensityGridOverlay {
       const dec1Rad = THREE.Math.degToRad(dec1);
       const ra2Rad = THREE.Math.degToRad(ra2);
       const dec2Rad = THREE.Math.degToRad(dec2);
-      const cosDelta = Math.sin(dec1Rad)*Math.sin(dec2Rad) + Math.cos(dec1Rad)*Math.cos(dec2Rad)*Math.cos(ra1Rad - ra2Rad);
+      const cosDelta = Math.sin(dec1Rad) * Math.sin(dec2Rad) + Math.cos(dec1Rad) * Math.cos(dec2Rad) * Math.cos(ra1Rad - ra2Rad);
       const delta = Math.acos(THREE.MathUtils.clamp(cosDelta, -1, 1));
       return THREE.Math.radToDeg(delta);
     };
@@ -390,18 +389,4 @@ export class DensityGridOverlay {
   }
 }
 
-// Helper: Generates points along the great‑circle path between two points on a sphere.
-export function getGreatCirclePoints(p1, p2, R, segments) {
-  const points = [];
-  const start = p1.clone().normalize().multiplyScalar(R);
-  const end = p2.clone().normalize().multiplyScalar(R);
-  const axis = new THREE.Vector3().crossVectors(start, end).normalize();
-  const angle = start.angleTo(end);
-  for (let i = 0; i <= segments; i++) {
-    const theta = (i / segments) * angle;
-    const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, theta);
-    const point = start.clone().applyQuaternion(quaternion);
-    points.push(point);
-  }
-  return points;
-}
+// Note: The duplicate getGreatCirclePoints function has been removed since it is already imported.
