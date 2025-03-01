@@ -208,7 +208,7 @@ export class DensityGridOverlay {
   getMostCommonConstellation(cells) {
     const counts = {};
     cells.forEach(cell => {
-      // Ignore cells whose constellation is still "UNKNOWN" if there are other valid ones.
+      // Count even "UNKNOWN" so we can decide if there are any valid entries.
       const con = (cell.constellation || "UNKNOWN").toUpperCase();
       counts[con] = (counts[con] || 0) + 1;
     });
@@ -436,7 +436,7 @@ export class DensityGridOverlay {
       if (region.bestCell) {
         labelPos = region.bestCell.tcPos;
       } else {
-        labelPos = computeCentroid(region.cells);
+        labelPos = computeCentroid(region.cells); // Imported from densitySegmentation.js
       }
       if (mapType === 'Globe') {
         labelPos = this.projectToGlobe(labelPos);
@@ -451,32 +451,11 @@ export class DensityGridOverlay {
     });
     scene.add(mapType === 'TrueCoordinates' ? this.regionLabelsGroupTC : this.regionLabelsGroupGlobe);
   }
-  
-  updateRegionColors() {
-    const regions = this.classifyEmptyRegions();
-    const independentRegions = regions.filter(r => r.type === 'Ocean' || r.type === 'Sea' || r.type === 'Lake');
-    assignDistinctColorsToIndependent(independentRegions);
-    regions.forEach(region => {
-      if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
-        region.cells.forEach(cell => {
-          cell.tcMesh.material.color.set(region.color || getBlueColor(region.constName));
-          cell.globeMesh.material.color.set(region.color || getBlueColor(region.constName));
-        });
-      } else if (region.type === 'Strait') {
-        let parentColor = getBlueColor(region.constName);
-        region.color = lightenColor(parentColor, 0.1);
-        region.cells.forEach(cell => {
-          cell.tcMesh.material.color.set(region.color);
-          cell.globeMesh.material.color.set(region.color);
-        });
-      }
-    });
-  }
 }
 
 // --- Helper functions for RA/DEC conversion and point-in-polygon testing ---
 
-// Modified pointInPolygon to handle wrap-around RA values.
+// Modified pointInPolygon to handle RA wrap-around if needed.
 function pointInPolygon(point, vs) {
   // point: {ra, dec} with ra in [0,360) and dec in degrees
   let minRa = Infinity, maxRa = -Infinity;
@@ -484,7 +463,7 @@ function pointInPolygon(point, vs) {
     if (v.ra < minRa) minRa = v.ra;
     if (v.ra > maxRa) maxRa = v.ra;
   });
-  // If the polygon spans more than 180 degrees, assume it crosses the 0° boundary.
+  // If the polygon spans more than 180°, assume it crosses the 0° boundary.
   let adjustedPoint = { ...point };
   let adjustedVs = vs.map(v => ({ ...v }));
   if ((maxRa - minRa) > 180) {
@@ -512,10 +491,4 @@ function vectorToRaDec(vector) {
   let raDeg = ra * 180 / Math.PI;
   if (raDeg < 0) raDeg += 360;
   return { ra: raDeg, dec: dec * 180 / Math.PI };
-}
-
-function computeCentroid(cells) {
-  let sum = new THREE.Vector3(0, 0, 0);
-  cells.forEach(c => sum.add(c.tcPos));
-  return sum.divideScalar(cells.length);
 }
