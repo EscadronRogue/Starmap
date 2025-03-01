@@ -63,7 +63,7 @@ export class DensityGridOverlay {
             },
             active: false
           };
-          // assign an ID (used later for logging and for clustering)
+          // assign an ID (used later for logging and frequency counts)
           cell.id = this.cubesData.length;
           this.cubesData.push(cell);
         }
@@ -76,9 +76,7 @@ export class DensityGridOverlay {
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
       const dArr = stars.map(star => {
-        let starPos = star.truePosition
-          ? star.truePosition
-          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+        let starPos = star.truePosition ? star.truePosition : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
         const dx = cell.tcPos.x - starPos.x;
         const dy = cell.tcPos.y - starPos.y;
         const dz = cell.tcPos.z - starPos.z;
@@ -195,7 +193,7 @@ export class DensityGridOverlay {
   }
   
   classifyEmptyRegions() {
-    // First, ensure each active cell already has its constellation assigned (via assignConstellationsToCells)
+    // Set IDs and reset clusterId for each cell.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -243,9 +241,22 @@ export class DensityGridOverlay {
     });
     const regions = [];
     clusters.forEach((cells, idx) => {
-      // NEW: compute the most common constellation for this cluster
-      const regionConst = computeMostCommonConstellation(cells);
-      // Use the region type based on the volume (number of cells)
+      // Compute frequency of constellation assignments for this cluster.
+      const freq = {};
+      cells.forEach(cell => {
+        if (cell.constellation) {
+          freq[cell.constellation] = (freq[cell.constellation] || 0) + 1;
+        }
+      });
+      let regionConst = "Unknown";
+      let maxCount = 0;
+      for (let key in freq) {
+        if (freq[key] > maxCount) {
+          maxCount = freq[key];
+          regionConst = key;
+        }
+      }
+      
       if (cells.length < 0.1 * V_max) {
         regions.push({
           clusterId: idx,
@@ -283,21 +294,46 @@ export class DensityGridOverlay {
           });
         } else {
           segResult.cores.forEach((core, i) => {
-            const seaConst = computeMostCommonConstellation(core);
+            const coreFreq = {};
+            core.forEach(cell => {
+              if (cell.constellation) {
+                coreFreq[cell.constellation] = (coreFreq[cell.constellation] || 0) + 1;
+              }
+            });
+            let coreConst = "Unknown";
+            let coreMax = 0;
+            for (let key in coreFreq) {
+              if (coreFreq[key] > coreMax) {
+                coreMax = coreFreq[key];
+                coreConst = key;
+              }
+            }
             regions.push({
               clusterId: idx + "_sea_" + i,
               cells: core,
               volume: core.length,
-              constName: seaConst,
+              constName: coreConst,
               type: "Sea",
-              label: `Sea ${seaConst}`,
+              label: `Sea ${coreConst}`,
               labelScale: 0.9,
               bestCell: computeInterconnectedCell(core)
             });
           });
           if (segResult.neck && segResult.neck.length > 0) {
-            const neckConst = computeMostCommonConstellation(segResult.neck);
-            let straitColor = lightenColor(getBlueColor(neckConst), 0.1);
+            const neckFreq = {};
+            segResult.neck.forEach(cell => {
+              if (cell.constellation) {
+                neckFreq[cell.constellation] = (neckFreq[cell.constellation] || 0) + 1;
+              }
+            });
+            let neckConst = "Unknown";
+            let neckMax = 0;
+            for (let key in neckFreq) {
+              if (neckFreq[key] > neckMax) {
+                neckMax = neckFreq[key];
+                neckConst = key;
+              }
+            }
             regions.push({
               clusterId: idx + "_neck",
               cells: segResult.neck,
@@ -307,7 +343,7 @@ export class DensityGridOverlay {
               label: `Strait ${neckConst}`,
               labelScale: 0.7,
               bestCell: computeInterconnectedCell(segResult.neck),
-              color: straitColor
+              color: lightenColor(getBlueColor(neckConst), 0.1)
             });
           }
         }
@@ -430,6 +466,7 @@ export class DensityGridOverlay {
   assignConstellationsToCells(constellationData) {
     this.cubesData.forEach(cell => {
       if (!cell.active) return; // Only consider active cells
+      // Project the cell's true coordinate onto a sphere of radius 100
       const projected = cell.tcPos.clone().normalize().multiplyScalar(100);
       const cellRaDec = vectorToRaDec(projected);
       let foundConstellation = null;
@@ -472,23 +509,4 @@ function pointInPolygon(point, vs) {
     if (intersect) inside = !inside;
   }
   return inside;
-}
-
-// --- NEW: Helper to compute the most common constellation among a set of cells ---
-function computeMostCommonConstellation(cells) {
-  const counts = {};
-  cells.forEach(cell => {
-    if (cell.constellation) {
-      counts[cell.constellation] = (counts[cell.constellation] || 0) + 1;
-    }
-  });
-  let maxCount = 0;
-  let mostCommon = "Unknown";
-  for (const cons in counts) {
-    if (counts[cons] > maxCount) {
-      maxCount = counts[cons];
-      mostCommon = cons;
-    }
-  }
-  return mostCommon;
 }
