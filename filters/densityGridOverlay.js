@@ -461,10 +461,16 @@ export class DensityGridOverlay {
       // Project the cell's true coordinate onto a sphere of radius 100
       const projected = cell.tcPos.clone().normalize().multiplyScalar(100);
       const cellRaDec = this.vectorToRaDec(projected);
+      // Normalize cell RA to 0–360
+      cellRaDec.ra = ((cellRaDec.ra % 360) + 360) % 360;
       let foundConstellation = null;
       for (const constellationObj of constellationData) {
-        const polygon = constellationObj.raDecPolygon;
-        if (this.pointInPolygon(cellRaDec, polygon)) {
+        // Normalize each vertex RA value to 0–360
+        const normalizedPolygon = constellationObj.raDecPolygon.map(v => ({
+          ra: ((v.ra % 360) + 360) % 360,
+          dec: v.dec
+        }));
+        if (this.pointInPolygon(cellRaDec, normalizedPolygon)) {
           foundConstellation = constellationObj.constellation;
           break;
         }
@@ -484,15 +490,15 @@ export class DensityGridOverlay {
   }
   
   // NEW: A point-in-polygon test for RA/DEC points.
+  // This version normalizes the point and polygon vertices.
   pointInPolygon(point, vs) {
-    // point: {ra, dec}, vs: array of {ra, dec}
-    // Because RA is circular, we assume vs are normalized in the 0–360 range.
+    const normalizedPoint = { ra: ((point.ra % 360) + 360) % 360, dec: point.dec };
+    const normalizedVs = vs.map(v => ({ ra: ((v.ra % 360) + 360) % 360, dec: v.dec }));
     let inside = false;
-    for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-      const xi = vs[i].ra, yi = vs[i].dec;
-      const xj = vs[j].ra, yj = vs[j].dec;
-      // If the edge crosses the RA=0 line, adjust accordingly.
-      let xip = xi, xjp = xj, rp = point.ra;
+    for (let i = 0, j = normalizedVs.length - 1; i < normalizedVs.length; j = i++) {
+      const xi = normalizedVs[i].ra, yi = normalizedVs[i].dec;
+      const xj = normalizedVs[j].ra, yj = normalizedVs[j].dec;
+      let xip = xi, xjp = xj, rp = normalizedPoint.ra;
       if (Math.abs(xi - xj) > 180) {
         if (xi > xj) {
           xjp += 360;
@@ -502,8 +508,8 @@ export class DensityGridOverlay {
           if (rp < 180) rp += 360;
         }
       }
-      const intersect = ((yi > point.dec) !== (yj > point.dec)) &&
-        (rp < (xjp - xip) * (point.dec - yi) / ((yj - yi) || 1e-10) + xip);
+      const intersect = ((yi > normalizedPoint.dec) !== (yj > normalizedPoint.dec)) &&
+        (rp < (xjp - xip) * (normalizedPoint.dec - yi) / ((yj - yi) || 1e-10) + xip);
       if (intersect) inside = !inside;
     }
     return inside;
@@ -515,6 +521,24 @@ export class DensityGridOverlay {
     cells.forEach(c => sum.add(c.tcPos));
     return sum.divideScalar(cells.length);
   }
+}
+
+//
+// Helper function outside the class – note: getGreatCirclePoints is defined here once.
+//
+function getGreatCirclePoints(p1, p2, R, segments) {
+  const points = [];
+  const start = p1.clone().normalize().multiplyScalar(R);
+  const end = p2.clone().normalize().multiplyScalar(R);
+  const axis = new THREE.Vector3().crossVectors(start, end).normalize();
+  const angle = start.angleTo(end);
+  for (let i = 0; i <= segments; i++) {
+    const theta = (i / segments) * angle;
+    const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, theta);
+    const point = start.clone().applyQuaternion(quaternion);
+    points.push(point);
+  }
+  return points;
 }
 
 // Note: computeInterconnectedCell and segmentOceanCandidate are imported from densitySegmentation.js
