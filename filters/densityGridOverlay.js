@@ -1,29 +1,38 @@
 // /filters/densityGridOverlay.js
-
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor, getBlueColor } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent } from './densitySegmentation.js';
 
+/**
+ * The DensityGridOverlay class manages the 3D cells (tcMesh, globeMesh) used to visualize
+ * empty space or cluster regions, including how we label them as 'Sea [constellation]' or 'Ocean [constellation]'.
+ */
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
     this.maxDistance = maxDistance;
     this.gridSize = gridSize;
-    this.cubesData = [];
-    this.adjacentLines = [];
-    this.regionClusters = [];
+    this.cubesData = [];          // array of cell objects
+    this.adjacentLines = [];      // lines connecting adjacent cells on the globe
+    this.regionClusters = [];     // final array of region objects after classification
     this.regionLabelsGroupTC = new THREE.Group();
     this.regionLabelsGroupGlobe = new THREE.Group();
   }
 
+  /**
+   * Creates the grid of cells within maxDistance from center.
+   */
   createGrid(stars) {
     const halfExt = Math.ceil(this.maxDistance / this.gridSize) * this.gridSize;
-    this.cubesData = [];
+    this.cubesData = []; // reset
+
     for (let x = -halfExt; x <= halfExt; x += this.gridSize) {
       for (let y = -halfExt; y <= halfExt; y += this.gridSize) {
         for (let z = -halfExt; z <= halfExt; z += this.gridSize) {
           const posTC = new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5);
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
+
+          // 3D box for TrueCoordinates
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -34,14 +43,16 @@ export class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
 
+          // 2D plane for the globe
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
 
-          // Project onto sphere
           if (distFromCenter < 1e-6) {
-            squareGlobe.position.set(0,0,0);
+            // near center
+            squareGlobe.position.set(0, 0, 0);
           } else {
+            // project onto sphere radius=100
             const ra = Math.atan2(-posTC.z, -posTC.x);
             const dec = Math.asin(posTC.y / distFromCenter);
             const radius = 100;
@@ -51,17 +62,15 @@ export class DensityGridOverlay {
               -radius * Math.cos(dec) * Math.sin(ra)
             );
             squareGlobe.position.copy(projectedPos);
-            squareGlobe.quaternion.setFromUnitVectors(
-              new THREE.Vector3(0, 0, 1),
-              projectedPos.clone().normalize()
-            );
+            const normal = projectedPos.clone().normalize();
+            squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), normal);
           }
 
           const cell = {
-            tcMesh: cubeTC,
-            globeMesh: squareGlobe,
-            tcPos: posTC,
-            distances: [],
+            tcMesh: cubeTC,         // 3D box in TrueCoordinates
+            globeMesh: squareGlobe, // plane in Globe
+            tcPos: posTC,           // the raw 3D position
+            distances: [],          // distances to stars
             grid: {
               ix: Math.round(x / this.gridSize),
               iy: Math.round(y / this.gridSize),
@@ -79,20 +88,29 @@ export class DensityGridOverlay {
     this.computeAdjacentLines();
   }
   
+  /**
+   * For each cell, store a sorted array of distances to the stars,
+   * so we can decide if the cell is "active" based on isolation or tolerance.
+   */
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
       const dArr = stars.map(star => {
-        let starPos = star.truePosition ? star.truePosition : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+        const starPos = star.truePosition
+          ? star.truePosition
+          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
         const dx = cell.tcPos.x - starPos.x;
         const dy = cell.tcPos.y - starPos.y;
         const dz = cell.tcPos.z - starPos.z;
-        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+        return Math.sqrt(dx*dx + dy*dy + dz*dz);
       });
-      dArr.sort((a, b) => a - b);
+      dArr.sort((a,b) => a - b);
       cell.distances = dArr;
     });
   }
   
+  /**
+   * Build lines between adjacent cells for the globe.
+   */
   computeAdjacentLines() {
     this.adjacentLines = [];
     const cellMap = new Map();
@@ -100,33 +118,39 @@ export class DensityGridOverlay {
       const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
       cellMap.set(key, cell);
     });
+
     const directions = [];
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dz = -1; dz <= 1; dz++) {
           if (dx === 0 && dy === 0 && dz === 0) continue;
+          // only push half of them to avoid duplicates
           if (dx > 0 || (dx === 0 && dy > 0) || (dx === 0 && dy === 0 && dz > 0)) {
-            directions.push({ dx, dy, dz });
+            directions.push({dx, dy, dz});
           }
         }
       }
     }
+
     directions.forEach(dir => {
       this.cubesData.forEach(cell => {
         const neighborKey = `${cell.grid.ix + dir.dx},${cell.grid.iy + dir.dy},${cell.grid.iz + dir.dz}`;
         if (cellMap.has(neighborKey)) {
           const neighbor = cellMap.get(neighborKey);
+          // build a line for the globe
           const points = getGreatCirclePoints(cell.globeMesh.position, neighbor.globeMesh.position, 100, 16);
+
           const positions = [];
           const colors = [];
           const c1 = cell.globeMesh.material.color;
           const c2 = neighbor.globeMesh.material.color;
           for (let i = 0; i < points.length; i++) {
-            positions.push(points[i].x, points[i].y, points[i].z);
-            let t = i / (points.length - 1);
-            let r = THREE.MathUtils.lerp(c1.r, c2.r, t);
-            let g = THREE.MathUtils.lerp(c1.g, c2.g, t);
-            let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
+            const p = points[i];
+            positions.push(p.x, p.y, p.z);
+            const t = i / (points.length - 1);
+            const r = THREE.MathUtils.lerp(c1.r, c2.r, t);
+            const g = THREE.MathUtils.lerp(c1.g, c2.g, t);
+            const b = THREE.MathUtils.lerp(c1.b, c2.b, t);
             colors.push(r, g, b);
           }
           const geom = new THREE.BufferGeometry();
@@ -140,12 +164,16 @@ export class DensityGridOverlay {
           });
           const line = new THREE.Line(geom, mat);
           line.renderOrder = 1;
-          this.adjacentLines.push({ line, cell1: cell, cell2: neighbor });
+          this.adjacentLines.push({line, cell1: cell, cell2: neighbor});
         }
       });
     });
   }
   
+  /**
+   * For each cell, we see if it's "active" based on the user-chosen isolationVal & toleranceVal
+   * from the filter UI. Then we set the cell meshes (tcMesh, globeMesh) visible or not.
+   */
   update(stars) {
     const densitySlider = document.getElementById('density-slider');
     const toleranceSlider = document.getElementById('tolerance-slider');
@@ -159,36 +187,46 @@ export class DensityGridOverlay {
       }
       const showSquare = isoDist >= isolationVal;
       cell.active = showSquare;
+
+      // color/opacity
       let ratio = cell.tcPos.length() / this.maxDistance;
       if (ratio > 1) ratio = 1;
       const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
+
       cell.tcMesh.visible = showSquare;
       cell.tcMesh.material.opacity = alpha;
+
       cell.globeMesh.visible = showSquare;
       cell.globeMesh.material.opacity = alpha;
+
       const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
       cell.globeMesh.scale.set(scale, scale, 1);
     });
+
+    // lines
     this.adjacentLines.forEach(obj => {
       const { line, cell1, cell2 } = obj;
       if (cell1.globeMesh.visible && cell2.globeMesh.visible) {
         const points = getGreatCirclePoints(cell1.globeMesh.position, cell2.globeMesh.position, 100, 16);
         const positions = [];
         const colors = [];
+
         const c1 = cell1.globeMesh.material.color;
         const c2 = cell2.globeMesh.material.color;
         for (let i = 0; i < points.length; i++) {
-          positions.push(points[i].x, points[i].y, points[i].z);
-          let t = i / (points.length - 1);
-          let r = THREE.MathUtils.lerp(c1.r, c2.r, t);
-          let g = THREE.MathUtils.lerp(c1.g, c2.g, t);
-          let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
+          const p = points[i];
+          positions.push(p.x, p.y, p.z);
+          const t = i / (points.length - 1);
+          const r = THREE.MathUtils.lerp(c1.r, c2.r, t);
+          const g = THREE.MathUtils.lerp(c1.g, c2.g, t);
+          const b = THREE.MathUtils.lerp(c1.b, c2.b, t);
           colors.push(r, g, b);
         }
         line.geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
         line.geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
         line.geometry.attributes.position.needsUpdate = true;
         line.geometry.attributes.color.needsUpdate = true;
+
         const avgScale = (cell1.globeMesh.scale.x + cell2.globeMesh.scale.x) / 2;
         line.material.linewidth = avgScale;
         line.visible = true;
@@ -197,9 +235,13 @@ export class DensityGridOverlay {
       }
     });
   }
-  
+
+  /**
+   * The main function that groups active cells into clusters, determines the "majority" constellation,
+   * and returns an array of region objects (like {type:"Sea", label:"Sea AND", cells:[...], ...}).
+   */
   classifyEmptyRegions() {
-    // Re-normalize every active cell
+    // Re-normalize all active cells' constellation to uppercase or "UNKNOWN"
     this.cubesData.forEach(cell => {
       if (cell.active) {
         if (cell.constellation && cell.constellation !== "UNKNOWN") {
@@ -210,29 +252,22 @@ export class DensityGridOverlay {
       }
     });
 
-    // For debugging, let's log the final values:
-    console.log("=== Debug: classifyEmptyRegions() - Active cells final constellations ===");
-    this.cubesData.forEach(c => {
-      if (c.active) {
-        console.log(`Cell ID ${c.id} => final constellation [${c.constellation}]`);
-      }
-    });
-
+    // We build a BFS/DFS to group them
     const gridMap = new Map();
-    this.cubesData.forEach((cell, index) => {
+    this.cubesData.forEach(cell => {
       cell.clusterId = null;
       if (cell.active) {
         const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
-        gridMap.set(key, index);
+        gridMap.set(key, cell.id);
       }
     });
+
     const clusters = [];
     const visited = new Set();
-
-    // Basic BFS/DFS to group active cells
     for (let i = 0; i < this.cubesData.length; i++) {
       const cell = this.cubesData[i];
       if (!cell.active || visited.has(cell.id)) continue;
+
       let clusterCells = [];
       let stack = [cell];
       while (stack.length > 0) {
@@ -240,14 +275,15 @@ export class DensityGridOverlay {
         if (visited.has(current.id)) continue;
         visited.add(current.id);
         clusterCells.push(current);
+
         for (let dx = -1; dx <= 1; dx++) {
           for (let dy = -1; dy <= 1; dy++) {
             for (let dz = -1; dz <= 1; dz++) {
               if (dx === 0 && dy === 0 && dz === 0) continue;
               const neighborKey = `${current.grid.ix + dx},${current.grid.iy + dy},${current.grid.iz + dz}`;
               if (gridMap.has(neighborKey)) {
-                const neighborIndex = gridMap.get(neighborKey);
-                const neighborCell = this.cubesData[neighborIndex];
+                const neighborCellID = gridMap.get(neighborKey);
+                const neighborCell = this.cubesData[neighborCellID];
                 if (!visited.has(neighborCell.id)) {
                   stack.push(neighborCell);
                 }
@@ -259,14 +295,13 @@ export class DensityGridOverlay {
       clusters.push(clusterCells);
     }
 
+    // find the largest cluster size
     let V_max = 0;
-    clusters.forEach(cells => {
-      if (cells.length > V_max) V_max = cells.length;
-    });
+    clusters.forEach(c => { if (c.length > V_max) V_max = c.length; });
 
     const regions = [];
     clusters.forEach((cells, idx) => {
-      // Build frequency map from valid names
+      // build freq map for constellation
       const freq = {};
       cells.forEach(cell => {
         if (cell.constellation !== "UNKNOWN") {
@@ -275,143 +310,95 @@ export class DensityGridOverlay {
       });
       let majority = "UNKNOWN";
       let maxCount = 0;
-      for (const key in freq) {
-        if (freq[key] > maxCount) {
-          maxCount = freq[key];
-          majority = key;
+      for (const nm in freq) {
+        if (freq[nm] > maxCount) {
+          maxCount = freq[nm];
+          majority = nm;
         }
       }
 
-      const regionConst = majority;
-      const clusterSize = cells.length;
-      let typeStr = "Ocean";
-      let labelScaleVal = 1.0;
-
-      if (clusterSize < 0.1 * V_max) {
-        typeStr = "Lake";
-        labelScaleVal = 0.8;
-      } else if (clusterSize < 0.5 * V_max) {
-        typeStr = "Sea";
-        labelScaleVal = 0.9;
+      // pick region type
+      const size = cells.length;
+      let regionType = "Ocean";
+      let labelScale = 1.0;
+      if (size < 0.1 * V_max) {
+        regionType = "Lake";
+        labelScale = 0.8;
+      } else if (size < 0.5 * V_max) {
+        regionType = "Sea";
+        labelScale = 0.9;
       }
 
-      // Check segmentation
+      // check for segmentation
       const segResult = segmentOceanCandidate(cells);
-      if (typeStr === "Ocean" && segResult.segmented) {
+      if (regionType === "Ocean" && segResult.segmented) {
+        // segmented into sub-seas + neck
         segResult.cores.forEach((core, i) => {
-          const subRegion = {
-            clusterId: idx + "_sea_" + i,
+          regions.push({
+            clusterId: idx + `_sea_${i}`,
             cells: core,
             volume: core.length,
-            constName: regionConst,
+            constName: majority,
             type: "Sea",
-            label: `Sea ${regionConst}`,
+            label: `Sea ${majority}`,
             labelScale: 0.9,
             bestCell: computeInterconnectedCell(core)
-          };
-          regions.push(subRegion);
+          });
         });
         if (segResult.neck && segResult.neck.length > 0) {
-          const neckRegion = {
+          regions.push({
             clusterId: idx + "_neck",
             cells: segResult.neck,
             volume: segResult.neck.length,
-            constName: regionConst,
+            constName: majority,
             type: "Strait",
-            label: `Strait ${regionConst}`,
+            label: `Strait ${majority}`,
             labelScale: 0.7,
             bestCell: computeInterconnectedCell(segResult.neck),
-            color: lightenColor(getBlueColor(regionConst), 0.1)
-          };
-          regions.push(neckRegion);
+            color: lightenColor(getBlueColor(majority), 0.1)
+          });
         }
       } else {
-        // Normal region
-        const regionObj = {
+        // normal single region
+        regions.push({
           clusterId: idx,
           cells,
-          volume: clusterSize,
-          constName: regionConst,
-          type: typeStr,
-          label: `${typeStr} ${regionConst}`,
-          labelScale: labelScaleVal,
+          volume: size,
+          constName: majority,
+          type: regionType,
+          label: `${regionType} ${majority}`,
+          labelScale,
           bestCell: computeInterconnectedCell(cells)
-        };
-        regions.push(regionObj);
+        });
       }
     });
 
     this.regionClusters = regions;
     return regions;
   }
-  
-  createRegionLabel(text, position, mapType) {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const baseFontSize = (mapType === 'Globe' ? 300 : 400);
-    ctx.font = `${baseFontSize}px Arial`;
-    const textWidth = ctx.measureText(text).width;
-    canvas.width = textWidth + 20;
-    canvas.height = baseFontSize * 1.2;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.font = `${baseFontSize}px Arial`;
-    ctx.fillStyle = '#ffffff';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, 10, canvas.height / 2);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-    let labelObj;
-    if (mapType === 'Globe') {
-      const planeGeom = new THREE.PlaneGeometry(canvas.width / 100, canvas.height / 100);
-      const material = getDoubleSidedLabelMaterial(texture, 1.0);
-      labelObj = new THREE.Mesh(planeGeom, material);
-      labelObj.renderOrder = 1;
-      const normal = position.clone().normalize();
-      const globalUp = new THREE.Vector3(0, 1, 0);
-      let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
-      if (desiredUp.lengthSq() < 1e-6) desiredUp = new THREE.Vector3(0, 0, 1);
-      else desiredUp.normalize();
-      const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
-      const matrix = new THREE.Matrix4().makeBasis(desiredRight, desiredUp, normal);
-      labelObj.setRotationFromMatrix(matrix);
-    } else {
-      const spriteMaterial = new THREE.SpriteMaterial({
-        map: texture,
-        depthWrite: true,
-        depthTest: true,
-        transparent: true,
-      });
-      labelObj = new THREE.Sprite(spriteMaterial);
-      const scaleFactor = 0.22;
-      labelObj.scale.set((canvas.width / 100) * scaleFactor, (canvas.height / 100) * scaleFactor, 1);
-    }
-    labelObj.position.copy(position);
-    return labelObj;
-  }
-  
-  projectToGlobe(position) {
-    const dist = position.length();
-    if (dist < 1e-6) return new THREE.Vector3(0, 0, 0);
-    const ra = Math.atan2(-position.z, -position.x);
-    const dec = Math.asin(position.y / dist);
-    const radius = 100;
-    return new THREE.Vector3(
-      -radius * Math.cos(dec) * Math.cos(ra),
-       radius * Math.sin(dec),
-      -radius * Math.cos(dec) * Math.sin(ra)
-    );
-  }
-  
+
+  /**
+   * Creates the region labels in 3D (TrueCoordinates or Globe).
+   */
   addRegionLabelsToScene(scene, mapType) {
+    // remove old
     if (mapType === 'TrueCoordinates') {
-      if (this.regionLabelsGroupTC.parent) scene.remove(this.regionLabelsGroupTC);
+      if (this.regionLabelsGroupTC.parent) {
+        scene.remove(this.regionLabelsGroupTC);
+      }
       this.regionLabelsGroupTC = new THREE.Group();
-    } else if (mapType === 'Globe') {
-      if (this.regionLabelsGroupGlobe.parent) scene.remove(this.regionLabelsGroupGlobe);
+    } else {
+      if (this.regionLabelsGroupGlobe.parent) {
+        scene.remove(this.regionLabelsGroupGlobe);
+      }
       this.regionLabelsGroupGlobe = new THREE.Group();
     }
-    this.updateRegionColors();
+
+    // re-run classification
+    this.updateRegionColors();  // <-- calls classifyEmptyRegions internally
     const regions = this.classifyEmptyRegions();
+
+    // create a label for each region
     regions.forEach(region => {
       let labelPos;
       if (region.bestCell) {
@@ -424,15 +411,53 @@ export class DensityGridOverlay {
       }
       const labelSprite = this.createRegionLabel(region.label, labelPos, mapType);
       labelSprite.userData.labelScale = region.labelScale;
+
       if (mapType === 'TrueCoordinates') {
         this.regionLabelsGroupTC.add(labelSprite);
-      } else if (mapType === 'Globe') {
+      } else {
         this.regionLabelsGroupGlobe.add(labelSprite);
       }
     });
-    scene.add(mapType === 'TrueCoordinates' ? this.regionLabelsGroupTC : this.regionLabelsGroupGlobe);
+
+    // add the label group to the scene
+    if (mapType === 'TrueCoordinates') {
+      scene.add(this.regionLabelsGroupTC);
+    } else {
+      scene.add(this.regionLabelsGroupGlobe);
+    }
   }
-  
+
+  /**
+   * Re-classifies and then assigns distinct colors to any "Ocean"/"Sea"/"Lake" regions.
+   */
+  updateRegionColors() {
+    const regions = this.classifyEmptyRegions();
+    const wateryRegions = regions.filter(r => r.type === 'Ocean' || r.type === 'Sea' || r.type === 'Lake');
+    assignDistinctColorsToIndependent(wateryRegions);
+
+    // apply colors to the cells
+    regions.forEach(region => {
+      if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
+        region.cells.forEach(cell => {
+          cell.tcMesh.material.color.set(region.color || getBlueColor(region.constName));
+          cell.globeMesh.material.color.set(region.color || getBlueColor(region.constName));
+        });
+      } else if (region.type === 'Strait') {
+        // lighten the parent's color
+        let parentColor = getBlueColor(region.constName);
+        region.color = lightenColor(parentColor, 0.1);
+        region.cells.forEach(cell => {
+          cell.tcMesh.material.color.set(region.color);
+          cell.globeMesh.material.color.set(region.color);
+        });
+      }
+    });
+  }
+
+  /**
+   * Called after we fetch constellation_boundaries.json. We loop over each active cell
+   * and try to find its best matching constellation. Then store it as "constellation" (uppercase).
+   */
   assignConstellationsToCells(constellationData) {
     this.cubesData.forEach(cell => {
       if (!cell.active) return;
@@ -454,8 +479,11 @@ export class DensityGridOverlay {
   }
 }
 
-// Helper for RA/DEC conversion
+// -------------------------------------
+// Helper functions:
+
 function vectorToRaDec(vector) {
+  // Takes a point on the sphere radius=100, returns {ra, dec}
   const dec = Math.asin(vector.y / 100);
   let ra = Math.atan2(-vector.z, -vector.x);
   let raDeg = ra * 180 / Math.PI;
@@ -463,8 +491,8 @@ function vectorToRaDec(vector) {
   return { ra: raDeg, dec: dec * 180 / Math.PI };
 }
 
-// Basic ray-casting style point-in-polygon in RA/DEC
 function pointInPolygon(point, vs) {
+  // Basic 2D ray-casting in RA/DEC
   let inside = false;
   for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
     const xi = vs[i].ra, yi = vs[i].dec;
