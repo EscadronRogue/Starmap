@@ -11,6 +11,66 @@ import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate 
 // Import both constellation centers and boundaries loaders and getters:
 import { loadConstellationCenters, getConstellationCenters, loadConstellationBoundaries, getConstellationBoundaries } from './constellationFilter.js';
 
+/**
+ * Mapping from 3‑letter constellation abbreviations to full proper names.
+ */
+const CONSTELLATION_FULL_NAMES = {
+  "AND": "Andromeda",
+  "ANT": "Antlia",
+  "APS": "Apus",
+  "AQR": "Aquarius",
+  "AQL": "Aquila",
+  "ARA": "Ara",
+  "ARI": "Aries",
+  "AUR": "Auriga",
+  "BOO": "Boötes",
+  "RET": "Reticulum",
+  "ORI": "Orion",
+  "PAV": "Pavo",
+  "PEG": "Pegasus",
+  "PSC": "Pisces",
+  "CAS": "Cassiopeia",
+  "PER": "Perseus",
+  "LAC": "Lacerta",
+  "HYA": "Hydra",
+  "VEL": "Vela",
+  "PYX": "Pyxis",
+  "CHA": "Chamaeleon",
+  "MUS": "Musca",
+  "DEL": "Delphinus",
+  "SCT": "Scutum",
+  "GEM": "Gemini",
+  "LYN": "Lynx",
+  "LYR": "Lyra",
+  "IND": "Indus",
+  "MIC": "Microscopium",
+  "CVN": "Canes Venatici",
+  "UMA": "Ursa Major",
+  "UMI": "Ursa Minor",
+  "DRA": "Draco",
+  "CEP": "Cepheus",
+  "COM": "Coma Berenices",
+  "COL": "Columba",
+  "CRB": "Corona Borealis",
+  "CRV": "Corvus",
+  "CRT": "Crater",
+  "CEN": "Centaurus",
+  "LUP": "Lupus",
+  "CRU": "Crux",
+  "CYG": "Cygnus",
+  "CET": "Cetus",
+  "MEN": "Mensa",
+  "LEO": "Leo",
+  "LIB": "Libra",
+  "OCT": "Octans",
+  "SER": "Serpens",
+  "SCO": "Scorpius",
+  "PUP": "Puppis",
+  "VOL": "Volans",
+  "PSA": "Pisces Austrinus",
+  "TRA": "Triangulum Australe"
+};
+
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
     this.maxDistance = maxDistance;
@@ -75,8 +135,7 @@ export class DensityGridOverlay {
             active: false
           };
 
-          // Calculate RA/DEC directly from the grid cell.
-          // (This is used for logging only now.)
+          // Calculate RA/DEC directly from the grid cell (for logging only)
           const cellRa = ((posTC.x + halfExt) / (2 * halfExt)) * 360;
           const cellDec = ((posTC.y + halfExt) / (2 * halfExt)) * 180 - 90;
           cell.ra = cellRa;
@@ -214,8 +273,8 @@ export class DensityGridOverlay {
   }
   
   // ------------------ NEW: Constellation Attribution via Nearest Boundary ------------------
-  // For each active cell we look for the nearest constellation boundary.
-  // Each boundary separates two constellations. We then check on which side of the boundary the cell is.
+  // Instead of using a nearest constellation center, we now use the nearest boundary.
+  // Each boundary separates two constellations; we check on which side of the boundary the cell lies.
   async assignConstellationsToCells() {
     await loadConstellationCenters();
     await loadConstellationBoundaries();
@@ -225,28 +284,26 @@ export class DensityGridOverlay {
       console.warn("No constellation boundaries available!");
       return;
     }
-    // Helper: convert RA/DEC (in radians) to a position on sphere of radius R.
+    // Helper: convert RA/DEC (in radians) into a position on the sphere (radius R).
     function radToSphere(ra, dec, R) {
       const x = -R * Math.cos(dec) * Math.cos(ra);
       const y = R * Math.sin(dec);
       const z = -R * Math.cos(dec) * Math.sin(ra);
       return new THREE.Vector3(x, y, z);
     }
-    // Helper: compute minimal angular distance (in degrees) from cellPos to a great‐circle segment defined by p1 and p2.
+    // Helper: compute minimal angular distance (in degrees) from a point (cellPos) to a great‐circle segment (p1-p2)
     function minAngularDistanceToSegment(cellPos, p1, p2) {
       const angleToP1 = cellPos.angleTo(p1);
       const angleToP2 = cellPos.angleTo(p2);
       const arcAngle = p1.angleTo(p2);
-      // Compute perpendicular angular distance to the great circle.
       const perpAngle = Math.asin(Math.abs(cellPos.clone().normalize().dot(p1.clone().cross(p2).normalize())));
-      // Check if the perpendicular falls within the segment.
       if (angleToP1 + angleToP2 - arcAngle < 1e-3) {
         return THREE.Math.radToDeg(perpAngle);
       } else {
         return THREE.Math.radToDeg(Math.min(angleToP1, angleToP2));
       }
     }
-    // Helper: convert a position vector (on sphere) to RA/DEC (degrees).
+    // Helper: Convert position vector (on sphere) to RA/DEC (degrees).
     function vectorToRaDec(vector) {
       const R = 100;
       const dec = Math.asin(vector.y / R);
@@ -258,10 +315,7 @@ export class DensityGridOverlay {
     
     this.cubesData.forEach(cell => {
       if (!cell.active) return;
-      // Use the cell's globe mesh position (assumed to be near radius=100)
       const cellPos = cell.globeMesh.position.clone();
-      
-      // Find the nearest boundary segment
       let nearestBoundary = null;
       let minBoundaryDist = Infinity;
       boundaries.forEach(boundary => {
@@ -277,34 +331,35 @@ export class DensityGridOverlay {
          cell.constellation = "UNKNOWN";
          return;
       }
-      // For the nearest boundary, retrieve the two constellations that it separates.
-      const const1Name = nearestBoundary.const1.toUpperCase();
-      const const2Name = nearestBoundary.const2 ? nearestBoundary.const2.toUpperCase() : null;
+      // Retrieve the two constellations separated by the boundary.
+      const abbr1 = nearestBoundary.const1.toUpperCase();
+      const abbr2 = nearestBoundary.const2 ? nearestBoundary.const2.toUpperCase() : null;
+      // Get full names via the mapping.
+      const fullName1 = CONSTELLATION_FULL_NAMES[abbr1] || abbr1;
+      const fullName2 = abbr2 ? (CONSTELLATION_FULL_NAMES[abbr2] || abbr2) : null;
       
       // Compute the 3D positions for the boundary endpoints.
       const bp1 = radToSphere(nearestBoundary.ra1, nearestBoundary.dec1, 100);
       const bp2 = radToSphere(nearestBoundary.ra2, nearestBoundary.dec2, 100);
-      // Compute the normal to the boundary’s great circle.
+      // Compute the boundary's normal.
       let normal = bp1.clone().cross(bp2).normalize();
-      // Enforce a convention: have normal point toward constellation const1.
-      const center1 = centers.find(c => c.name.toUpperCase() === const1Name);
+      // Force the normal to point toward fullName1.
+      const center1 = centers.find(c => (c.name.toUpperCase() === abbr1 || c.name.toUpperCase() === fullName1.toUpperCase()));
       let center1Pos = center1 ? radToSphere(center1.ra, center1.dec, 100) : null;
       if (center1Pos && normal.dot(center1Pos) < 0) {
          normal.negate();
       }
-      // Check which side of the boundary the cell is on:
       const cellSide = normal.dot(cellPos);
-      // If cellSide is positive, assign to const1; otherwise, if available, to const2.
       if (cellSide >= 0) {
-         cell.constellation = nearestBoundary.const1;
-      } else if (const2Name) {
-         cell.constellation = nearestBoundary.const2;
+         cell.constellation = fullName1;
+      } else if (fullName2) {
+         cell.constellation = fullName2;
       } else {
-         // Fallback: use nearest center among const1 and (if available) const2.
+         // Fallback to nearest-center check
          const { ra: cellRA, dec: cellDec } = vectorToRaDec(cellPos);
          let bestConstellation = "UNKNOWN";
          let minAngle = Infinity;
-         [center1, centers.find(c => c.name.toUpperCase() === const2Name)].forEach(center => {
+         [center1, centers.find(c => c.name.toUpperCase() === abbr2)]?.forEach(center => {
             if (!center) return;
             const centerRAdeg = THREE.Math.radToDeg(center.ra);
             const centerDecdeg = THREE.Math.radToDeg(center.dec);
@@ -319,7 +374,6 @@ export class DensityGridOverlay {
       console.log(`Cell ID ${cell.id} assigned to constellation ${cell.constellation} via boundary attribution.`);
     });
     
-    // Local helper: angular distance between two (RA,DEC) points (in degrees)
     function angularDistance(ra1, dec1, ra2, dec2) {
       const ra1Rad = THREE.Math.degToRad(ra1);
       const dec1Rad = THREE.Math.degToRad(dec1);
@@ -440,12 +494,12 @@ export class DensityGridOverlay {
   updateRegionColors() {
     const regions = this.classifyEmptyRegions();
     regions.forEach(region => {
-      if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
+      if (region.type === 'Oceanus' || region.type === 'Mare' || region.type === 'Lacus') {
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color || getBlueColor(region.constName));
           cell.globeMesh.material.color.set(region.color || getBlueColor(region.constName));
         });
-      } else if (region.type === 'Strait') {
+      } else if (region.type === 'Fretum') {
         let parentColor = getBlueColor(region.constName);
         region.color = lightenColor(parentColor, 0.1);
         region.cells.forEach(cell => {
@@ -456,9 +510,9 @@ export class DensityGridOverlay {
     });
   }
   
-  // ------------------ NEW: Region Classification ------------------
+  // ------------------ NEW: Region Classification with Latin Names ------------------
   classifyEmptyRegions() {
-    // Reset cell IDs and clear any previous cluster info.
+    // Reset cell IDs and clear previous clustering info.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -507,14 +561,15 @@ export class DensityGridOverlay {
     const regions = [];
     clusters.forEach((cells, idx) => {
       const majority = this.getMajorityConstellation(cells);
+      // Use thresholds to classify clusters:
       if (cells.length < 0.1 * V_max) {
         regions.push({
           clusterId: idx,
           cells,
           volume: cells.length,
           constName: majority,
-          type: "Lake",
-          label: `Lake ${majority}`,
+          type: "Lacus",
+          label: `Lacus ${majority}`,
           labelScale: 0.8,
           bestCell: computeInterconnectedCell(cells)
         });
@@ -524,8 +579,8 @@ export class DensityGridOverlay {
           cells,
           volume: cells.length,
           constName: majority,
-          type: "Sea",
-          label: `Sea ${majority}`,
+          type: "Mare",
+          label: `Mare ${majority}`,
           labelScale: 0.9,
           bestCell: computeInterconnectedCell(cells)
         });
@@ -537,8 +592,8 @@ export class DensityGridOverlay {
             cells,
             volume: cells.length,
             constName: majority,
-            type: "Ocean",
-            label: `Ocean ${majority}`,
+            type: "Oceanus",
+            label: `Oceanus ${majority}`,
             labelScale: 1.0,
             bestCell: computeInterconnectedCell(cells)
           });
@@ -546,12 +601,12 @@ export class DensityGridOverlay {
           segResult.cores.forEach((core, i) => {
             const coreMajority = this.getMajorityConstellation(core);
             regions.push({
-              clusterId: idx + "_sea_" + i,
+              clusterId: idx + "_mare_" + i,
               cells: core,
               volume: core.length,
               constName: coreMajority,
-              type: "Sea",
-              label: `Sea ${coreMajority}`,
+              type: "Mare",
+              label: `Mare ${coreMajority}`,
               labelScale: 0.9,
               bestCell: computeInterconnectedCell(core)
             });
@@ -560,12 +615,12 @@ export class DensityGridOverlay {
             const neckMajority = this.getMajorityConstellation(segResult.neck);
             let straitColor = lightenColor(getBlueColor(neckMajority), 0.1);
             regions.push({
-              clusterId: idx + "_neck",
+              clusterId: idx + "_fretum",
               cells: segResult.neck,
               volume: segResult.neck.length,
               constName: neckMajority,
-              type: "Strait",
-              label: `Strait ${neckMajority}`,
+              type: "Fretum",
+              label: `Fretum ${neckMajority}`,
               labelScale: 0.7,
               bestCell: computeInterconnectedCell(segResult.neck),
               color: straitColor
@@ -581,17 +636,18 @@ export class DensityGridOverlay {
   getMajorityConstellation(cells) {
     const freq = {};
     cells.forEach(cell => {
-      const cst = cell.constellation && cell.constellation !== "UNKNOWN" ? cell.constellation : null;
-      if (cst) {
-        freq[cst] = (freq[cst] || 0) + 1;
+      const abbr = cell.constellation && cell.constellation !== "UNKNOWN" ? cell.constellation.toUpperCase() : null;
+      if (abbr) {
+         const fullName = CONSTELLATION_FULL_NAMES[abbr] || abbr;
+         freq[fullName] = (freq[fullName] || 0) + 1;
       }
     });
     let maxCount = 0;
     let majority = "UNKNOWN";
     Object.keys(freq).forEach(key => {
       if (freq[key] > maxCount) {
-        maxCount = freq[key];
-        majority = key;
+         maxCount = freq[key];
+         majority = key;
       }
     });
     return majority;
@@ -704,14 +760,14 @@ export class DensityGridOverlay {
   updateRegionColors() {
     const regions = this.classifyEmptyRegions();
     regions.forEach(region => {
-      if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
+      if (region.type === 'Oceanus' || region.type === 'Mare' || region.type === 'Lacus') {
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color || getBlueColor(region.constName));
           cell.globeMesh.material.color.set(region.color || getBlueColor(region.constName));
         });
-      } else if (region.type === 'Strait') {
+      } else if (region.type === 'Fretum') {
         let parentColor = getBlueColor(region.constName);
-        region.color = lightenColor(parentColor, 0.1);
+        region.color = lightenColor(getBlueColor(region.constName), 0.1);
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color);
           cell.globeMesh.material.color.set(region.color);
@@ -720,3 +776,4 @@ export class DensityGridOverlay {
     });
   }
 }
+
