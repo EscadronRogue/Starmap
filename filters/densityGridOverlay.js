@@ -9,7 +9,7 @@ import {
   hexToRGBA 
 } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate } from './densitySegmentation.js';
-// Import the constellation centers that were loaded by the constellation filter.
+// Import the constellation centers loader from the constellation filter.
 import { loadConstellationCenters } from './constellationFilter.js';
 
 export class DensityGridOverlay {
@@ -75,14 +75,15 @@ export class DensityGridOverlay {
             active: false
           };
 
-          // Directly compute RA/DEC for the cell from its grid coordinates.
-          // Here we map x to RA and y to DEC. Adjust as needed based on grid geometry.
+          // Compute RA/DEC directly from grid coordinates.
+          // Here we assume that the grid spans from -halfExt to +halfExt along x and y.
+          // We map x to RA (0° to 360°) and y to DEC (-90° to +90°).
           const cellRa = ((posTC.x + halfExt) / (2 * halfExt)) * 360;
           const cellDec = ((posTC.y + halfExt) / (2 * halfExt)) * 180 - 90;
           cell.ra = cellRa;
           cell.dec = cellDec;
 
-          // assign an ID for logging purposes
+          // assign an ID for logging
           cell.id = this.cubesData.length;
           this.cubesData.push(cell);
         }
@@ -214,25 +215,33 @@ export class DensityGridOverlay {
   }
   
   // ------------------ NEW: Constellation Attribution ------------------
-  // Instead of trying to fit complex polygons from boundary segments (which proved messy),
-  // we now assign each active cell to a constellation using a Voronoi-like approach.
-  // We load the constellation centers (which are assumed to be accurate) and assign
-  // each cell to the constellation whose center is closest in angular distance.
+  // We assign each active cell to a constellation by finding the nearest constellation center.
+  // This yields a gap-free division without relying on tolerance-based point-in-polygon tests.
   async assignConstellationsToCells() {
-    // Ensure the centers have been loaded.
+    // Ensure the constellation centers have been loaded.
     await loadConstellationCenters();
     if (centerData.length === 0) {
       console.warn("No constellation centers available!");
       return;
     }
+    // Local helper: Compute angular distance (in degrees) between two (RA, DEC) points (all in degrees)
+    const angularDistance = (ra1, dec1, ra2, dec2) => {
+      const ra1Rad = THREE.Math.degToRad(ra1);
+      const dec1Rad = THREE.Math.degToRad(dec1);
+      const ra2Rad = THREE.Math.degToRad(ra2);
+      const dec2Rad = THREE.Math.degToRad(dec2);
+      const cosDelta = Math.sin(dec1Rad)*Math.sin(dec2Rad) + Math.cos(dec1Rad)*Math.cos(dec2Rad)*Math.cos(ra1Rad - ra2Rad);
+      const delta = Math.acos(THREE.MathUtils.clamp(cosDelta, -1, 1));
+      return THREE.Math.radToDeg(delta);
+    };
     this.cubesData.forEach(cell => {
       if (!cell.active) return;
-      const cellRA = cell.ra;  // in degrees
+      const cellRA = cell.ra;   // in degrees
       const cellDec = cell.dec; // in degrees
       let bestConstellation = "UNKNOWN";
       let minAngle = Infinity;
       centerData.forEach(center => {
-        // The centers were parsed as radians—convert to degrees.
+        // The centers were parsed as radians—convert them to degrees.
         const centerRAdeg = THREE.Math.radToDeg(center.ra);
         const centerDecdeg = THREE.Math.radToDeg(center.dec);
         const angDist = angularDistance(cellRA, cellDec, centerRAdeg, centerDecdeg);
@@ -246,27 +255,6 @@ export class DensityGridOverlay {
     });
   }
   // ------------------ End Constellation Attribution ------------------
-  
-  // Helper: Compute angular distance between two points (in degrees) on a sphere.
-  // Uses the spherical law of cosines.
-  // Returns the angular distance in degrees.
-  // (All inputs are in degrees.)
-  // 
-  // Note: This method does not use any tolerance—it yields a robust partition.
-  // 
-  // Formula:
-  //   cos(Δ) = sin(dec1)*sin(dec2) + cos(dec1)*cos(dec2)*cos(ra1 - ra2)
-  function angularDistance(ra1, dec1, ra2, dec2) {
-    const ra1Rad = THREE.Math.degToRad(ra1);
-    const dec1Rad = THREE.Math.degToRad(dec1);
-    const ra2Rad = THREE.Math.degToRad(ra2);
-    const dec2Rad = THREE.Math.degToRad(dec2);
-    const cosDelta = Math.sin(dec1Rad)*Math.sin(dec2Rad) + Math.cos(dec1Rad)*Math.cos(dec2Rad)*Math.cos(ra1Rad - ra2Rad);
-    const delta = Math.acos(THREE.MathUtils.clamp(cosDelta, -1, 1));
-    return THREE.Math.radToDeg(delta);
-  }
-  
-  // ---------------------------------------------------------------------
   
   createRegionLabel(text, position, mapType) {
     const canvas = document.createElement('canvas');
@@ -391,7 +379,7 @@ export class DensityGridOverlay {
     return sum.divideScalar(cells.length);
   }
   
-  // ... (The remaining methods such as classifyEmptyRegions, createRegionLabel, projectToGlobe, etc. remain unchanged.)
+  // (Other methods such as classifyEmptyRegions, etc. remain unchanged.)
   
   vectorToRaDec(vector) {
     const r = vector.length();
@@ -401,7 +389,7 @@ export class DensityGridOverlay {
     return { ra: THREE.Math.radToDeg(ra), dec: THREE.Math.radToDeg(dec) };
   }
 }
-  
+
 // Helper: Generates points along the great‑circle path between two points on a sphere.
 export function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
