@@ -1,29 +1,27 @@
 // /filters/densityGridOverlay.js
+
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor, getBlueColor } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent } from './densitySegmentation.js';
 
 /**
- * The DensityGridOverlay class manages the 3D cells (tcMesh, globeMesh) used to visualize
- * empty space or cluster regions, including how we label them as 'Sea [constellation]' or 'Ocean [constellation]'.
+ * The DensityGridOverlay class manages 3D cells for density-based empty regions,
+ * plus logic for cluster classification (“Sea [constellation]”, etc.).
  */
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
     this.maxDistance = maxDistance;
     this.gridSize = gridSize;
-    this.cubesData = [];          // array of cell objects
-    this.adjacentLines = [];      // lines connecting adjacent cells on the globe
-    this.regionClusters = [];     // final array of region objects after classification
+    this.cubesData = [];          // array of “cell” objects
+    this.adjacentLines = [];      // lines for adjacency on the globe
+    this.regionClusters = [];     // result of cluster classification
     this.regionLabelsGroupTC = new THREE.Group();
     this.regionLabelsGroupGlobe = new THREE.Group();
   }
 
-  /**
-   * Creates the grid of cells within maxDistance from center.
-   */
   createGrid(stars) {
     const halfExt = Math.ceil(this.maxDistance / this.gridSize) * this.gridSize;
-    this.cubesData = []; // reset
+    this.cubesData = [];
 
     for (let x = -halfExt; x <= halfExt; x += this.gridSize) {
       for (let y = -halfExt; y <= halfExt; y += this.gridSize) {
@@ -32,7 +30,6 @@ export class DensityGridOverlay {
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
 
-          // 3D box for TrueCoordinates
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -43,14 +40,14 @@ export class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
 
-          // 2D plane for the globe
+          // For the globe: a plane to represent the cell projected on a sphere
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
 
           if (distFromCenter < 1e-6) {
             // near center
-            squareGlobe.position.set(0, 0, 0);
+            squareGlobe.position.set(0,0,0);
           } else {
             // project onto sphere radius=100
             const ra = Math.atan2(-posTC.z, -posTC.x);
@@ -67,10 +64,10 @@ export class DensityGridOverlay {
           }
 
           const cell = {
-            tcMesh: cubeTC,         // 3D box in TrueCoordinates
-            globeMesh: squareGlobe, // plane in Globe
-            tcPos: posTC,           // the raw 3D position
-            distances: [],          // distances to stars
+            tcMesh: cubeTC,
+            globeMesh: squareGlobe,
+            tcPos: posTC,
+            distances: [],
             grid: {
               ix: Math.round(x / this.gridSize),
               iy: Math.round(y / this.gridSize),
@@ -88,10 +85,6 @@ export class DensityGridOverlay {
     this.computeAdjacentLines();
   }
   
-  /**
-   * For each cell, store a sorted array of distances to the stars,
-   * so we can decide if the cell is "active" based on isolation or tolerance.
-   */
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
       const dArr = stars.map(star => {
@@ -108,9 +101,6 @@ export class DensityGridOverlay {
     });
   }
   
-  /**
-   * Build lines between adjacent cells for the globe.
-   */
   computeAdjacentLines() {
     this.adjacentLines = [];
     const cellMap = new Map();
@@ -124,7 +114,6 @@ export class DensityGridOverlay {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dz = -1; dz <= 1; dz++) {
           if (dx === 0 && dy === 0 && dz === 0) continue;
-          // only push half of them to avoid duplicates
           if (dx > 0 || (dx === 0 && dy > 0) || (dx === 0 && dy === 0 && dz > 0)) {
             directions.push({dx, dy, dz});
           }
@@ -137,7 +126,6 @@ export class DensityGridOverlay {
         const neighborKey = `${cell.grid.ix + dir.dx},${cell.grid.iy + dir.dy},${cell.grid.iz + dir.dz}`;
         if (cellMap.has(neighborKey)) {
           const neighbor = cellMap.get(neighborKey);
-          // build a line for the globe
           const points = getGreatCirclePoints(cell.globeMesh.position, neighbor.globeMesh.position, 100, 16);
 
           const positions = [];
@@ -170,16 +158,13 @@ export class DensityGridOverlay {
     });
   }
   
-  /**
-   * For each cell, we see if it's "active" based on the user-chosen isolationVal & toleranceVal
-   * from the filter UI. Then we set the cell meshes (tcMesh, globeMesh) visible or not.
-   */
   update(stars) {
     const densitySlider = document.getElementById('density-slider');
     const toleranceSlider = document.getElementById('tolerance-slider');
     if (!densitySlider || !toleranceSlider) return;
     const isolationVal = parseFloat(densitySlider.value) || 1;
     const toleranceVal = parseInt(toleranceSlider.value) || 0;
+
     this.cubesData.forEach(cell => {
       let isoDist = Infinity;
       if (cell.distances.length > toleranceVal) {
@@ -188,7 +173,6 @@ export class DensityGridOverlay {
       const showSquare = isoDist >= isolationVal;
       cell.active = showSquare;
 
-      // color/opacity
       let ratio = cell.tcPos.length() / this.maxDistance;
       if (ratio > 1) ratio = 1;
       const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
@@ -210,7 +194,6 @@ export class DensityGridOverlay {
         const points = getGreatCirclePoints(cell1.globeMesh.position, cell2.globeMesh.position, 100, 16);
         const positions = [];
         const colors = [];
-
         const c1 = cell1.globeMesh.material.color;
         const c2 = cell2.globeMesh.material.color;
         for (let i = 0; i < points.length; i++) {
@@ -237,11 +220,10 @@ export class DensityGridOverlay {
   }
 
   /**
-   * The main function that groups active cells into clusters, determines the "majority" constellation,
-   * and returns an array of region objects (like {type:"Sea", label:"Sea AND", cells:[...], ...}).
+   * Classify active cells into clusters, find majority constellation, etc.
    */
   classifyEmptyRegions() {
-    // Re-normalize all active cells' constellation to uppercase or "UNKNOWN"
+    // Normalize each active cell's constellation
     this.cubesData.forEach(cell => {
       if (cell.active) {
         if (cell.constellation && cell.constellation !== "UNKNOWN") {
@@ -252,7 +234,7 @@ export class DensityGridOverlay {
       }
     });
 
-    // We build a BFS/DFS to group them
+    // BFS/DFS to group clusters
     const gridMap = new Map();
     this.cubesData.forEach(cell => {
       cell.clusterId = null;
@@ -261,9 +243,9 @@ export class DensityGridOverlay {
         gridMap.set(key, cell.id);
       }
     });
-
     const clusters = [];
     const visited = new Set();
+
     for (let i = 0; i < this.cubesData.length; i++) {
       const cell = this.cubesData[i];
       if (!cell.active || visited.has(cell.id)) continue;
@@ -295,13 +277,12 @@ export class DensityGridOverlay {
       clusters.push(clusterCells);
     }
 
-    // find the largest cluster size
     let V_max = 0;
     clusters.forEach(c => { if (c.length > V_max) V_max = c.length; });
 
     const regions = [];
     clusters.forEach((cells, idx) => {
-      // build freq map for constellation
+      // build frequency map
       const freq = {};
       cells.forEach(cell => {
         if (cell.constellation !== "UNKNOWN") {
@@ -329,10 +310,9 @@ export class DensityGridOverlay {
         labelScale = 0.9;
       }
 
-      // check for segmentation
+      // check segmentation for ocean
       const segResult = segmentOceanCandidate(cells);
       if (regionType === "Ocean" && segResult.segmented) {
-        // segmented into sub-seas + neck
         segResult.cores.forEach((core, i) => {
           regions.push({
             clusterId: idx + `_sea_${i}`,
@@ -359,7 +339,6 @@ export class DensityGridOverlay {
           });
         }
       } else {
-        // normal single region
         regions.push({
           clusterId: idx,
           cells,
@@ -378,27 +357,23 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Creates the region labels in 3D (TrueCoordinates or Globe).
+   * Actually builds the region labels as 2D sprites or planes in 3D.
    */
   addRegionLabelsToScene(scene, mapType) {
     // remove old
     if (mapType === 'TrueCoordinates') {
-      if (this.regionLabelsGroupTC.parent) {
-        scene.remove(this.regionLabelsGroupTC);
-      }
+      if (this.regionLabelsGroupTC.parent) scene.remove(this.regionLabelsGroupTC);
       this.regionLabelsGroupTC = new THREE.Group();
     } else {
-      if (this.regionLabelsGroupGlobe.parent) {
-        scene.remove(this.regionLabelsGroupGlobe);
-      }
+      if (this.regionLabelsGroupGlobe.parent) scene.remove(this.regionLabelsGroupGlobe);
       this.regionLabelsGroupGlobe = new THREE.Group();
     }
 
-    // re-run classification
-    this.updateRegionColors();  // <-- calls classifyEmptyRegions internally
+    // re-classify
+    this.updateRegionColors();
     const regions = this.classifyEmptyRegions();
 
-    // create a label for each region
+    // build a label for each region
     regions.forEach(region => {
       let labelPos;
       if (region.bestCell) {
@@ -409,6 +384,8 @@ export class DensityGridOverlay {
       if (mapType === 'Globe') {
         labelPos = this.projectToGlobe(labelPos);
       }
+
+      // *** call createRegionLabel ***
       const labelSprite = this.createRegionLabel(region.label, labelPos, mapType);
       labelSprite.userData.labelScale = region.labelScale;
 
@@ -419,7 +396,6 @@ export class DensityGridOverlay {
       }
     });
 
-    // add the label group to the scene
     if (mapType === 'TrueCoordinates') {
       scene.add(this.regionLabelsGroupTC);
     } else {
@@ -428,14 +404,12 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Re-classifies and then assigns distinct colors to any "Ocean"/"Sea"/"Lake" regions.
+   * Re-classify and color the watery regions.
    */
   updateRegionColors() {
     const regions = this.classifyEmptyRegions();
-    const wateryRegions = regions.filter(r => r.type === 'Ocean' || r.type === 'Sea' || r.type === 'Lake');
-    assignDistinctColorsToIndependent(wateryRegions);
-
-    // apply colors to the cells
+    const watery = regions.filter(r => r.type === 'Ocean' || r.type === 'Sea' || r.type === 'Lake');
+    assignDistinctColorsToIndependent(watery);
     regions.forEach(region => {
       if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
         region.cells.forEach(cell => {
@@ -443,9 +417,8 @@ export class DensityGridOverlay {
           cell.globeMesh.material.color.set(region.color || getBlueColor(region.constName));
         });
       } else if (region.type === 'Strait') {
-        // lighten the parent's color
-        let parentColor = getBlueColor(region.constName);
-        region.color = lightenColor(parentColor, 0.1);
+        let pColor = getBlueColor(region.constName);
+        region.color = lightenColor(pColor, 0.1);
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color);
           cell.globeMesh.material.color.set(region.color);
@@ -455,35 +428,83 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Called after we fetch constellation_boundaries.json. We loop over each active cell
-   * and try to find its best matching constellation. Then store it as "constellation" (uppercase).
+   * Actually create a label plane or sprite in 3D with the region name.
+   */
+  createRegionLabel(text, position, mapType) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const baseFontSize = (mapType === 'Globe' ? 300 : 400);
+    ctx.font = `${baseFontSize}px Arial`;
+    const textWidth = ctx.measureText(text).width;
+    canvas.width = textWidth + 20;
+    canvas.height = baseFontSize * 1.2;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = `${baseFontSize}px Arial`;
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 10, canvas.height / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+
+    let labelObj;
+    if (mapType === 'Globe') {
+      const planeGeom = new THREE.PlaneGeometry(canvas.width / 100, canvas.height / 100);
+      const material = getDoubleSidedLabelMaterial(texture, 1.0);
+      labelObj = new THREE.Mesh(planeGeom, material);
+      labelObj.renderOrder = 1;
+
+      // orient tangent to the sphere
+      const normal = position.clone().normalize();
+      const globalUp = new THREE.Vector3(0, 1, 0);
+      let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
+      if (desiredUp.lengthSq() < 1e-6) {
+        desiredUp = new THREE.Vector3(0,0,1);
+      } else {
+        desiredUp.normalize();
+      }
+      const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
+      const matrix = new THREE.Matrix4().makeBasis(desiredRight, desiredUp, normal);
+      labelObj.setRotationFromMatrix(matrix);
+    } else {
+      const spriteMaterial = new THREE.SpriteMaterial({
+        map: texture,
+        depthWrite: true,
+        depthTest: true,
+        transparent: true
+      });
+      labelObj = new THREE.Sprite(spriteMaterial);
+      const scaleFactor = 0.22;
+      labelObj.scale.set((canvas.width/100)*scaleFactor, (canvas.height/100)*scaleFactor, 1);
+    }
+    labelObj.position.copy(position);
+    return labelObj;
+  }
+
+  /**
+   * Assign each active cell to a constellation using the user-provided RA/DEC polygons.
    */
   assignConstellationsToCells(constellationData) {
     this.cubesData.forEach(cell => {
       if (!cell.active) return;
-      const projected = cell.tcPos.clone().normalize().multiplyScalar(100);
+      const R = 100;
+      const projected = cell.tcPos.clone().normalize().multiplyScalar(R);
       const cellRaDec = vectorToRaDec(projected);
-      let foundConstellation = null;
-      for (const constellationObj of constellationData) {
-        const polygon = constellationObj.raDecPolygon;
-        if (pointInPolygon(cellRaDec, polygon)) {
-          foundConstellation = constellationObj.constellation;
+      let foundConst = null;
+      for (const cObj of constellationData) {
+        if (pointInPolygon(cellRaDec, cObj.raDecPolygon)) {
+          foundConst = cObj.constellation;
           break;
         }
       }
-      cell.constellation = foundConstellation
-        ? foundConstellation.trim().toUpperCase()
-        : "UNKNOWN";
-      console.log(`Cell ID ${cell.id} => assigned constellation ${cell.constellation}`);
+      cell.constellation = foundConst ? foundConst.trim().toUpperCase() : "UNKNOWN";
+      console.log(`Cell ID ${cell.id} => assigned constellation [${cell.constellation}]`);
     });
   }
 }
 
-// -------------------------------------
-// Helper functions:
-
+// HELPER: Convert a Vector3 on the sphere to RA/DEC
 function vectorToRaDec(vector) {
-  // Takes a point on the sphere radius=100, returns {ra, dec}
   const dec = Math.asin(vector.y / 100);
   let ra = Math.atan2(-vector.z, -vector.x);
   let raDeg = ra * 180 / Math.PI;
@@ -492,13 +513,13 @@ function vectorToRaDec(vector) {
 }
 
 function pointInPolygon(point, vs) {
-  // Basic 2D ray-casting in RA/DEC
+  // simple 2D ray-casting
   let inside = false;
   for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
     const xi = vs[i].ra, yi = vs[i].dec;
     const xj = vs[j].ra, yj = vs[j].dec;
     const intersect = ((yi > point.dec) !== (yj > point.dec)) &&
-      (point.ra < (xj - xi) * (point.dec - yi) / ((yj - yi) || 1e-10) + xi);
+      (point.ra < (xj - xi) * (point.dec - yi) / ((yj - yi)||1e-10) + xi);
     if (intersect) inside = !inside;
   }
   return inside;
