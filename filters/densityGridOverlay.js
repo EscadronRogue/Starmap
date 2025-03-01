@@ -327,7 +327,6 @@ export class DensityGridOverlay {
   getMajorityConstellation(cells) {
     const freq = {};
     cells.forEach(cell => {
-      // Only count if the cell has a valid constellation string (ignore null/undefined or "UNKNOWN")
       const cst = cell.constellation && cell.constellation !== "UNKNOWN" ? cell.constellation : null;
       if (cst) {
         freq[cst] = (freq[cst] || 0) + 1;
@@ -411,7 +410,6 @@ export class DensityGridOverlay {
     }
     this.updateRegionColors();
     const regions = this.classifyEmptyRegions();
-    // DEBUG: Log clusters and their assigned constellations
     console.log("=== DEBUG: Checking cluster distribution after assignment ===");
     regions.forEach((region, idx) => {
       console.log(`Cluster #${idx} => Type: ${region.type}, Label: ${region.label}, Constellation: ${region.constName}`);
@@ -462,9 +460,15 @@ export class DensityGridOverlay {
     });
   }
   
+  computeCentroid(cells) {
+    let sum = new THREE.Vector3(0, 0, 0);
+    cells.forEach(c => sum.add(c.tcPos));
+    return sum.divideScalar(cells.length);
+  }
+  
   // =================== UPDATED: Constellation Attribution ===================
-  // This method assigns a constellation name to each active cell based on a loaded boundaries JSON.
-  // It uses a spherical point‑in‑polygon test.
+  // This method assigns a constellation name to each active cell using the boundaries JSON.
+  // It uses a spherical point‑in‑polygon test and now works directly with the projected cell position.
   assignConstellationsToCells(constellationData) {
     // Helper: Convert (ra, dec) in degrees to a 3D vector on a sphere of radius R.
     const degToSphere = (raDeg, decDeg, R) => {
@@ -486,23 +490,17 @@ export class DensityGridOverlay {
         const v2 = polygon[(i + 1) % n].clone().sub(point).normalize();
         totalAngle += Math.acos(THREE.MathUtils.clamp(v1.dot(v2), -1, 1));
       }
-      return Math.abs(totalAngle - 2 * Math.PI) < 0.3;
+      // Adjusted tolerance to 0.2 radians (≈11°) for a tighter match.
+      return Math.abs(totalAngle - 2 * Math.PI) < 0.2;
     };
 
     this.cubesData.forEach(cell => {
-      if (!cell.active) return; // Only consider active cells
-      // Project the cell's true coordinate onto a sphere of radius 100.
-      const projected = cell.tcPos.clone().normalize().multiplyScalar(100);
-      // Compute RA/DEC (for logging) from the projected position.
-      const cellRaDec = this.vectorToRaDec(projected);
-      // Normalize RA to 0–360.
-      cellRaDec.ra = ((cellRaDec.ra % 360) + 360) % 360;
-      // Convert back to a 3D point using our degToSphere helper.
-      const cellPoint = degToSphere(cellRaDec.ra, cellRaDec.dec, 100);
+      if (!cell.active) return;
+      // Directly project the cell's true coordinate onto the sphere of radius 100.
+      const cellPoint = cell.tcPos.clone().normalize().multiplyScalar(100);
 
       let foundConstellation = null;
       for (const constellationObj of constellationData) {
-        // Convert the constellation's polygon vertices (in degrees) to 3D points.
         const polygon3D = constellationObj.raDecPolygon.map(v => {
           let raNorm = ((v.ra % 360) + 360) % 360;
           return degToSphere(raNorm, v.dec, 100);
@@ -516,7 +514,6 @@ export class DensityGridOverlay {
       console.log(`Cell ID ${cell.id} belongs to constellation ${cell.constellation}`);
     });
   }
-  
   // =================== End of Updated Constellation Attribution ===================
 
   vectorToRaDec(vector) {
@@ -528,5 +525,5 @@ export class DensityGridOverlay {
   }
 }
 
-// Note: The duplicate local definition of getGreatCirclePoints has been removed.
-// We are now exclusively using the imported version from densitySegmentation.js.
+// Note: The duplicate local definition of getGreatCirclePoints has been removed;
+// we now exclusively use the imported version.
