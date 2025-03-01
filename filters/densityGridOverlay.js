@@ -72,12 +72,16 @@ export class DensityGridOverlay {
             active: false
           };
 
-          // DIRECTLY compute RA/DEC from the grid cell's position
-          const { ra, dec } = cartesianToRaDec(posTC);
-          cell.ra = ra;   // in degrees
-          cell.dec = dec; // in degrees
+          // Directly compute RA/DEC for the cell from its grid coordinates.
+          // Here we assume the grid is defined over the full RA (0-360) and DEC (-90 to +90).
+          // For example, we map the x-coordinate to RA and the y-coordinate to DEC.
+          // (Adjust the mapping as needed based on your grid setup.)
+          const cellRa = ((posTC.x + halfExt) / (2 * halfExt)) * 360;
+          const cellDec = ((posTC.y + halfExt) / (2 * halfExt)) * 180 - 90;
+          cell.ra = cellRa;
+          cell.dec = cellDec;
 
-          // assign an ID for logging
+          // assign an ID for logging purposes
           cell.id = this.cubesData.length;
           this.cubesData.push(cell);
         }
@@ -86,7 +90,7 @@ export class DensityGridOverlay {
     this.computeDistances(stars);
     this.computeAdjacentLines();
   }
-
+  
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
       const dArr = stars.map(star => {
@@ -102,7 +106,7 @@ export class DensityGridOverlay {
       cell.distances = dArr;
     });
   }
-
+  
   computeAdjacentLines() {
     this.adjacentLines = [];
     const cellMap = new Map();
@@ -155,7 +159,7 @@ export class DensityGridOverlay {
       });
     });
   }
-
+  
   update(stars) {
     const densitySlider = document.getElementById('density-slider');
     const toleranceSlider = document.getElementById('tolerance-slider');
@@ -207,9 +211,9 @@ export class DensityGridOverlay {
       }
     });
   }
-
+  
   classifyEmptyRegions() {
-    // (Region classification remains unchanged)
+    // Reset cell cluster data.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -329,7 +333,7 @@ export class DensityGridOverlay {
     return regions;
   }
   
-  // Helper method: Determine majority constellation among cells.
+  // Helper: Determine the majority constellation among cells.
   getMajorityConstellation(cells) {
     const freq = {};
     cells.forEach(cell => {
@@ -473,18 +477,9 @@ export class DensityGridOverlay {
   }
   
   // =================== UPDATED: Constellation Attribution ===================
-  // This new method calculates the cell's RA/DEC directly and uses a 2D ray‑casting algorithm.
+  // This method assigns a constellation name to each active cell using the cell’s direct RA/DEC.
   assignConstellationsToCells(constellationData) {
-    // Helper: Convert Cartesian coordinate to RA/DEC in degrees.
-    function cartesianToRaDec(vector) {
-      const r = vector.length();
-      const dec = Math.asin(vector.y / r);
-      let ra = Math.atan2(-vector.z, -vector.x);
-      if (ra < 0) ra += 2 * Math.PI;
-      return { ra: THREE.Math.radToDeg(ra), dec: THREE.Math.radToDeg(dec) };
-    }
-    
-    // 2D Ray‑casting point-in‑polygon algorithm.
+    // 2D Ray‑casting point‑in‑polygon algorithm in RA/DEC space.
     function pointInPolygon2D(point, polygon) {
       let inside = false;
       for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
@@ -499,7 +494,7 @@ export class DensityGridOverlay {
     
     this.cubesData.forEach(cell => {
       if (!cell.active) return;
-      // Use the precomputed RA/DEC for the cell.
+      // Use the precomputed RA and DEC from the grid cell (in degrees)
       const cellRaDec = { ra: cell.ra, dec: cell.dec };
       
       let foundConstellation = null;
@@ -529,7 +524,7 @@ export class DensityGridOverlay {
   }
 }
 
-// Helper: Convert Cartesian coordinate to RA/DEC (degrees).
+// (Optional helper if needed elsewhere)
 function cartesianToRaDec(vector) {
   const r = vector.length();
   const dec = Math.asin(vector.y / r);
