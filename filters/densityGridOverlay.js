@@ -11,6 +11,11 @@ if (typeof centerData === 'undefined') {
   var centerData = []; // Fallback if not loaded
 }
 
+/**
+ * The DensityGridOverlay class creates a 3D grid overlay of “cells” covering the sky,
+ * computes distances to stars, clusters cells and assigns them a constellation
+ * based on the TXT‑derived constellation centers.
+ */
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
     this.maxDistance = maxDistance;
@@ -70,8 +75,9 @@ export class DensityGridOverlay {
     this.cubesData.forEach(cell => {
       const dArr = stars.map(star => {
         // Use star.truePosition if available; otherwise fallback to coordinates.
-        const starPos = star.truePosition ? star.truePosition : 
-                        new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+        const starPos = star.truePosition 
+                          ? star.truePosition 
+                          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
         return starPos.distanceTo(cell.tcPos);
       });
       dArr.sort((a, b) => a - b);
@@ -140,7 +146,7 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Counts neighbors for a cell within a given set.
+   * Counts the number of neighboring cells (in a 3x3x3 neighborhood) within the given cluster.
    */
   countNeighbors(cell, cells) {
     let count = 0;
@@ -156,7 +162,7 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Determines the majority constellation among a group of cells.
+   * Returns the majority constellation among the cells in a cluster.
    */
   getMajorityConstellation(cells) {
     const freq = {};
@@ -189,7 +195,7 @@ export class DensityGridOverlay {
       } else if (cells.length < 0.5 * V_max) {
         regionType = "Sea";
       }
-      // Check for narrow connections to flag a Strait.
+      // Check if any cell in the cluster has a small neighbor count, marking a Strait.
       const hasStrait = cells.some(cell => {
         const n = this.countNeighbors(cell, cells);
         return (n >= 2 && n <= 5);
@@ -354,8 +360,4 @@ export class DensityGridOverlay {
   }
 }
 
-function computeCentroid(cells) {
-  let sum = new THREE.Vector3(0, 0, 0);
-  cells.forEach(c => sum.add(c.tcPos));
-  return sum.divideScalar(cells.length);
-}
+// Note: The duplicate local definition of computeCentroid has been removed since it is imported.
