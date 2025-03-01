@@ -55,9 +55,10 @@ export function computeConstellationColorMapping() {
     const deg = neighbors[c] ? neighbors[c].length : 0;
     if (deg > maxDegree) maxDegree = deg;
   });
+  // Ensure our palette is large enough; if not, we'll cycle.
   const palette = distinctPalette;
   
-  // Sort constellations descending by neighbor count.
+  // Sort constellations in descending order by neighbor count.
   constellations.sort((a, b) => (neighbors[b] ? neighbors[b].length : 0) - (neighbors[a] ? neighbors[a].length : 0));
   
   const colorMapping = {};
@@ -68,6 +69,7 @@ export function computeConstellationColorMapping() {
         if (colorMapping[nb]) used.add(colorMapping[nb]);
       }
     }
+    // Find the first color in the palette that is not used.
     let assigned = palette.find(color => !used.has(color));
     if (!assigned) assigned = palette[0];
     colorMapping[c] = assigned;
@@ -148,7 +150,7 @@ function subdivideGeometry(geometry, iterations) {
 }
 
 // --- Helper to convert a sphere point (THREE.Vector3) to RA/DEC in degrees ---
-// RA is normalized into the 0–360° range.
+// Updated so that RA is normalized into the 0–360° range.
 function vectorToRaDec(vector) {
   const dec = Math.asin(vector.y / R);
   let ra = Math.atan2(-vector.z, -vector.x);
