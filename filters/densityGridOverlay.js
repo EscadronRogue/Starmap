@@ -517,22 +517,4 @@ export class DensityGridOverlay {
   }
 }
 
-//
-// Helper function outside the class – note: getGreatCirclePoints is defined here once.
-//
-function getGreatCirclePoints(p1, p2, R, segments) {
-  const points = [];
-  const start = p1.clone().normalize().multiplyScalar(R);
-  const end = p2.clone().normalize().multiplyScalar(R);
-  const axis = new THREE.Vector3().crossVectors(start, end).normalize();
-  const angle = start.angleTo(end);
-  for (let i = 0; i <= segments; i++) {
-    const theta = (i / segments) * angle;
-    const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, theta);
-    const point = start.clone().applyQuaternion(quaternion);
-    points.push(point);
-  }
-  return points;
-}
-
 // Note: computeInterconnectedCell and segmentOceanCandidate are imported from densitySegmentation.js
