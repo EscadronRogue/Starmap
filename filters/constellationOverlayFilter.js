@@ -55,10 +55,9 @@ export function computeConstellationColorMapping() {
     const deg = neighbors[c] ? neighbors[c].length : 0;
     if (deg > maxDegree) maxDegree = deg;
   });
-  // Ensure our palette is large enough; if not, we'll cycle.
   const palette = distinctPalette;
   
-  // Sort constellations in descending order by neighbor count.
+  // Sort constellations descending by neighbor count.
   constellations.sort((a, b) => (neighbors[b] ? neighbors[b].length : 0) - (neighbors[a] ? neighbors[a].length : 0));
   
   const colorMapping = {};
@@ -69,7 +68,6 @@ export function computeConstellationColorMapping() {
         if (colorMapping[nb]) used.add(colorMapping[nb]);
       }
     }
-    // Find the first color in the palette that is not used.
     let assigned = palette.find(color => !used.has(color));
     if (!assigned) assigned = palette[0];
     colorMapping[c] = assigned;
@@ -150,7 +148,7 @@ function subdivideGeometry(geometry, iterations) {
 }
 
 // --- Helper to convert a sphere point (THREE.Vector3) to RA/DEC in degrees ---
-// Updated so RA is in the range 0–360°.
+// RA is normalized into the 0–360° range.
 function vectorToRaDec(vector) {
   const dec = Math.asin(vector.y / R);
   let ra = Math.atan2(-vector.z, -vector.x);
@@ -276,7 +274,7 @@ export function createConstellationOverlayForGlobe() {
     mesh.userData.polygon = ordered;
     mesh.userData.constellation = constellation;
     
-    // --- NEW: Create RA/DEC polygon data (using the updated conversion) ---
+    // --- NEW: Create RA/DEC polygon data using the updated conversion ---
     const orderedRADEC = ordered.map(p => vectorToRaDec(p));
     mesh.userData.raDecPolygon = orderedRADEC;
     
