@@ -1,4 +1,5 @@
 // /filters/densityGridOverlay.js
+
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor, getBlueColor } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent } from './densitySegmentation.js';
@@ -32,25 +33,30 @@ export class DensityGridOverlay {
           });
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
+
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
-          let projectedPos;
+
+          // Project onto sphere
           if (distFromCenter < 1e-6) {
-            projectedPos = new THREE.Vector3(0, 0, 0);
+            squareGlobe.position.set(0,0,0);
           } else {
             const ra = Math.atan2(-posTC.z, -posTC.x);
             const dec = Math.asin(posTC.y / distFromCenter);
             const radius = 100;
-            projectedPos = new THREE.Vector3(
+            const projectedPos = new THREE.Vector3(
               -radius * Math.cos(dec) * Math.cos(ra),
                radius * Math.sin(dec),
               -radius * Math.cos(dec) * Math.sin(ra)
             );
+            squareGlobe.position.copy(projectedPos);
+            squareGlobe.quaternion.setFromUnitVectors(
+              new THREE.Vector3(0, 0, 1),
+              projectedPos.clone().normalize()
+            );
           }
-          squareGlobe.position.copy(projectedPos);
-          const normal = projectedPos.clone().normalize();
-          squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+
           const cell = {
             tcMesh: cubeTC,
             globeMesh: squareGlobe,
@@ -62,10 +68,9 @@ export class DensityGridOverlay {
               iz: Math.round(z / this.gridSize)
             },
             active: false,
-            // Constellation will be set later.
-            constellation: "UNKNOWN"
+            constellation: "UNKNOWN",
+            id: this.cubesData.length
           };
-          cell.id = this.cubesData.length;
           this.cubesData.push(cell);
         }
       }
@@ -193,12 +198,9 @@ export class DensityGridOverlay {
     });
   }
   
-  // UPDATED: Classify clusters and assign region labels using the majority constellation name.
   classifyEmptyRegions() {
-    // First, ensure every active cell’s constellation is normalized.
-    this.cubesData.forEach((cell, index) => {
-      cell.id = index;
-      cell.clusterId = null;
+    // Re-normalize every active cell
+    this.cubesData.forEach(cell => {
       if (cell.active) {
         if (cell.constellation && cell.constellation !== "UNKNOWN") {
           cell.constellation = cell.constellation.trim().toUpperCase();
@@ -207,8 +209,18 @@ export class DensityGridOverlay {
         }
       }
     });
+
+    // For debugging, let's log the final values:
+    console.log("=== Debug: classifyEmptyRegions() - Active cells final constellations ===");
+    this.cubesData.forEach(c => {
+      if (c.active) {
+        console.log(`Cell ID ${c.id} => final constellation [${c.constellation}]`);
+      }
+    });
+
     const gridMap = new Map();
     this.cubesData.forEach((cell, index) => {
+      cell.clusterId = null;
       if (cell.active) {
         const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
         gridMap.set(key, index);
@@ -216,6 +228,8 @@ export class DensityGridOverlay {
     });
     const clusters = [];
     const visited = new Set();
+
+    // Basic BFS/DFS to group active cells
     for (let i = 0; i < this.cubesData.length; i++) {
       const cell = this.cubesData[i];
       if (!cell.active || visited.has(cell.id)) continue;
@@ -244,16 +258,18 @@ export class DensityGridOverlay {
       }
       clusters.push(clusterCells);
     }
+
     let V_max = 0;
     clusters.forEach(cells => {
       if (cells.length > V_max) V_max = cells.length;
     });
+
     const regions = [];
     clusters.forEach((cells, idx) => {
-      // Build frequency map only from cells with a valid constellation (not "UNKNOWN")
+      // Build frequency map from valid names
       const freq = {};
       cells.forEach(cell => {
-        if (cell.constellation && cell.constellation !== "UNKNOWN") {
+        if (cell.constellation !== "UNKNOWN") {
           freq[cell.constellation] = (freq[cell.constellation] || 0) + 1;
         }
       });
@@ -265,73 +281,66 @@ export class DensityGridOverlay {
           majority = key;
         }
       }
-      const regionConst = majority; // use the majority valid name
-      
-      // Build region label using the region type and the determined constellation name
-      if (cells.length < 0.1 * V_max) {
-        regions.push({
-          clusterId: idx,
-          cells,
-          volume: cells.length,
-          constName: regionConst,
-          type: "Lake",
-          label: `Lake ${regionConst}`,
-          labelScale: 0.8,
-          bestCell: computeInterconnectedCell(cells)
-        });
-      } else if (cells.length < 0.5 * V_max) {
-        regions.push({
-          clusterId: idx,
-          cells,
-          volume: cells.length,
-          constName: regionConst,
-          type: "Sea",
-          label: `Sea ${regionConst}`,
-          labelScale: 0.9,
-          bestCell: computeInterconnectedCell(cells)
-        });
-      } else {
-        const segResult = segmentOceanCandidate(cells);
-        if (!segResult.segmented) {
-          regions.push({
-            clusterId: idx,
-            cells,
-            volume: cells.length,
+
+      const regionConst = majority;
+      const clusterSize = cells.length;
+      let typeStr = "Ocean";
+      let labelScaleVal = 1.0;
+
+      if (clusterSize < 0.1 * V_max) {
+        typeStr = "Lake";
+        labelScaleVal = 0.8;
+      } else if (clusterSize < 0.5 * V_max) {
+        typeStr = "Sea";
+        labelScaleVal = 0.9;
+      }
+
+      // Check segmentation
+      const segResult = segmentOceanCandidate(cells);
+      if (typeStr === "Ocean" && segResult.segmented) {
+        segResult.cores.forEach((core, i) => {
+          const subRegion = {
+            clusterId: idx + "_sea_" + i,
+            cells: core,
+            volume: core.length,
             constName: regionConst,
-            type: "Ocean",
-            label: `Ocean ${regionConst}`,
-            labelScale: 1.0,
-            bestCell: computeInterconnectedCell(cells)
-          });
-        } else {
-          segResult.cores.forEach((core, i) => {
-            regions.push({
-              clusterId: idx + "_sea_" + i,
-              cells: core,
-              volume: core.length,
-              constName: regionConst,
-              type: "Sea",
-              label: `Sea ${regionConst}`,
-              labelScale: 0.9,
-              bestCell: computeInterconnectedCell(core)
-            });
-          });
-          if (segResult.neck && segResult.neck.length > 0) {
-            regions.push({
-              clusterId: idx + "_neck",
-              cells: segResult.neck,
-              volume: segResult.neck.length,
-              constName: regionConst,
-              type: "Strait",
-              label: `Strait ${regionConst}`,
-              labelScale: 0.7,
-              bestCell: computeInterconnectedCell(segResult.neck),
-              color: lightenColor(getBlueColor(regionConst), 0.1)
-            });
-          }
+            type: "Sea",
+            label: `Sea ${regionConst}`,
+            labelScale: 0.9,
+            bestCell: computeInterconnectedCell(core)
+          };
+          regions.push(subRegion);
+        });
+        if (segResult.neck && segResult.neck.length > 0) {
+          const neckRegion = {
+            clusterId: idx + "_neck",
+            cells: segResult.neck,
+            volume: segResult.neck.length,
+            constName: regionConst,
+            type: "Strait",
+            label: `Strait ${regionConst}`,
+            labelScale: 0.7,
+            bestCell: computeInterconnectedCell(segResult.neck),
+            color: lightenColor(getBlueColor(regionConst), 0.1)
+          };
+          regions.push(neckRegion);
         }
+      } else {
+        // Normal region
+        const regionObj = {
+          clusterId: idx,
+          cells,
+          volume: clusterSize,
+          constName: regionConst,
+          type: typeStr,
+          label: `${typeStr} ${regionConst}`,
+          labelScale: labelScaleVal,
+          bestCell: computeInterconnectedCell(cells)
+        };
+        regions.push(regionObj);
       }
     });
+
     this.regionClusters = regions;
     return regions;
   }
@@ -424,31 +433,9 @@ export class DensityGridOverlay {
     scene.add(mapType === 'TrueCoordinates' ? this.regionLabelsGroupTC : this.regionLabelsGroupGlobe);
   }
   
-  updateRegionColors() {
-    const regions = this.classifyEmptyRegions();
-    const independentRegions = regions.filter(r => r.type === 'Ocean' || r.type === 'Sea' || r.type === 'Lake');
-    assignDistinctColorsToIndependent(independentRegions);
-    regions.forEach(region => {
-      if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
-        region.cells.forEach(cell => {
-          cell.tcMesh.material.color.set(region.color || getBlueColor(region.constName));
-          cell.globeMesh.material.color.set(region.color || getBlueColor(region.constName));
-        });
-      } else if (region.type === 'Strait') {
-        let parentColor = getBlueColor(region.constName);
-        region.color = lightenColor(parentColor, 0.1);
-        region.cells.forEach(cell => {
-          cell.tcMesh.material.color.set(region.color);
-          cell.globeMesh.material.color.set(region.color);
-        });
-      }
-    });
-  }
-  
-  // --- NEW: Assign constellation to each active cell using RA/DEC polygons ---
   assignConstellationsToCells(constellationData) {
     this.cubesData.forEach(cell => {
-      if (!cell.active) return; // Only consider active cells
+      if (!cell.active) return;
       const projected = cell.tcPos.clone().normalize().multiplyScalar(100);
       const cellRaDec = vectorToRaDec(projected);
       let foundConstellation = null;
@@ -459,14 +446,15 @@ export class DensityGridOverlay {
           break;
         }
       }
-      // Normalize found name to uppercase; if not found, set as "UNKNOWN"
-      cell.constellation = foundConstellation ? foundConstellation.trim().toUpperCase() : "UNKNOWN";
-      console.log(`Cell ID ${cell.id} belongs to constellation ${cell.constellation}`);
+      cell.constellation = foundConstellation
+        ? foundConstellation.trim().toUpperCase()
+        : "UNKNOWN";
+      console.log(`Cell ID ${cell.id} => assigned constellation ${cell.constellation}`);
     });
   }
 }
 
-// --- Helper functions for RA/DEC conversion and point-in-polygon testing ---
+// Helper for RA/DEC conversion
 function vectorToRaDec(vector) {
   const dec = Math.asin(vector.y / 100);
   let ra = Math.atan2(-vector.z, -vector.x);
@@ -475,6 +463,7 @@ function vectorToRaDec(vector) {
   return { ra: raDeg, dec: dec * 180 / Math.PI };
 }
 
+// Basic ray-casting style point-in-polygon in RA/DEC
 function pointInPolygon(point, vs) {
   let inside = false;
   for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
