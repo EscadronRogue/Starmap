@@ -1,9 +1,10 @@
 // script.js
+
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { applyFilters, setupFilterUI } from './filters/index.js';
 import { createConnectionLines, mergeConnectionLines } from './filters/connectionsFilter.js';
 import { createConstellationBoundariesForGlobe, createConstellationLabelsForGlobe, loadConstellationBoundaries, loadConstellationCenters } from './filters/constellationFilter.js';
-import { createConstellationOverlayForGlobe } from './filters/constellationOverlayFilter.js';
+// Note: We no longer use createConstellationOverlayForGlobe as we removed the JSON version.
 import { initDensityOverlay, updateDensityMapping } from './filters/densityFilter.js';
 import { globeSurfaceOpaque } from './filters/globeSurfaceFilter.js';
 import { ThreeDControls } from './cameraControls.js';
@@ -24,7 +25,7 @@ let globeMap;
 
 let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
-let constellationOverlayGlobe = [];
+// We no longer use constellationOverlayGlobe
 let globeSurfaceSphere = null;
 let densityOverlay = null;
 let globeGrid = null;
@@ -50,7 +51,7 @@ function projectStarGlobe(star) {
 function createGlobeGrid(R = 100, options = {}) {
   const gridGroup = new THREE.Group();
   const gridColor = options.color || 0x444444;
-  const lineOpacity = options.opacity !== undefined ? options.opacity : 0.25;
+  const lineOpacity = options.opacity !== undefined ? options.opacity : 0.2;
   const lineWidth = options.lineWidth || 1;
   const material = new THREE.LineBasicMaterial({
     color: gridColor,
@@ -58,6 +59,7 @@ function createGlobeGrid(R = 100, options = {}) {
     opacity: lineOpacity,
     linewidth: lineWidth
   });
+  // RA lines
   for (let raDeg = 0; raDeg < 360; raDeg += 30) {
     const ra = THREE.Math.degToRad(raDeg);
     const points = [];
@@ -69,6 +71,7 @@ function createGlobeGrid(R = 100, options = {}) {
     const line = new THREE.Line(geometry, material);
     gridGroup.add(line);
   }
+  // DEC lines
   for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
     const dec = THREE.Math.degToRad(decDeg);
     const points = [];
@@ -156,10 +159,12 @@ class MapManager {
     this.connectionGroup = new THREE.Group();
     if (this.mapType === 'Globe') {
       const linesArray = createConnectionLines(stars, connectionObjs, 'Globe');
-      linesArray.forEach(line => this.connectionGroup.add(line));
+      linesArray.forEach(line => {
+        if (line instanceof THREE.Object3D) this.connectionGroup.add(line);
+      });
     } else {
       const merged = mergeConnectionLines(connectionObjs);
-      this.connectionGroup.add(merged);
+      if (merged instanceof THREE.Object3D) this.connectionGroup.add(merged);
     }
     this.scene.add(this.connectionGroup);
   }
@@ -246,7 +251,7 @@ function initStarInteractions(map) {
 }
 
 function updateSelectedStarHighlight() {
-  // Placeholder for highlighting the selected star
+  // Placeholder if you want to highlight the selected star on both maps
 }
 
 window.onload = async () => {
@@ -353,7 +358,7 @@ async function buildAndApplyFilters() {
     globeConnections,
     showConstellationBoundaries,
     showConstellationNames,
-    showConstellationOverlay,
+    // Removed showConstellationOverlay block as we are no longer using it.
     globeOpaqueSurface,
     enableConnections,
     enableDensityMapping
@@ -377,19 +382,19 @@ async function buildAndApplyFilters() {
   globeMap.labelManager.refreshLabels(currentGlobeFilteredStars);
 
   removeConstellationObjectsFromGlobe();
-  removeConstellationOverlayObjectsFromGlobe();
+  removeConstellationOverlayObjectsFromGlobe(); // Now a no-op since overlay is not used
 
   if (showConstellationBoundaries) {
-    constellationLinesGlobe = createConstellationBoundariesForGlobe();
-    constellationLinesGlobe.forEach(ln => globeMap.scene.add(ln));
+    constellationLinesGlobe = createConstellationBoundariesForGlobe() || [];
+    constellationLinesGlobe.forEach(ln => {
+      if (ln instanceof THREE.Object3D) globeMap.scene.add(ln);
+    });
   }
   if (showConstellationNames) {
-    constellationLabelsGlobe = createConstellationLabelsForGlobe();
-    constellationLabelsGlobe.forEach(lbl => globeMap.scene.add(lbl));
-  }
-  if (showConstellationOverlay) {
-    constellationOverlayGlobe = createConstellationOverlayForGlobe();
-    constellationOverlayGlobe.forEach(mesh => globeMap.scene.add(mesh));
+    constellationLabelsGlobe = createConstellationLabelsForGlobe() || [];
+    constellationLabelsGlobe.forEach(lbl => {
+      if (lbl instanceof THREE.Object3D) globeMap.scene.add(lbl);
+    });
   }
 
   if (enableDensityMapping) {
@@ -448,9 +453,7 @@ function removeConstellationObjectsFromGlobe() {
 }
 
 function removeConstellationOverlayObjectsFromGlobe() {
-  if (constellationOverlayGlobe && constellationOverlayGlobe.length > 0) {
-    constellationOverlayGlobe.forEach(mesh => globeMap.scene.remove(mesh));
-  }
+  // Since we are no longer using the overlay, this function can simply clear the variable.
   constellationOverlayGlobe = [];
 }
 
