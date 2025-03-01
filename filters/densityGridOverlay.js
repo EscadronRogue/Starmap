@@ -477,7 +477,7 @@ function vectorToRaDec(vector) {
 
 function pointInPolygon(point, vs) {
   // point: {ra, dec}, vs: array of {ra, dec}
-  // This implements the ray-casting algorithm; note that RA wrap-around is handled by assuming RA values are in 0-360.
+  // This implements the ray-casting algorithm; note that RA values are assumed in 0-360.
   let inside = false;
   for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
     const xi = vs[i].ra, yi = vs[i].dec;
@@ -487,19 +487,4 @@ function pointInPolygon(point, vs) {
     if (intersect) inside = !inside;
   }
   return inside;
-}
-
-function getGreatCirclePoints(p1, p2, R, segments) {
-  const points = [];
-  const start = p1.clone().normalize().multiplyScalar(R);
-  const end = p2.clone().normalize().multiplyScalar(R);
-  const axis = new THREE.Vector3().crossVectors(start, end).normalize();
-  const angle = start.angleTo(end);
-  for (let i = 0; i <= segments; i++) {
-    const theta = (i / segments) * angle;
-    const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, theta);
-    const point = start.clone().applyQuaternion(quaternion);
-    points.push(point);
-  }
-  return points;
 }
