@@ -192,7 +192,6 @@ export class DensityGridOverlay {
   }
   
   classifyEmptyRegions() {
-    // Reset each cell's ID and cluster assignment.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -240,7 +239,6 @@ export class DensityGridOverlay {
     });
     const regions = [];
     clusters.forEach((cells, idx) => {
-      // Compute frequency of constellation assignments for this cluster.
       const freq = {};
       cells.forEach(cell => {
         if (cell.constellation) {
@@ -255,8 +253,6 @@ export class DensityGridOverlay {
           regionConst = key;
         }
       }
-      
-      // Build label using the region type and the dominant constellation.
       if (cells.length < 0.1 * V_max) {
         regions.push({
           clusterId: idx,
@@ -462,7 +458,7 @@ export class DensityGridOverlay {
     });
   }
   
-  // --- NEW: Assign constellation to each active cell using RA/DEC polygons ---
+  // --- Assign constellation to each active cell using RA/DEC polygons ---
   assignConstellationsToCells(constellationData) {
     this.cubesData.forEach(cell => {
       if (!cell.active) return;
@@ -506,25 +502,4 @@ function pointInPolygon(point, vs) {
     if (intersect) inside = !inside;
   }
   return inside;
-}
-
-function getGreatCirclePoints(p1, p2, R, segments) {
-  const points = [];
-  const start = p1.clone().normalize().multiplyScalar(R);
-  const end = p2.clone().normalize().multiplyScalar(R);
-  const axis = new THREE.Vector3().crossVectors(start, end).normalize();
-  const angle = start.angleTo(end);
-  for (let i = 0; i <= segments; i++) {
-    const theta = (i / segments) * angle;
-    const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, theta);
-    const point = start.clone().applyQuaternion(quaternion);
-    points.push(point);
-  }
-  return points;
-}
-
-export function assignDistinctColorsToIndependent(regions) {
-  regions.forEach(region => {
-    region.color = getIndividualBlueColor(region.clusterId + region.constName + region.type);
-  });
 }
