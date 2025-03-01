@@ -23,38 +23,75 @@ function pointInPolygon2D(point, vs) {
 }
 
 /**
- * Helper: Computes the minimal angular distance (in radians) between a cell's position
- * (cellPos) and an overlay polygon's vertices.
- * Both cellPos and the polygon vertices are assumed to lie on a sphere.
- * @param {THREE.Vector3} cellPos - The cell's position (should be set to length 100)
- * @param {Array} polygon - Array of THREE.Vector3 vertices (the overlay boundary)
- * @returns {number} - The smallest angular distance (in radians)
+ * Spherical point-in-polygon test.
+ * For a given polygon (array of THREE.Vector3 on the sphere) and a test point,
+ * compute the sum of angles between the test point and each adjacent pair of vertices.
+ * If the total angle is nearly 2π, the point is considered inside.
+ * @param {THREE.Vector3} point - The test point (assumed to be on the sphere, e.g. length = 100)
+ * @param {Array} polygon - Array of THREE.Vector3 vertices (assumed to lie on the sphere)
+ * @returns {boolean} - true if point is inside the spherical polygon.
  */
-function minAngularDistanceToVertices(cellPos, polygon) {
+function isPointInSphericalPolygon(point, polygon) {
+  let totalAngle = 0;
+  const n = polygon.length;
+  for (let i = 0; i < n; i++) {
+    const v1 = polygon[i].clone().sub(point).normalize();
+    const v2 = polygon[(i + 1) % n].clone().sub(point).normalize();
+    totalAngle += Math.acos(THREE.MathUtils.clamp(v1.dot(v2), -1, 1));
+  }
+  return Math.abs(totalAngle - 2 * Math.PI) < 0.3;
+}
+
+/**
+ * Computes the minimal angular distance (in radians) from a cell's position to a polygon’s edge.
+ * For each edge (between vertices v1 and v2), we compute the perpendicular distance
+ * (using great-circle geometry). If the perpendicular falls outside the edge segment,
+ * the distance to the closer endpoint is used.
+ * @param {THREE.Vector3} cellPos - The cell’s position (should be set to length 100)
+ * @param {Array} polygon - Array of THREE.Vector3 vertices (the overlay boundary)
+ * @returns {number} - Minimal angular distance (in radians)
+ */
+function minAngularDistanceToPolygon(cellPos, polygon) {
   let minAngle = Infinity;
-  // Ensure cellPos is set to sphere radius 100.
+  const n = polygon.length;
+  // Normalize cellPos (should already be on the sphere)
   const cellNorm = cellPos.clone().setLength(100);
-  polygon.forEach(vertex => {
-    const v = vertex.clone().setLength(100);
-    const angle = cellNorm.angleTo(v);
-    if (angle < minAngle) {
-      minAngle = angle;
+  for (let i = 0; i < n; i++) {
+    const v1 = polygon[i].clone().setLength(100);
+    const v2 = polygon[(i + 1) % n].clone().setLength(100);
+    // Compute perpendicular angular distance to the great circle defined by v1 and v2.
+    const nEdge = new THREE.Vector3().crossVectors(v1, v2).normalize();
+    let angleDist = Math.asin(Math.abs(cellNorm.dot(nEdge)));
+    // Check if the perpendicular falls on the segment:
+    const angleToV1 = cellNorm.angleTo(v1);
+    const angleToV2 = cellNorm.angleTo(v2);
+    const edgeAngle = v1.angleTo(v2);
+    if (angleToV1 + angleToV2 > edgeAngle + 1e-3) {
+      angleDist = Math.min(angleToV1, angleToV2);
     }
-  });
+    if (angleDist < minAngle) {
+      minAngle = angleDist;
+    }
+  }
   return minAngle;
 }
 
 /**
- * Determines the constellation for a given cell by choosing the overlay
- * whose boundary (any vertex) is closest in angular distance to the cell's globe position.
- * @param {Object} cell - A density cell with a globeMesh having a valid position.
- * @returns {string} - The assigned constellation name.
+ * Determines the constellation for a given cell.
+ * The process:
+ *   1. Project the cell's globeMesh position onto the sphere (radius 100).
+ *   2. For each overlay (from window.constellationOverlayGlobe), first check if the cell is inside
+ *      the overlay's polygon using the spherical point-in-polygon test.
+ *   3. If not inside, compute the minimal angular distance from the cell to the polygon's edges.
+ *   4. Always assign the cell to the overlay whose boundary is nearest.
+ * @param {Object} cell - A density cell (with a globeMesh having a valid position).
+ * @returns {string} - The constellation name assigned to this cell.
  */
 function getConstellationForCellUsingOverlay(cell) {
   if (!cell.globeMesh || !cell.globeMesh.position) {
     throw new Error(`Cell id ${cell.id} is missing a valid globeMesh position.`);
   }
-  // Project the cell's position onto a sphere of radius 100.
+  // Project cell position onto sphere of radius 100.
   const cellPos = cell.globeMesh.position.clone().setLength(100);
   
   let bestOverlay = null;
@@ -64,7 +101,14 @@ function getConstellationForCellUsingOverlay(cell) {
     for (const overlay of window.constellationOverlayGlobe) {
       if (!overlay.userData || !overlay.userData.polygon) continue;
       const poly = overlay.userData.polygon; // Array of THREE.Vector3
-      const distance = minAngularDistanceToVertices(cellPos, poly);
+      
+      // First, if the cell is inside the overlay, distance is zero.
+      if (isPointInSphericalPolygon(cellPos, poly)) {
+        console.log(`Cell id ${cell.id} is inside overlay for constellation ${overlay.userData.constellation}.`);
+        return overlay.userData.constellation;
+      }
+      // Otherwise, compute minimal angular distance from cellPos to the overlay's boundary.
+      const distance = minAngularDistanceToPolygon(cellPos, poly);
       if (distance < bestDistance) {
         bestDistance = distance;
         bestOverlay = overlay;
@@ -83,7 +127,7 @@ function getConstellationForCellUsingOverlay(cell) {
 
 /**
  * Returns the constellation for a given density cell.
- * This version uses the nearest-overlay (vertex-based) approach.
+ * This version uses the nearest-overlay approach (by checking inside and then by minimal distance).
  */
 export function getConstellationForCell(cell) {
   const cons = getConstellationForCellUsingOverlay(cell);
@@ -236,7 +280,7 @@ export function getGreatCirclePoints(p1, p2, R, segments) {
 
 /**
  * Assigns distinct colors to regions.
- * Each region's color is determined using its clusterId, constellation name, and type.
+ * Each region's color is determined by a function using its clusterId, constName, and type.
  */
 export function assignDistinctColorsToIndependent(regions) {
   regions.forEach(region => {
