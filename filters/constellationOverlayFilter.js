@@ -149,12 +149,14 @@ function subdivideGeometry(geometry, iterations) {
   return geo;
 }
 
-// Helper to convert a sphere point (THREE.Vector3) to RA/DEC in degrees.
-// Given our radToSphere conversion, the inverse is:
+// --- Helper to convert a sphere point (THREE.Vector3) to RA/DEC in degrees ---
+// Updated so RA is in the range 0–360°.
 function vectorToRaDec(vector) {
   const dec = Math.asin(vector.y / R);
-  const ra = Math.atan2(-vector.z, -vector.x);
-  return { ra: ra * 180 / Math.PI, dec: dec * 180 / Math.PI };
+  let ra = Math.atan2(-vector.z, -vector.x);
+  let raDeg = ra * 180 / Math.PI;
+  if (raDeg < 0) raDeg += 360;
+  return { ra: raDeg, dec: dec * 180 / Math.PI };
 }
 
 // --- Overlay Creation ---
@@ -274,7 +276,7 @@ export function createConstellationOverlayForGlobe() {
     mesh.userData.polygon = ordered;
     mesh.userData.constellation = constellation;
     
-    // --- NEW: Create RA/DEC polygon data ---
+    // --- NEW: Create RA/DEC polygon data (using the updated conversion) ---
     const orderedRADEC = ordered.map(p => vectorToRaDec(p));
     mesh.userData.raDecPolygon = orderedRADEC;
     
