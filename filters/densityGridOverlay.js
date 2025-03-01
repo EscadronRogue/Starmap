@@ -1,93 +1,116 @@
 // densityGridOverlay.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { 
-  segmentOceanCandidate, 
-  computeInterconnectedCell, 
-  computeCentroid 
-} from './densitySegmentation.js';
-import { lightenColor, getBlueColor, darkenColor } from './densityColorUtils.js';
+  getBlueColor, lightenColor, darkenColor, getIndividualBlueColor 
+} from './densityColorUtils.js';
+import { computeInterconnectedCell, segmentOceanCandidate, computeCentroid } from './densitySegmentation.js';
 
-// Assume that centerData is loaded by constellationFilter.js (via TXT) and is globally available.
+// We assume that constellation center data is loaded via the TXT file
+// and is available globally as "centerData" (or you can import it appropriately).
 if (typeof centerData === 'undefined') {
-  // If not already defined, create an empty array.
-  var centerData = [];
+  var centerData = []; // Fallback if not loaded
 }
 
-/**
- * The DensityGridOverlay class creates a 3D grid overlay of “cells” covering the sky,
- * computes distances to stars, and later clusters cells and assigns them a constellation
- * based on the TXT‑based constellation centers.
- */
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
     this.maxDistance = maxDistance;
     this.gridSize = gridSize;
-    this.cubesData = [];  // Array of cells
-    this.adjacentLines = []; // For drawing cell connection lines
-    this.regionClusters = []; // Clusters after segmentation (ocean, sea, etc.)
-    
-    // These groups will hold region label sprites for the two map types:
+    this.cubesData = [];       // Array of cell objects
+    this.adjacentLines = [];   // For drawing connection lines (if needed)
+    this.regionClusters = [];  // Regions (ocean/sea/lake/strait) after clustering
     this.regionLabelsGroupTC = null;
     this.regionLabelsGroupGlobe = null;
   }
 
-  // (Methods to create the grid, compute distances etc. should remain largely the same.)
-  // For brevity, we assume you already have methods such as createGrid() and computeDistances().
-
   /**
-   * OLD: Cluster segmentation and classification based on cell volume.
-   * Uses thresholds (here: 0.1*V_max and 0.5*V_max) to classify clusters as Lakes, Seas, or Oceans.
-   * Also, if a cell in the cluster has a “narrow” connection (neighbors count between 2 and 5), mark the region as a Strait.
+   * Creates a grid of cubic cells covering the sky.
+   * Each cell gets a "tcPos" (true coordinate position), a grid index,
+   * and an initial inactive state.
+   * @param {Array} stars - The star array (used later for distance computations)
    */
-  classifyEmptyRegions() {
-    const clusters = this.computeClusters();
-    const regions = [];
-    const V_max = Math.max(...clusters.map(c => c.length));
-    clusters.forEach((cells, idx) => {
-      let regionType = "Ocean";
-      if (cells.length < 0.1 * V_max) {
-        regionType = "Lake";
-      } else if (cells.length < 0.5 * V_max) {
-        regionType = "Sea";
+  createGrid(stars) {
+    this.cubesData = [];
+    const halfExt = Math.ceil(this.maxDistance / this.gridSize) * this.gridSize;
+    for (let x = -halfExt; x <= halfExt; x += this.gridSize) {
+      for (let y = -halfExt; y <= halfExt; y += this.gridSize) {
+        for (let z = -halfExt; z <= halfExt; z += this.gridSize) {
+          // Center of cell
+          const pos = new THREE.Vector3(
+            x + this.gridSize / 2,
+            y + this.gridSize / 2,
+            z + this.gridSize / 2
+          );
+          // Only include cells within maxDistance (a sphere)
+          if (pos.length() > this.maxDistance) continue;
+          const cell = {
+            id: this.cubesData.length,
+            tcPos: pos.clone(),
+            grid: {
+              ix: Math.round(x / this.gridSize),
+              iy: Math.round(y / this.gridSize),
+              iz: Math.round(z / this.gridSize)
+            },
+            active: false,
+            distances: [],
+            constellation: "UNKNOWN"
+          };
+          this.cubesData.push(cell);
+        }
       }
-      // If any cell in the cluster has a small neighbor count, consider the region a Strait.
-      const hasStrait = cells.some(cell => this.countNeighbors(cell, cells) >= 2 && this.countNeighbors(cell, cells) <= 5);
-      if (hasStrait) {
-        regionType = "Strait";
-      }
-      const majorityConstellation = this.getMajorityConstellation(cells);
-      // For labeling, you might want to set a label scale based on region type.
-      const labelScale = regionType === "Ocean" ? 1.0 : (regionType === "Sea" ? 0.9 : 0.8);
-      const region = {
-        clusterId: idx,
-        cells: cells,
-        volume: cells.length,
-        constName: majorityConstellation,
-        type: regionType,
-        label: `${regionType} ${majorityConstellation}`,
-        labelScale: labelScale,
-        bestCell: computeInterconnectedCell(cells)
-      };
-      regions.push(region);
-    });
-    this.regionClusters = regions;
-    return regions;
+    }
+    this.computeDistances(stars);
+    this.computeAdjacentLines();
   }
 
   /**
-   * Computes clusters of adjacent active cells using a flood‐fill (DFS) approach.
+   * Computes the distance from each cell to every star.
+   * @param {Array} stars - Array of star objects.
+   */
+  computeDistances(stars) {
+    this.cubesData.forEach(cell => {
+      const dArr = stars.map(star => {
+        // Use star.truePosition if available; otherwise fallback to coordinates.
+        const starPos = star.truePosition ? star.truePosition : 
+                        new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+        return starPos.distanceTo(cell.tcPos);
+      });
+      dArr.sort((a, b) => a - b);
+      cell.distances = dArr;
+    });
+  }
+
+  /**
+   * (Optional) Computes adjacent connection lines between cells.
+   */
+  computeAdjacentLines() {
+    // For now we clear any previous lines.
+    this.adjacentLines = [];
+    // Implementation for drawing grid connections can be added as needed.
+  }
+
+  /**
+   * Updates the grid cells based on the current star data.
+   * Here you could update which cells are active by applying a threshold
+   * based on the cell's distance to its nth-nearest star.
+   * @param {Array} stars - Array of star objects.
+   */
+  update(stars) {
+    this.computeDistances(stars);
+    // Optionally update cell "active" status based on some criteria.
+  }
+
+  /**
+   * Clusters adjacent active cells using a flood-fill (DFS) algorithm.
+   * @returns {Array} - Array of clusters (each cluster is an array of cells).
    */
   computeClusters() {
     const clusters = [];
     const visited = new Set();
-    const grid = this.cubesData;
-    const keyFor = (cell) => `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
-    // Build a lookup map of active cells
     const cellMap = new Map();
-    grid.forEach(cell => {
-      cellMap.set(keyFor(cell), cell);
+    this.cubesData.forEach(cell => {
+      cellMap.set(`${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`, cell);
     });
-    grid.forEach(cell => {
+    this.cubesData.forEach(cell => {
       if (!cell.active || visited.has(cell.id)) return;
       const cluster = [];
       const stack = [cell];
@@ -117,11 +140,11 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Counts the number of neighboring cells (in a 3x3x3 neighborhood) within the given cluster.
+   * Counts neighbors for a cell within a given set.
    */
-  countNeighbors(cell, cluster) {
+  countNeighbors(cell, cells) {
     let count = 0;
-    cluster.forEach(other => {
+    cells.forEach(other => {
       if (cell.id === other.id) return;
       if (Math.abs(cell.grid.ix - other.grid.ix) <= 1 &&
           Math.abs(cell.grid.iy - other.grid.iy) <= 1 &&
@@ -133,7 +156,7 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Returns the majority constellation among the cells in a cluster.
+   * Determines the majority constellation among a group of cells.
    */
   getMajorityConstellation(cells) {
     const freq = {};
@@ -152,9 +175,49 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Assigns a constellation name to each active cell.
-   * Instead of using the JSON file, we now use the TXT‑based centers (in centerData).
-   * In addition, we reverse the horizontal (RA) axis via a custom conversion.
+   * Clusters the cells and classifies them as Oceans, Seas, Lakes, or Straits.
+   * Uses the old logic based on cell volume thresholds.
+   */
+  classifyEmptyRegions() {
+    const clusters = this.computeClusters();
+    const regions = [];
+    const V_max = Math.max(...clusters.map(c => c.length));
+    clusters.forEach((cells, idx) => {
+      let regionType = "Ocean";
+      if (cells.length < 0.1 * V_max) {
+        regionType = "Lake";
+      } else if (cells.length < 0.5 * V_max) {
+        regionType = "Sea";
+      }
+      // Check for narrow connections to flag a Strait.
+      const hasStrait = cells.some(cell => {
+        const n = this.countNeighbors(cell, cells);
+        return (n >= 2 && n <= 5);
+      });
+      if (hasStrait) {
+        regionType = "Strait";
+      }
+      const majorityConstellation = this.getMajorityConstellation(cells);
+      const labelScale = regionType === "Ocean" ? 1.0 : (regionType === "Sea" ? 0.9 : 0.8);
+      const region = {
+        clusterId: idx,
+        cells: cells,
+        volume: cells.length,
+        constName: majorityConstellation,
+        type: regionType,
+        label: `${regionType} ${majorityConstellation}`,
+        labelScale: labelScale,
+        bestCell: computeInterconnectedCell(cells)
+      };
+      regions.push(region);
+    });
+    this.regionClusters = regions;
+    return regions;
+  }
+
+  /**
+   * Assigns each active cell a constellation based on the TXT‑derived constellation centers.
+   * The horizontal (RA) axis is reversed in the conversion.
    */
   async assignConstellationsToCells() {
     if (!centerData.length) {
@@ -162,24 +225,20 @@ export class DensityGridOverlay {
       return;
     }
     const R = 100;
-    // Define conversion from RA/Dec (in degrees) to a 3D vector with reversed horizontal axis.
+    // Conversion function that reverses the horizontal axis.
     const degToSphereReversed = (raDeg, decDeg, R) => {
       const raRad = THREE.Math.degToRad(raDeg);
       const decRad = THREE.Math.degToRad(decDeg);
-      // Reverse horizontal axis: positive x instead of negative.
-      const x = R * Math.cos(decRad) * Math.cos(raRad);
+      const x = R * Math.cos(decRad) * Math.cos(raRad); // positive x now
       const y = R * Math.sin(decRad);
       const z = -R * Math.cos(decRad) * Math.sin(raRad);
       return new THREE.Vector3(x, y, z);
     };
 
-    // For each active cell, compute its own RA/Dec.
-    // (Since your grid covers the whole sky, you can compute RA and DEC from the cell's tcPos.)
+    // For each active cell, compute its RA and DEC from its tcPos.
     this.cubesData.forEach(cell => {
       if (!cell.active) return;
-      // Convert the true coordinates (tcPos) to a unit vector and then compute RA/Dec.
       const pos = cell.tcPos.clone().normalize().multiplyScalar(R);
-      // Reverse horizontal axis: use atan2(-z, x)
       let ra = Math.atan2(-pos.z, pos.x);
       if (ra < 0) ra += 2 * Math.PI;
       const dec = Math.asin(pos.y / R);
@@ -187,7 +246,7 @@ export class DensityGridOverlay {
       cell.dec = THREE.Math.radToDeg(dec);
     });
 
-    // For each active cell, find the center that minimizes angular distance.
+    // Assign constellation by finding the center with the smallest angular distance.
     this.cubesData.forEach(cell => {
       if (!cell.active) return;
       let bestConstellation = "UNKNOWN";
@@ -207,49 +266,14 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Adds region labels (for oceans, seas, lakes, straits) to the given scene.
-   */
-  addRegionLabelsToScene(scene, mapType) {
-    const regions = this.classifyEmptyRegions();
-    regions.forEach(region => {
-      let labelPos;
-      if (region.bestCell) {
-        labelPos = region.bestCell.tcPos.clone();
-      } else {
-        labelPos = computeCentroid(region.cells);
-      }
-      if (mapType === 'Globe') {
-        labelPos = this.projectToGlobe(labelPos);
-      }
-      const labelSprite = this.createRegionLabel(region.label, labelPos, mapType);
-      labelSprite.userData.labelScale = region.labelScale || 1.0;
-      if (mapType === 'TrueCoordinates') {
-        if (!this.regionLabelsGroupTC) {
-          this.regionLabelsGroupTC = new THREE.Group();
-          scene.add(this.regionLabelsGroupTC);
-        }
-        this.regionLabelsGroupTC.add(labelSprite);
-      } else if (mapType === 'Globe') {
-        if (!this.regionLabelsGroupGlobe) {
-          this.regionLabelsGroupGlobe = new THREE.Group();
-          scene.add(this.regionLabelsGroupGlobe);
-        }
-        this.regionLabelsGroupGlobe.add(labelSprite);
-      }
-    });
-  }
-
-  /**
    * Projects a true coordinate position onto the globe’s surface.
    */
   projectToGlobe(position) {
     const R = 100;
     if (position.length() < 1e-6) return new THREE.Vector3(0, 0, 0);
-    // Compute spherical coordinates from position (using the current convention)
     let ra = Math.atan2(-position.z, position.x);
     if (ra < 0) ra += 2 * Math.PI;
     const dec = Math.asin(position.y / position.length());
-    // For globe projection, we use the same reversed horizontal conversion:
     return new THREE.Vector3(
       R * Math.cos(dec) * Math.cos(ra),
       R * Math.sin(dec),
@@ -258,7 +282,7 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Creates a region label (as a sprite or plane) at the given position.
+   * Creates a region label object at the given position.
    */
   createRegionLabel(text, position, mapType) {
     const canvas = document.createElement('canvas');
@@ -319,7 +343,7 @@ export class DensityGridOverlay {
         map: texture,
         depthWrite: true,
         depthTest: true,
-        transparent: true
+        transparent: true,
       });
       labelObj = new THREE.Sprite(spriteMaterial);
       const scaleFactor = 0.22;
@@ -328,4 +352,10 @@ export class DensityGridOverlay {
     labelObj.position.copy(position);
     return labelObj;
   }
+}
+
+function computeCentroid(cells) {
+  let sum = new THREE.Vector3(0, 0, 0);
+  cells.forEach(c => sum.add(c.tcPos));
+  return sum.divideScalar(cells.length);
 }
