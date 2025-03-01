@@ -63,6 +63,8 @@ export class DensityGridOverlay {
             },
             active: false
           };
+          // assign an ID (used later for logging)
+          cell.id = this.cubesData.length;
           this.cubesData.push(cell);
         }
       }
@@ -418,4 +420,53 @@ export class DensityGridOverlay {
       }
     });
   }
+  
+  // --- NEW: Assign constellation to each active cell using RA/DEC polygons ---
+  assignConstellationsToCells(constellationData) {
+    this.cubesData.forEach(cell => {
+      if (!cell.active) return; // Only consider active cells
+      // Project the cell's true coordinate onto a sphere of radius 100
+      const projected = cell.tcPos.clone().normalize().multiplyScalar(100);
+      const cellRaDec = vectorToRaDec(projected);
+      let foundConstellation = null;
+      for (const constellationObj of constellationData) {
+        const polygon = constellationObj.raDecPolygon;
+        if (pointInPolygon(cellRaDec, polygon)) {
+          foundConstellation = constellationObj.constellation;
+          break;
+        }
+      }
+      cell.constellation = foundConstellation;
+      if (foundConstellation) {
+        console.log(`Cell ID ${cell.id} belongs to constellation ${foundConstellation}`);
+      } else {
+        console.log(`Cell ID ${cell.id} does not belong to any constellation`);
+      }
+    });
+  }
+  
+  // End of DensityGridOverlay class
+}
+
+// --- Helper functions for RA/DEC conversion and point-in-polygon testing ---
+
+function vectorToRaDec(vector) {
+  // Assumes a sphere of radius 100
+  const dec = Math.asin(vector.y / 100);
+  const ra = Math.atan2(-vector.z, -vector.x);
+  return { ra: ra * 180 / Math.PI, dec: dec * 180 / Math.PI };
+}
+
+function pointInPolygon(point, vs) {
+  // point: {ra, dec}, vs: array of {ra, dec}
+  let inside = false;
+  for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+    const xi = vs[i].ra, yi = vs[i].dec;
+    const xj = vs[j].ra, yj = vs[j].dec;
+    // Check if the point is between the y-values of the edge, then compute intersection
+    const intersect = ((yi > point.dec) !== (yj > point.dec)) &&
+      (point.ra < (xj - xi) * (point.dec - yi) / ((yj - yi) || 1e-10) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
 }
