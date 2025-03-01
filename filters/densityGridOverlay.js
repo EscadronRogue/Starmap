@@ -365,7 +365,6 @@ export class DensityGridOverlay {
     return regions;
   }
   
-  // NEW: Restore updateRegionColors method.
   updateRegionColors() {
     const regions = this.classifyEmptyRegions();
     const independentRegions = regions.filter(r => r.type === 'Ocean' || r.type === 'Sea' || r.type === 'Lake');
@@ -459,7 +458,7 @@ export class DensityGridOverlay {
       if (region.bestCell) {
         labelPos = region.bestCell.tcPos;
       } else {
-        labelPos = computeCentroid(region.cells); // using the imported computeCentroid
+        labelPos = computeCentroid(region.cells); // using imported computeCentroid
       }
       if (mapType === 'Globe') {
         labelPos = this.projectToGlobe(labelPos);
@@ -478,6 +477,16 @@ export class DensityGridOverlay {
 
 // --- Helper functions for RA/DEC conversion and point-in-polygon testing ---
 
+function vectorToRaDec(vector) {
+  // Assumes a sphere of radius 100
+  const dec = Math.asin(vector.y / 100);
+  let ra = Math.atan2(-vector.z, -vector.x);
+  let raDeg = ra * 180 / Math.PI;
+  if (raDeg < 0) raDeg += 360;
+  return { ra: raDeg, dec: dec * 180 / Math.PI };
+}
+
+// Modified pointInPolygon with a tolerance (in degrees) to “fatten” edges
 function pointInPolygon(point, vs) {
   // point: {ra, dec} with ra in [0,360) and dec in degrees
   let minRa = Infinity, maxRa = -Infinity;
@@ -503,14 +512,39 @@ function pointInPolygon(point, vs) {
       (adjustedPoint.ra < (xj - xi) * (adjustedPoint.dec - yi) / ((yj - yi) || 1e-10) + xi);
     if (intersect) inside = !inside;
   }
-  return inside;
+  if (inside) return true;
+  // If not inside, check if the point is close enough to an edge.
+  const tolerance = 1; // tolerance in degrees
+  let minDist = Infinity;
+  for (let i = 0, j = adjustedVs.length - 1; i < adjustedVs.length; j = i++) {
+    const xi = adjustedVs[i].ra, yi = adjustedVs[i].dec;
+    const xj = adjustedVs[j].ra, yj = adjustedVs[j].dec;
+    const dist = pointToSegmentDistance(adjustedPoint.ra, adjustedPoint.dec, xi, yi, xj, yj);
+    if (dist < minDist) minDist = dist;
+  }
+  return (minDist <= tolerance);
 }
 
-function vectorToRaDec(vector) {
-  // Assumes a sphere of radius 100
-  const dec = Math.asin(vector.y / 100);
-  let ra = Math.atan2(-vector.z, -vector.x);
-  let raDeg = ra * 180 / Math.PI;
-  if (raDeg < 0) raDeg += 360;
-  return { ra: raDeg, dec: dec * 180 / Math.PI };
+function pointToSegmentDistance(x0, y0, x1, y1, x2, y2) {
+  const A = x0 - x1;
+  const B = y0 - y1;
+  const C = x2 - x1;
+  const D = y2 - y1;
+  const dot = A * C + B * D;
+  const len_sq = C * C + D * D;
+  let param = (len_sq !== 0) ? dot / len_sq : -1;
+  let xx, yy;
+  if (param < 0) {
+    xx = x1;
+    yy = y1;
+  } else if (param > 1) {
+    xx = x2;
+    yy = y2;
+  } else {
+    xx = x1 + param * C;
+    yy = y1 + param * D;
+  }
+  const dx = x0 - xx;
+  const dy = y0 - yy;
+  return Math.sqrt(dx * dx + dy * dy);
 }
