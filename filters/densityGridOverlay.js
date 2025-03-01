@@ -38,6 +38,8 @@ export class DensityGridOverlay {
           });
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
+
+          // Create a corresponding square for the Globe view:
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -57,11 +59,11 @@ export class DensityGridOverlay {
           squareGlobe.position.copy(projectedPos);
           const normal = projectedPos.clone().normalize();
           squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+
           const cell = {
             tcMesh: cubeTC,
             globeMesh: squareGlobe,
             tcPos: posTC,
-            distances: [],
             grid: {
               ix: Math.round(x / this.gridSize),
               iy: Math.round(y / this.gridSize),
@@ -69,7 +71,13 @@ export class DensityGridOverlay {
             },
             active: false
           };
-          // assign an ID for logging later
+
+          // DIRECTLY compute RA/DEC from the grid cell's position
+          const { ra, dec } = cartesianToRaDec(posTC);
+          cell.ra = ra;   // in degrees
+          cell.dec = dec; // in degrees
+
+          // assign an ID for logging
           cell.id = this.cubesData.length;
           this.cubesData.push(cell);
         }
@@ -78,7 +86,7 @@ export class DensityGridOverlay {
     this.computeDistances(stars);
     this.computeAdjacentLines();
   }
-  
+
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
       const dArr = stars.map(star => {
@@ -94,7 +102,7 @@ export class DensityGridOverlay {
       cell.distances = dArr;
     });
   }
-  
+
   computeAdjacentLines() {
     this.adjacentLines = [];
     const cellMap = new Map();
@@ -147,7 +155,7 @@ export class DensityGridOverlay {
       });
     });
   }
-  
+
   update(stars) {
     const densitySlider = document.getElementById('density-slider');
     const toleranceSlider = document.getElementById('tolerance-slider');
@@ -199,9 +207,9 @@ export class DensityGridOverlay {
       }
     });
   }
-  
+
   classifyEmptyRegions() {
-    // Reset IDs and clusterId for each cell
+    // (Region classification remains unchanged)
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -249,9 +257,7 @@ export class DensityGridOverlay {
     });
     const regions = [];
     clusters.forEach((cells, idx) => {
-      // Determine majority constellation among the cells in the cluster.
       const majority = this.getMajorityConstellation(cells);
-      // Use the majority constellation for the region label.
       if (cells.length < 0.1 * V_max) {
         regions.push({
           clusterId: idx,
@@ -323,7 +329,7 @@ export class DensityGridOverlay {
     return regions;
   }
   
-  // Helper method to determine the majority constellation among an array of cells.
+  // Helper method: Determine majority constellation among cells.
   getMajorityConstellation(cells) {
     const freq = {};
     cells.forEach(cell => {
@@ -467,45 +473,43 @@ export class DensityGridOverlay {
   }
   
   // =================== UPDATED: Constellation Attribution ===================
-  // This method assigns a constellation name to each active cell using the boundaries JSON.
-  // It uses a spherical point‑in‑polygon test and now works directly with the projected cell position.
+  // This new method calculates the cell's RA/DEC directly and uses a 2D ray‑casting algorithm.
   assignConstellationsToCells(constellationData) {
-    // Helper: Convert (ra, dec) in degrees to a 3D vector on a sphere of radius R.
-    const degToSphere = (raDeg, decDeg, R) => {
-      const raRad = THREE.Math.degToRad(raDeg);
-      const decRad = THREE.Math.degToRad(decDeg);
-      return new THREE.Vector3(
-        -R * Math.cos(decRad) * Math.cos(raRad),
-         R * Math.sin(decRad),
-        -R * Math.cos(decRad) * Math.sin(raRad)
-      );
-    };
-
-    // Spherical point‑in‑polygon test using angle summation.
-    const isPointInSphericalPolygon = (point, polygon) => {
-      let totalAngle = 0;
-      const n = polygon.length;
-      for (let i = 0; i < n; i++) {
-        const v1 = polygon[i].clone().sub(point).normalize();
-        const v2 = polygon[(i + 1) % n].clone().sub(point).normalize();
-        totalAngle += Math.acos(THREE.MathUtils.clamp(v1.dot(v2), -1, 1));
+    // Helper: Convert Cartesian coordinate to RA/DEC in degrees.
+    function cartesianToRaDec(vector) {
+      const r = vector.length();
+      const dec = Math.asin(vector.y / r);
+      let ra = Math.atan2(-vector.z, -vector.x);
+      if (ra < 0) ra += 2 * Math.PI;
+      return { ra: THREE.Math.radToDeg(ra), dec: THREE.Math.radToDeg(dec) };
+    }
+    
+    // 2D Ray‑casting point-in‑polygon algorithm.
+    function pointInPolygon2D(point, polygon) {
+      let inside = false;
+      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i].ra, yi = polygon[i].dec;
+        const xj = polygon[j].ra, yj = polygon[j].dec;
+        const intersect = ((yi > point.dec) !== (yj > point.dec)) &&
+                          (point.ra < (xj - xi) * (point.dec - yi) / ((yj - yi) || 1e-10) + xi);
+        if (intersect) inside = !inside;
       }
-      // Adjusted tolerance to 0.2 radians (≈11°) for a tighter match.
-      return Math.abs(totalAngle - 2 * Math.PI) < 0.2;
-    };
-
+      return inside;
+    }
+    
     this.cubesData.forEach(cell => {
       if (!cell.active) return;
-      // Directly project the cell's true coordinate onto the sphere of radius 100.
-      const cellPoint = cell.tcPos.clone().normalize().multiplyScalar(100);
-
+      // Use the precomputed RA/DEC for the cell.
+      const cellRaDec = { ra: cell.ra, dec: cell.dec };
+      
       let foundConstellation = null;
       for (const constellationObj of constellationData) {
-        const polygon3D = constellationObj.raDecPolygon.map(v => {
-          let raNorm = ((v.ra % 360) + 360) % 360;
-          return degToSphere(raNorm, v.dec, 100);
-        });
-        if (isPointInSphericalPolygon(cellPoint, polygon3D)) {
+        // Normalize vertices: ensure RA is in [0,360)
+        const polygon = constellationObj.raDecPolygon.map(v => ({
+          ra: ((v.ra % 360) + 360) % 360,
+          dec: v.dec
+        }));
+        if (pointInPolygon2D(cellRaDec, polygon)) {
           foundConstellation = constellationObj.constellation;
           break;
         }
@@ -515,15 +519,21 @@ export class DensityGridOverlay {
     });
   }
   // =================== End of Updated Constellation Attribution ===================
-
+  
   vectorToRaDec(vector) {
-    const dec = Math.asin(vector.y / 100);
+    const r = vector.length();
+    const dec = Math.asin(vector.y / r);
     let ra = Math.atan2(-vector.z, -vector.x);
-    let raDeg = ra * 180 / Math.PI;
-    if (raDeg < 0) raDeg += 360;
-    return { ra: raDeg, dec: dec * 180 / Math.PI };
+    if (ra < 0) ra += 2 * Math.PI;
+    return { ra: THREE.Math.radToDeg(ra), dec: THREE.Math.radToDeg(dec) };
   }
 }
 
-// Note: The duplicate local definition of getGreatCirclePoints has been removed;
-// we now exclusively use the imported version.
+// Helper: Convert Cartesian coordinate to RA/DEC (degrees).
+function cartesianToRaDec(vector) {
+  const r = vector.length();
+  const dec = Math.asin(vector.y / r);
+  let ra = Math.atan2(-vector.z, -vector.x);
+  if (ra < 0) ra += 2 * Math.PI;
+  return { ra: THREE.Math.radToDeg(ra), dec: THREE.Math.radToDeg(dec) };
+}
