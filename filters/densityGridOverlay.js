@@ -61,9 +61,10 @@ export class DensityGridOverlay {
               iy: Math.round(y / this.gridSize),
               iz: Math.round(z / this.gridSize)
             },
-            active: false
+            active: false,
+            // Constellation will be set later.
+            constellation: "UNKNOWN"
           };
-          // assign an ID for logging and clustering
           cell.id = this.cubesData.length;
           this.cubesData.push(cell);
         }
@@ -194,13 +195,16 @@ export class DensityGridOverlay {
   
   // UPDATED: Classify clusters and assign region labels using the majority constellation name.
   classifyEmptyRegions() {
-    // Ensure all cells have been assigned a constellation (should have been done already)
+    // First, ensure every active cell’s constellation is normalized.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
-      // Normalize constellation names (if set)
-      if (cell.constellation && cell.constellation !== "Unknown") {
-        cell.constellation = cell.constellation.trim().toUpperCase();
+      if (cell.active) {
+        if (cell.constellation && cell.constellation !== "UNKNOWN") {
+          cell.constellation = cell.constellation.trim().toUpperCase();
+        } else {
+          cell.constellation = "UNKNOWN";
+        }
       }
     });
     const gridMap = new Map();
@@ -246,7 +250,7 @@ export class DensityGridOverlay {
     });
     const regions = [];
     clusters.forEach((cells, idx) => {
-      // Build frequency map only from cells with a valid constellation (non-"UNKNOWN")
+      // Build frequency map only from cells with a valid constellation (not "UNKNOWN")
       const freq = {};
       cells.forEach(cell => {
         if (cell.constellation && cell.constellation !== "UNKNOWN") {
@@ -261,9 +265,9 @@ export class DensityGridOverlay {
           majority = key;
         }
       }
-      const regionConst = majority; // use the majority (if none, remains "UNKNOWN")
+      const regionConst = majority; // use the majority valid name
       
-      // Now assign region type and label based on cluster size.
+      // Build region label using the region type and the determined constellation name
       if (cells.length < 0.1 * V_max) {
         regions.push({
           clusterId: idx,
@@ -455,21 +459,15 @@ export class DensityGridOverlay {
           break;
         }
       }
-      // Normalize the found name (if any) to uppercase, else set to "UNKNOWN"
+      // Normalize found name to uppercase; if not found, set as "UNKNOWN"
       cell.constellation = foundConstellation ? foundConstellation.trim().toUpperCase() : "UNKNOWN";
-      if (cell.constellation !== "UNKNOWN") {
-        console.log(`Cell ID ${cell.id} belongs to constellation ${cell.constellation}`);
-      } else {
-        console.log(`Cell ID ${cell.id} does not belong to any constellation`);
-      }
+      console.log(`Cell ID ${cell.id} belongs to constellation ${cell.constellation}`);
     });
   }
 }
 
 // --- Helper functions for RA/DEC conversion and point-in-polygon testing ---
-
 function vectorToRaDec(vector) {
-  // Assumes a sphere of radius 100
   const dec = Math.asin(vector.y / 100);
   let ra = Math.atan2(-vector.z, -vector.x);
   let raDeg = ra * 180 / Math.PI;
