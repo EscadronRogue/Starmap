@@ -8,8 +8,8 @@ import {
   getBlueColor 
 } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate } from './densitySegmentation.js';
-// Import the constellation centers loader from the constellation filter.
-import { loadConstellationCenters } from './constellationFilter.js';
+// Import both the loader and the getter for constellation centers
+import { loadConstellationCenters, getConstellationCenters } from './constellationFilter.js';
 
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
@@ -74,14 +74,14 @@ export class DensityGridOverlay {
             active: false
           };
 
-          // Compute RA/DEC directly from grid coordinates.
-          // Map x to RA (0° to 360°) and y to DEC (-90° to +90°) given the grid extent.
+          // Directly compute RA/DEC from grid coordinates.
+          // x mapped to RA (0° to 360°) and y mapped to DEC (-90° to +90°).
           const cellRa = ((posTC.x + halfExt) / (2 * halfExt)) * 360;
           const cellDec = ((posTC.y + halfExt) / (2 * halfExt)) * 180 - 90;
           cell.ra = cellRa;
           cell.dec = cellDec;
 
-          // assign an ID for logging
+          // assign an ID for later logging
           cell.id = this.cubesData.length;
           this.cubesData.push(cell);
         }
@@ -213,16 +213,15 @@ export class DensityGridOverlay {
   }
   
   // ------------------ NEW: Constellation Attribution ------------------
-  // We assign each active cell to a constellation by finding the nearest constellation center.
-  // This yields a gap-free division without relying on tolerance-based point-in-polygon tests.
+  // Assign each active cell to a constellation by finding the nearest constellation center.
   async assignConstellationsToCells() {
-    // Ensure the constellation centers have been loaded.
     await loadConstellationCenters();
-    if (centerData.length === 0) {
+    const centers = getConstellationCenters();
+    if (centers.length === 0) {
       console.warn("No constellation centers available!");
       return;
     }
-    // Local helper: Compute angular distance (in degrees) between two (RA, DEC) points (all in degrees)
+    // Local helper: Compute angular distance (in degrees) between two (RA, DEC) points.
     const angularDistance = (ra1, dec1, ra2, dec2) => {
       const ra1Rad = THREE.Math.degToRad(ra1);
       const dec1Rad = THREE.Math.degToRad(dec1);
@@ -239,8 +238,8 @@ export class DensityGridOverlay {
       const cellDec = cell.dec; // in degrees
       let bestConstellation = "UNKNOWN";
       let minAngle = Infinity;
-      centerData.forEach(center => {
-        // The centers were parsed as radians—convert them to degrees.
+      centers.forEach(center => {
+        // The centers were parsed as radians—convert to degrees.
         const centerRAdeg = THREE.Math.radToDeg(center.ra);
         const centerDecdeg = THREE.Math.radToDeg(center.dec);
         const angDist = angularDistance(cellRA, cellDec, centerRAdeg, centerDecdeg);
@@ -254,6 +253,35 @@ export class DensityGridOverlay {
     });
   }
   // ------------------ End Constellation Attribution ------------------
+  
+  // ------------------ NEW: Basic Region Classification ------------------
+  // For demonstration, group active cells by constellation.
+  classifyEmptyRegions() {
+    const groups = {};
+    this.cubesData.forEach(cell => {
+      if (cell.active) {
+        const key = cell.constellation || "UNKNOWN";
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(cell);
+      }
+    });
+    const regions = [];
+    for (const constellation in groups) {
+      const cells = groups[constellation];
+      regions.push({
+        clusterId: constellation,
+        cells: cells,
+        volume: cells.length,
+        constName: constellation,
+        type: "Region",
+        label: constellation,
+        labelScale: 1.0,
+        bestCell: cells[0]
+      });
+    }
+    return regions;
+  }
+  // ------------------ End Region Classification ------------------
   
   createRegionLabel(text, position, mapType) {
     const canvas = document.createElement('canvas');
@@ -378,7 +406,7 @@ export class DensityGridOverlay {
     return sum.divideScalar(cells.length);
   }
   
-  // (Other methods such as classifyEmptyRegions, etc. remain unchanged.)
+  // ------------------ End of DensityGridOverlay Methods ------------------
   
   vectorToRaDec(vector) {
     const r = vector.length();
@@ -389,4 +417,4 @@ export class DensityGridOverlay {
   }
 }
 
-// Note: The duplicate getGreatCirclePoints function has been removed since it is already imported.
+// Note: The duplicate getGreatCirclePoints function has been removed since it is imported.
