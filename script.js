@@ -252,7 +252,6 @@ function updateSelectedStarHighlight() {
   });
 }
 
-// --- NEW: Download constellation_boundaries.json automatically ---
 function downloadConstellationBoundariesJSON() {
   const overlays = createConstellationOverlayForGlobe();
   const data = overlays.map(mesh => ({
@@ -321,7 +320,6 @@ window.onload = async () => {
     window.globeMap = globeMap;
     initStarInteractions(trueCoordinatesMap);
     initStarInteractions(globeMap);
-    // IMPORTANT: First update the density mapping…
     buildAndApplyFilters();
     cachedStars.forEach(star => {
       star.spherePosition = projectStarGlobe(star);
@@ -330,10 +328,8 @@ window.onload = async () => {
     globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
     
-    // --- NEW: Trigger download of constellation_boundaries.json ---
     downloadConstellationBoundariesJSON();
     
-    // --- NEW: Fetch the constellation boundaries JSON and assign constellation names to density cells before labeling regions.
     if (getCurrentFilters().enableDensityMapping) {
       fetch('constellation_boundaries.json')
         .then(resp => resp.json())
@@ -341,7 +337,6 @@ window.onload = async () => {
            if (densityOverlay && typeof densityOverlay.assignConstellationsToCells === 'function') {
              densityOverlay.assignConstellationsToCells(data);
            }
-           // Now that cells have constellation names, update region labels:
            densityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
            densityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
         })
@@ -438,7 +433,6 @@ function buildAndApplyFilters() {
       });
     }
     updateDensityMapping(currentFilteredStars);
-    // Region labeling now occurs after constellation assignment in window.onload's fetch.
   }
 }
 
