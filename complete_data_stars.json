@@ -40,8 +40,8 @@
     "Parallax": 768.1
   },
   {
-    "Common_name_of_the_star_system": "Alpha_Centauri",
-    "Common_name_of_the_star": "Rigil_Kentaurus",
+    "Common_name_of_the_star_system": "Alpha Centauri",
+    "Common_name_of_the_star": "Rigil Kentaurus",
     "Distance_from_the_Sun": 4.3441,
     "Constellation": "Centaurus",
     "RA_in_degrees": 219.902083,
@@ -60,7 +60,7 @@
     "Parallax": 750.8
   },
   {
-    "Common_name_of_the_star_system": "Alpha_Centauri",
+    "Common_name_of_the_star_system": "Alpha Centauri",
     "Common_name_of_the_star": "Toliman",
     "Distance_from_the_Sun": 4.3441,
     "Constellation": "Centaurus",
@@ -80,8 +80,8 @@
     "Parallax": 750.8
   },
   {
-    "Common_name_of_the_star_system": "Barnards_Star",
-    "Common_name_of_the_star": "Barnards_Star",
+    "Common_name_of_the_star_system": "Stella Barnardi",
+    "Common_name_of_the_star": "Stella Barnardi",
     "Distance_from_the_Sun": 5.9629,
     "Constellation": "Ophiuchus",
     "RA_in_degrees": 269.452083,
@@ -100,7 +100,7 @@
     "Parallax": 547.0
   },
   {
-    "Common_name_of_the_star_system": "Luhman_16",
+    "Common_name_of_the_star_system": "Luhman 16",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 6.5029,
     "Constellation": "Vela",
@@ -120,7 +120,7 @@
     "Parallax": 501.6
   },
   {
-    "Common_name_of_the_star_system": "Luhman_16",
+    "Common_name_of_the_star_system": "Luhman 16",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 6.5029,
     "Constellation": "Vela",
@@ -140,8 +140,8 @@
     "Parallax": 501.6
   },
   {
-    "Common_name_of_the_star_system": "WISE_0855-0714",
-    "Common_name_of_the_star": "WISE_0855-0714",
+    "Common_name_of_the_star_system": "WISE 0855-0714",
+    "Common_name_of_the_star": "WISE 0855-0714",
     "Distance_from_the_Sun": 7.43,
     "Constellation": "Hydra",
     "RA_in_degrees": 133.795,
@@ -160,8 +160,8 @@
     "Parallax": 439.0
   },
   {
-    "Common_name_of_the_star_system": "CN_Leonis",
-    "Common_name_of_the_star": "CN_Leonis",
+    "Common_name_of_the_star_system": "CN Leonis",
+    "Common_name_of_the_star": "CN Leonis",
     "Distance_from_the_Sun": 7.8558,
     "Constellation": "Leo",
     "RA_in_degrees": 164.121667,
@@ -180,8 +180,8 @@
     "Parallax": 415.2
   },
   {
-    "Common_name_of_the_star_system": "Lalande_21185",
-    "Common_name_of_the_star": "Lalande_21185",
+    "Common_name_of_the_star_system": "Lalande 21185",
+    "Common_name_of_the_star": "Lalande 21185",
     "Distance_from_the_Sun": 8.3044,
     "Constellation": "Ursa_Major",
     "RA_in_degrees": 165.834167,
@@ -240,8 +240,8 @@
     "Parallax": 374.5
   },
   {
-    "Common_name_of_the_star_system": "Gliese_65",
-    "Common_name_of_the_star": "BL_Ceti",
+    "Common_name_of_the_star_system": "Gliese 65",
+    "Common_name_of_the_star": "BL Ceti",
     "Distance_from_the_Sun": 8.724,
     "Constellation": "Cetus",
     "RA_in_degrees": 24.755417,
@@ -260,8 +260,8 @@
     "Parallax": 373.8
   },
   {
-    "Common_name_of_the_star_system": "Gliese_65",
-    "Common_name_of_the_star": "UV_Ceti",
+    "Common_name_of_the_star_system": "Gliese 65",
+    "Common_name_of_the_star": "UV Ceti",
     "Distance_from_the_Sun": 8.724,
     "Constellation": "Cetus",
     "RA_in_degrees": 24.755417,
@@ -280,8 +280,8 @@
     "Parallax": 373.8
   },
   {
-    "Common_name_of_the_star_system": "V1216_Sagittarii",
-    "Common_name_of_the_star": "V1216_Sagittarii",
+    "Common_name_of_the_star_system": "V1216 Sagittarii",
+    "Common_name_of_the_star": "V1216 Sagittarii",
     "Distance_from_the_Sun": 9.7063,
     "Constellation": "Sagittarius",
     "RA_in_degrees": 282.455833,
@@ -300,8 +300,8 @@
     "Parallax": 336.0
   },
   {
-    "Common_name_of_the_star_system": "HH_Andromedae)",
-    "Common_name_of_the_star": "HH_Andromedae)",
+    "Common_name_of_the_star_system": "HH Andromedae",
+    "Common_name_of_the_star": "HH Andromedae",
     "Distance_from_the_Sun": 10.3057,
     "Constellation": "Andromeda",
     "RA_in_degrees": 355.477917,
@@ -320,8 +320,8 @@
     "Parallax": 316.5
   },
   {
-    "Common_name_of_the_star_system": "Epsilon_Eridani",
-    "Common_name_of_the_star": "Epsilon_Eridani",
+    "Common_name_of_the_star_system": "Epsilon Eridani",
+    "Common_name_of_the_star": "Epsilon Eridani",
     "Distance_from_the_Sun": 10.4749,
     "Constellation": "Eridanus",
     "RA_in_degrees": 53.2325,
@@ -340,8 +340,8 @@
     "Parallax": 311.4
   },
   {
-    "Common_name_of_the_star_system": "Lacaille_9352",
-    "Common_name_of_the_star": "Lacaille_9352",
+    "Common_name_of_the_star_system": "Lacaille 9352",
+    "Common_name_of_the_star": "Lacaille 9352",
     "Distance_from_the_Sun": 10.7241,
     "Constellation": "Piscis_Austrinus",
     "RA_in_degrees": 346.466667,
@@ -360,8 +360,8 @@
     "Parallax": 304.1
   },
   {
-    "Common_name_of_the_star_system": "FI_Virginis",
-    "Common_name_of_the_star": "FI_Virginis",
+    "Common_name_of_the_star_system": "FI Virginis",
+    "Common_name_of_the_star": "FI Virginis",
     "Distance_from_the_Sun": 11.0074,
     "Constellation": "Virgo",
     "RA_in_degrees": 176.935,
@@ -380,7 +380,7 @@
     "Parallax": 296.3
   },
   {
-    "Common_name_of_the_star_system": "EZ_Aquarii",
+    "Common_name_of_the_star_system": "EZ Aquarii",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 11.109,
     "Constellation": "Aquarius",
@@ -400,7 +400,7 @@
     "Parallax": 293.6
   },
   {
-    "Common_name_of_the_star_system": "EZ_Aquarii",
+    "Common_name_of_the_star_system": "EZ Aquarii",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 11.109,
     "Constellation": "Aquarius",
@@ -420,7 +420,7 @@
     "Parallax": 293.6
   },
   {
-    "Common_name_of_the_star_system": "EZ_Aquarii",
+    "Common_name_of_the_star_system": "EZ Aquarii",
     "Common_name_of_the_star": "C",
     "Distance_from_the_Sun": 11.109,
     "Constellation": "Aquarius",
@@ -480,7 +480,7 @@
     "Parallax": 286.0
   },
   {
-    "Common_name_of_the_star_system": "61_Cygni",
+    "Common_name_of_the_star_system": "61 Cygni",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 11.4039,
     "Constellation": "Cygnus",
@@ -500,7 +500,7 @@
     "Parallax": 286.0
   },
   {
-    "Common_name_of_the_star_system": "61_Cygni",
+    "Common_name_of_the_star_system": "61 Cygni",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 11.4039,
     "Constellation": "Cygnus",
@@ -520,7 +520,7 @@
     "Parallax": 286.0
   },
   {
-    "Common_name_of_the_star_system": "Struve_2398",
+    "Common_name_of_the_star_system": "Struve 2398",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 11.4908,
     "Constellation": "Draco",
@@ -540,7 +540,7 @@
     "Parallax": 283.8
   },
   {
-    "Common_name_of_the_star_system": "Struve_2398",
+    "Common_name_of_the_star_system": "Struve 2398",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 11.4908,
     "Constellation": "Draco",
@@ -560,8 +560,8 @@
     "Parallax": 283.8
   },
   {
-    "Common_name_of_the_star_system": "Groombridge_34",
-    "Common_name_of_the_star": "GX_Andromedae",
+    "Common_name_of_the_star_system": "Groombridge 34",
+    "Common_name_of_the_star": "GX Andromedae",
     "Distance_from_the_Sun": 11.6191,
     "Constellation": "Andromeda",
     "RA_in_degrees": 4.595417,
@@ -580,8 +580,8 @@
     "Parallax": 280.7
   },
   {
-    "Common_name_of_the_star_system": "Groombridge_34",
-    "Common_name_of_the_star": "GQ_Andromedae",
+    "Common_name_of_the_star_system": "Groombridge 34",
+    "Common_name_of_the_star": "GQ Andromedae",
     "Distance_from_the_Sun": 11.6191,
     "Constellation": "Andromeda",
     "RA_in_degrees": 4.595417,
@@ -600,8 +600,8 @@
     "Parallax": 280.7
   },
   {
-    "Common_name_of_the_star_system": "DX_Cancri",
-    "Common_name_of_the_star": "DX_Cancri",
+    "Common_name_of_the_star_system": "DX Cancri",
+    "Common_name_of_the_star": "DX Cancri",
     "Distance_from_the_Sun": 11.6797,
     "Constellation": "Cancer",
     "RA_in_degrees": 127.45625,
@@ -620,7 +620,7 @@
     "Parallax": 279.2
   },
   {
-    "Common_name_of_the_star_system": "Epsilon_Indi",
+    "Common_name_of_the_star_system": "Epsilon Indi",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 11.867,
     "Constellation": "Indus",
@@ -640,7 +640,7 @@
     "Parallax": 274.8
   },
   {
-    "Common_name_of_the_star_system": "Epsilon_Indi",
+    "Common_name_of_the_star_system": "Epsilon Indi",
     "Common_name_of_the_star": "Ba",
     "Distance_from_the_Sun": 11.867,
     "Constellation": "Indus",
@@ -660,7 +660,7 @@
     "Parallax": 274.8
   },
   {
-    "Common_name_of_the_star_system": "Epsilon_Indi",
+    "Common_name_of_the_star_system": "Epsilon Indi",
     "Common_name_of_the_star": "Bb",
     "Distance_from_the_Sun": 11.867,
     "Constellation": "Indus",
@@ -680,8 +680,8 @@
     "Parallax": 274.8
   },
   {
-    "Common_name_of_the_star_system": "Tau_Ceti",
-    "Common_name_of_the_star": "Tau_Ceti",
+    "Common_name_of_the_star_system": "Tau Ceti",
+    "Common_name_of_the_star": "Tau Ceti",
     "Distance_from_the_Sun": 11.9118,
     "Constellation": "Cetus",
     "RA_in_degrees": 26.017083,
@@ -700,8 +700,8 @@
     "Parallax": 273.8
   },
   {
-    "Common_name_of_the_star_system": "Gliese_1061",
-    "Common_name_of_the_star": "Gliese_1061",
+    "Common_name_of_the_star_system": "Gliese 1061",
+    "Common_name_of_the_star": "Gliese 1061",
     "Distance_from_the_Sun": 11.9839,
     "Constellation": "Horologium",
     "RA_in_degrees": 53.99875,
@@ -720,8 +720,8 @@
     "Parallax": 272.2
   },
   {
-    "Common_name_of_the_star_system": "YZ_Ceti",
-    "Common_name_of_the_star": "YZ_Ceti",
+    "Common_name_of_the_star_system": "YZ Ceti",
+    "Common_name_of_the_star": "YZ Ceti",
     "Distance_from_the_Sun": 12.1222,
     "Constellation": "Cetus",
     "RA_in_degrees": 18.1275,
@@ -740,8 +740,8 @@
     "Parallax": 269.1
   },
   {
-    "Common_name_of_the_star_system": "Luyten's_Star",
-    "Common_name_of_the_star": "Luyten's_Star",
+    "Common_name_of_the_star_system": "Stella Luyteni",
+    "Common_name_of_the_star": "Stella Luyteni",
     "Distance_from_the_Sun": 12.3485,
     "Constellation": "Canis_Minor",
     "RA_in_degrees": 111.852083,
@@ -760,8 +760,8 @@
     "Parallax": 264.1
   },
   {
-    "Common_name_of_the_star_system": "Teegarden's_Star",
-    "Common_name_of_the_star": "Teegarden's_Star",
+    "Common_name_of_the_star_system": "Stella Teegardeni",
+    "Common_name_of_the_star": "Stella Teegardeni",
     "Distance_from_the_Sun": 12.497,
     "Constellation": "Aries",
     "RA_in_degrees": 43.25375,
@@ -780,8 +780,8 @@
     "Parallax": 261.0
   },
   {
-    "Common_name_of_the_star_system": "Kapteyn's_Star",
-    "Common_name_of_the_star": "Kapteyn's_Star",
+    "Common_name_of_the_star_system": "Stella Kapteyni",
+    "Common_name_of_the_star": "Stella Kapteyni",
     "Distance_from_the_Sun": 12.8308,
     "Constellation": "Pisces",
     "RA_in_degrees": 77.919167,
@@ -800,8 +800,8 @@
     "Parallax": 254.2
   },
   {
-    "Common_name_of_the_star_system": "AX_Microscopii",
-    "Common_name_of_the_star": "AX_Microscopii",
+    "Common_name_of_the_star_system": "AX Microscopii",
+    "Common_name_of_the_star": "AX Microscopii",
     "Distance_from_the_Sun": 12.9472,
     "Constellation": "Microscopium",
     "RA_in_degrees": 319.31375,
@@ -820,7 +820,7 @@
     "Parallax": 251.9
   },
   {
-    "Common_name_of_the_star_system": "SCR_1845-6357",
+    "Common_name_of_the_star_system": "SCR 1845-6357",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 13.0638,
     "Constellation": "Pavo",
@@ -840,7 +840,7 @@
     "Parallax": 249.7
   },
   {
-    "Common_name_of_the_star_system": "SCR_1845-6357",
+    "Common_name_of_the_star_system": "SCR 1845-6357",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 13.0638,
     "Constellation": "Pavo",
@@ -860,7 +860,7 @@
     "Parallax": 249.7
   },
   {
-    "Common_name_of_the_star_system": "Kruger_60",
+    "Common_name_of_the_star_system": "Kruger 60",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 13.0724,
     "Constellation": "Cepheus",
@@ -880,8 +880,8 @@
     "Parallax": 249.5
   },
   {
-    "Common_name_of_the_star_system": "Kruger_60",
-    "Common_name_of_the_star": "DO_Cephei",
+    "Common_name_of_the_star_system": "Kruger 60",
+    "Common_name_of_the_star": "DO Cephei",
     "Distance_from_the_Sun": 13.0724,
     "Constellation": "Cepheus",
     "RA_in_degrees": 336.997917,
@@ -900,8 +900,8 @@
     "Parallax": 249.5
   },
   {
-    "Common_name_of_the_star_system": "DENIS_J1048\u00e2\u02c6\u20193956",
-    "Common_name_of_the_star": "DENIS_J1048\u00e2\u02c6\u20193956",
+    "Common_name_of_the_star_system": "DENIS J1048\u00e2\u02c6\u20193956",
+    "Common_name_of_the_star": "DENIS J1048\u00e2\u02c6\u20193956",
     "Distance_from_the_Sun": 13.1932,
     "Constellation": "Antlia",
     "RA_in_degrees": 162.06125,
@@ -960,8 +960,8 @@
     "Parallax": 244.1
   },
   {
-    "Common_name_of_the_star_system": "UGPS_J0722-0540",
-    "Common_name_of_the_star": "UGPS_J0722-0540",
+    "Common_name_of_the_star_system": "UGPS J0722-0540",
+    "Common_name_of_the_star": "UGPS J0722-0540",
     "Distance_from_the_Sun": 13.43,
     "Constellation": "Monoceros",
     "RA_in_degrees": 110.61375,
@@ -980,8 +980,8 @@
     "Parallax": 242.8
   },
   {
-    "Common_name_of_the_star_system": "V2306_Ophiuchi",
-    "Common_name_of_the_star": "V2306_Ophiuchi",
+    "Common_name_of_the_star_system": "V2306 Ophiuchi",
+    "Common_name_of_the_star": "V2306 Ophiuchi",
     "Distance_from_the_Sun": 14.05,
     "Constellation": "Ophiuchus",
     "RA_in_degrees": 247.575417,
@@ -1000,8 +1000,8 @@
     "Parallax": 232.1
   },
   {
-    "Common_name_of_the_star_system": "Van_Maanen's_Star",
-    "Common_name_of_the_star": "Van_Maanen's_Star",
+    "Common_name_of_the_star_system": "Stella Van Maaneni",
+    "Common_name_of_the_star": "Stella Van Maaneni",
     "Distance_from_the_Sun": 14.0718,
     "Constellation": "Pisces",
     "RA_in_degrees": 12.29125,
@@ -1020,8 +1020,8 @@
     "Parallax": 231.8
   },
   {
-    "Common_name_of_the_star_system": "Gliese_1",
-    "Common_name_of_the_star": "Gliese_1",
+    "Common_name_of_the_star_system": "Gliese 1",
+    "Common_name_of_the_star": "Gliese 1",
     "Distance_from_the_Sun": 14.1747,
     "Constellation": "Sculptor",
     "RA_in_degrees": 1.351667,
@@ -1040,8 +1040,8 @@
     "Parallax": 230.1
   },
   {
-    "Common_name_of_the_star_system": "TZ_Arietis",
-    "Common_name_of_the_star": "TZ_Arietis",
+    "Common_name_of_the_star_system": "TZ Arietis",
+    "Common_name_of_the_star": "TZ Arietis",
     "Distance_from_the_Sun": 14.578,
     "Constellation": "Aries",
     "RA_in_degrees": 30.055,
@@ -1060,7 +1060,7 @@
     "Parallax": 223.7
   },
   {
-    "Common_name_of_the_star_system": "FL_Virginis",
+    "Common_name_of_the_star_system": "FL Virginis",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 14.595,
     "Constellation": "Virgo",
@@ -1080,7 +1080,7 @@
     "Parallax": 223.5
   },
   {
-    "Common_name_of_the_star_system": "FL_Virginis",
+    "Common_name_of_the_star_system": "FL Virginis",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 14.595,
     "Constellation": "Virgo",
@@ -1100,8 +1100,8 @@
     "Parallax": 223.5
   },
   {
-    "Common_name_of_the_star_system": "Gliese_687",
-    "Common_name_of_the_star": "Gliese_687",
+    "Common_name_of_the_star_system": "Gliese 687",
+    "Common_name_of_the_star": "Gliese 687",
     "Distance_from_the_Sun": 14.8395,
     "Constellation": "Draco",
     "RA_in_degrees": 264.107917,
@@ -1120,8 +1120,8 @@
     "Parallax": 219.8
   },
   {
-    "Common_name_of_the_star_system": "Gliese_674",
-    "Common_name_of_the_star": "Gliese_674",
+    "Common_name_of_the_star_system": "Gliese 674",
+    "Common_name_of_the_star": "Gliese 674",
     "Distance_from_the_Sun": 14.8492,
     "Constellation": "Ara",
     "RA_in_degrees": 262.16625,
@@ -1140,8 +1140,8 @@
     "Parallax": 219.6
   },
   {
-    "Common_name_of_the_star_system": "LHS_292",
-    "Common_name_of_the_star": "LHS_292",
+    "Common_name_of_the_star_system": "LHS 292",
+    "Common_name_of_the_star": "LHS 292",
     "Distance_from_the_Sun": 14.8706,
     "Constellation": "Sextans",
     "RA_in_degrees": 162.0525,
@@ -1160,8 +1160,8 @@
     "Parallax": 219.3
   },
   {
-    "Common_name_of_the_star_system": "Gliese_440",
-    "Common_name_of_the_star": "Gliese_440",
+    "Common_name_of_the_star_system": "Gliese 440",
+    "Common_name_of_the_star": "Gliese 440",
     "Distance_from_the_Sun": 15.1226,
     "Constellation": "Musca",
     "RA_in_degrees": 176.42875,
@@ -1180,7 +1180,7 @@
     "Parallax": 215.7
   },
   {
-    "Common_name_of_the_star_system": "V1581_Cygni",
+    "Common_name_of_the_star_system": "V1581 Cygni",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 15.2001,
     "Constellation": "Cygnus",
@@ -1200,7 +1200,7 @@
     "Parallax": 214.6
   },
   {
-    "Common_name_of_the_star_system": "V1581_Cygni",
+    "Common_name_of_the_star_system": "V1581 Cygni",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 15.2001,
     "Constellation": "Cygnus",
@@ -1220,7 +1220,7 @@
     "Parallax": 214.6
   },
   {
-    "Common_name_of_the_star_system": "V1581_Cygni",
+    "Common_name_of_the_star_system": "V1581 Cygni",
     "Common_name_of_the_star": "C",
     "Distance_from_the_Sun": 15.2001,
     "Constellation": "Cygnus",
@@ -1240,8 +1240,8 @@
     "Parallax": 214.6
   },
   {
-    "Common_name_of_the_star_system": "WISE_1741+2553",
-    "Common_name_of_the_star": "WISE_1741+2553",
+    "Common_name_of_the_star_system": "WISE 1741+2553",
+    "Common_name_of_the_star": "WISE 1741+2553",
     "Distance_from_the_Sun": 15.22,
     "Constellation": "Hercules",
     "RA_in_degrees": 265.350833,
@@ -1260,8 +1260,8 @@
     "Parallax": 214.3
   },
   {
-    "Common_name_of_the_star_system": "IL_Aquarii",
-    "Common_name_of_the_star": "IL_Aquarii",
+    "Common_name_of_the_star_system": "IL Aquarii",
+    "Common_name_of_the_star": "IL Aquarii",
     "Distance_from_the_Sun": 15.2382,
     "Constellation": "Aquarius",
     "RA_in_degrees": 343.319583,
@@ -1280,8 +1280,8 @@
     "Parallax": 214.0
   },
   {
-    "Common_name_of_the_star_system": "WISE_1639-6847",
-    "Common_name_of_the_star": "WISE_1639-6847",
+    "Common_name_of_the_star_system": "WISE 1639-6847",
+    "Common_name_of_the_star": "WISE 1639-6847",
     "Distance_from_the_Sun": 15.45,
     "Constellation": "Triangulum_Australe",
     "RA_in_degrees": 249.920417,
@@ -1300,8 +1300,8 @@
     "Parallax": 211.1
   },
   {
-    "Common_name_of_the_star_system": "LHS_288",
-    "Common_name_of_the_star": "LHS_288",
+    "Common_name_of_the_star_system": "LHS 288",
+    "Common_name_of_the_star": "LHS 288",
     "Distance_from_the_Sun": 15.7586,
     "Constellation": "Carina",
     "RA_in_degrees": 161.088333,
@@ -1320,8 +1320,8 @@
     "Parallax": 207.0
   },
   {
-    "Common_name_of_the_star_system": "Gliese_1002",
-    "Common_name_of_the_star": "Gliese_1002",
+    "Common_name_of_the_star_system": "Gliese 1002",
+    "Common_name_of_the_star": "Gliese 1002",
     "Distance_from_the_Sun": 15.806,
     "Constellation": "Cetus",
     "RA_in_degrees": 1.6825,
@@ -1340,8 +1340,8 @@
     "Parallax": 206.3
   },
   {
-    "Common_name_of_the_star_system": "DENIS_0255-4700",
-    "Common_name_of_the_star": "DENIS_0255-4700",
+    "Common_name_of_the_star_system": "DENIS 0255-4700",
+    "Common_name_of_the_star": "DENIS 0255-4700",
     "Distance_from_the_Sun": 15.877,
     "Constellation": "Eridanus",
     "RA_in_degrees": 43.765417,
@@ -1360,8 +1360,8 @@
     "Parallax": 205.4
   },
   {
-    "Common_name_of_the_star_system": "Groombridge_1618",
-    "Common_name_of_the_star": "Groombridge_1618",
+    "Common_name_of_the_star_system": "Groombridge 1618",
+    "Common_name_of_the_star": "Groombridge 1618",
     "Distance_from_the_Sun": 15.8857,
     "Constellation": "Ursa_Major",
     "RA_in_degrees": 152.842083,
@@ -1380,7 +1380,7 @@
     "Parallax": 205.3
   },
   {
-    "Common_name_of_the_star_system": "Gliese_412",
+    "Common_name_of_the_star_system": "Gliese 412",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 15.9969,
     "Constellation": "Ursa_Major",
@@ -1400,8 +1400,8 @@
     "Parallax": 203.9
   },
   {
-    "Common_name_of_the_star_system": "Gliese_412",
-    "Common_name_of_the_star": "WX_Ursae_Majoris",
+    "Common_name_of_the_star_system": "Gliese 412",
+    "Common_name_of_the_star": "WX Ursae Majoris",
     "Distance_from_the_Sun": 15.9969,
     "Constellation": "Ursa_Major",
     "RA_in_degrees": 166.376667,
@@ -1420,8 +1420,8 @@
     "Parallax": 203.9
   },
   {
-    "Common_name_of_the_star_system": "AD_Leonis",
-    "Common_name_of_the_star": "AD_Leonis",
+    "Common_name_of_the_star_system": "AD Leonis",
+    "Common_name_of_the_star": "AD Leonis",
     "Distance_from_the_Sun": 16.1939,
     "Constellation": "Leo",
     "RA_in_degrees": 154.901667,
@@ -1440,8 +1440,8 @@
     "Parallax": 201.4
   },
   {
-    "Common_name_of_the_star_system": "Gliese_832",
-    "Common_name_of_the_star": "Gliese_832",
+    "Common_name_of_the_star_system": "Gliese 832",
+    "Common_name_of_the_star": "Gliese 832",
     "Distance_from_the_Sun": 16.2005,
     "Constellation": "Grus",
     "RA_in_degrees": 323.391667,
@@ -1460,8 +1460,8 @@
     "Parallax": 201.3
   },
   {
-    "Common_name_of_the_star_system": "Gliese_682",
-    "Common_name_of_the_star": "Gliese_682",
+    "Common_name_of_the_star_system": "Gliese 682",
+    "Common_name_of_the_star": "Gliese 682",
     "Distance_from_the_Sun": 16.3328,
     "Constellation": "Scorpius",
     "RA_in_degrees": 264.265417,
@@ -1480,7 +1480,7 @@
     "Parallax": 199.7
   },
   {
-    "Common_name_of_the_star_system": "Omicron2_Eridani",
+    "Common_name_of_the_star_system": "Omicron2 Eridani",
     "Common_name_of_the_star": "Keid",
     "Distance_from_the_Sun": 16.333,
     "Constellation": "Eridanus",
@@ -1500,7 +1500,7 @@
     "Parallax": 199.7
   },
   {
-    "Common_name_of_the_star_system": "Omicron2_Eridani",
+    "Common_name_of_the_star_system": "Omicron2 Eridani",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 16.333,
     "Constellation": "Eridanus",
@@ -1520,7 +1520,7 @@
     "Parallax": 199.7
   },
   {
-    "Common_name_of_the_star_system": "Omicron2_Eridani",
+    "Common_name_of_the_star_system": "Omicron2 Eridani",
     "Common_name_of_the_star": "C",
     "Distance_from_the_Sun": 16.333,
     "Constellation": "Eridanus",
@@ -1540,8 +1540,8 @@
     "Parallax": 199.7
   },
   {
-    "Common_name_of_the_star_system": "EV_Lacertae",
-    "Common_name_of_the_star": "EV_Lacertae",
+    "Common_name_of_the_star_system": "EV Lacertae",
+    "Common_name_of_the_star": "EV Lacertae",
     "Distance_from_the_Sun": 16.4761,
     "Constellation": "Lacerta",
     "RA_in_degrees": 341.707083,
@@ -1560,7 +1560,7 @@
     "Parallax": 198.0
   },
   {
-    "Common_name_of_the_star_system": "70_Ophiuchi",
+    "Common_name_of_the_star_system": "70 Ophiuchi",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 16.7074,
     "Constellation": "Ophiuchus",
@@ -1580,7 +1580,7 @@
     "Parallax": 195.2
   },
   {
-    "Common_name_of_the_star_system": "70_Ophiuchi",
+    "Common_name_of_the_star_system": "70 Ophiuchi",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 16.7074,
     "Constellation": "Ophiuchus",
@@ -1620,7 +1620,7 @@
     "Parallax": 195.0
   },
   {
-    "Common_name_of_the_star_system": "EI_Cancri",
+    "Common_name_of_the_star_system": "EI Cancri",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 16.8,
     "Constellation": "Cancer",
@@ -1640,7 +1640,7 @@
     "Parallax": 194.1
   },
   {
-    "Common_name_of_the_star_system": "EI_Cancri",
+    "Common_name_of_the_star_system": "EI Cancri",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 16.8,
     "Constellation": "Cancer",
@@ -1660,8 +1660,8 @@
     "Parallax": 194.1
   },
   {
-    "Common_name_of_the_star_system": "WISE_J150649.97+702736.1",
-    "Common_name_of_the_star": "WISE_J150649.97+702736.1",
+    "Common_name_of_the_star_system": "WISE J150649.97+702736.1",
+    "Common_name_of_the_star": "WISE J150649.97+702736.1",
     "Distance_from_the_Sun": 16.856,
     "Constellation": "Ursa_Minor",
     "RA_in_degrees": 226.718333,
@@ -1680,8 +1680,8 @@
     "Parallax": 193.5
   },
   {
-    "Common_name_of_the_star_system": "Gliese_3379",
-    "Common_name_of_the_star": "Gliese_3379",
+    "Common_name_of_the_star_system": "Gliese 3379",
+    "Common_name_of_the_star": "Gliese 3379",
     "Distance_from_the_Sun": 16.9861,
     "Constellation": "Orion",
     "RA_in_degrees": 90.014583,
@@ -1700,8 +1700,8 @@
     "Parallax": 192.0
   },
   {
-    "Common_name_of_the_star_system": "DENIS_J081730.0\u00e2\u02c6\u2019615520",
-    "Common_name_of_the_star": "DENIS_J081730.0\u00e2\u02c6\u2019615520",
+    "Common_name_of_the_star_system": "DENIS J081730.0\u00e2\u02c6\u2019615520",
+    "Common_name_of_the_star": "DENIS J081730.0\u00e2\u02c6\u2019615520",
     "Distance_from_the_Sun": 17.002,
     "Constellation": "Carina",
     "RA_in_degrees": 124.375417,
@@ -1720,8 +1720,8 @@
     "Parallax": 191.8
   },
   {
-    "Common_name_of_the_star_system": "Gliese_445",
-    "Common_name_of_the_star": "Gliese_445",
+    "Common_name_of_the_star_system": "Gliese 445",
+    "Common_name_of_the_star": "Gliese 445",
     "Distance_from_the_Sun": 17.1368,
     "Constellation": "Camelopardalis",
     "RA_in_degrees": 176.9225,
@@ -1740,8 +1740,8 @@
     "Parallax": 190.3
   },
   {
-    "Common_name_of_the_star_system": "2MASS_J15404342\u00e2\u02c6\u20195101357",
-    "Common_name_of_the_star": "2MASS_J15404342\u00e2\u02c6\u20195101357",
+    "Common_name_of_the_star_system": "2MASS J15404342\u00e2\u02c6\u20195101357",
+    "Common_name_of_the_star": "2MASS J15404342\u00e2\u02c6\u20195101357",
     "Distance_from_the_Sun": 17.3738,
     "Constellation": "Norma",
     "RA_in_degrees": 235.18125,
@@ -1760,7 +1760,7 @@
     "Parallax": 187.7
   },
   {
-    "Common_name_of_the_star_system": "2MASS_0939\u00e2\u02c6\u20192448",
+    "Common_name_of_the_star_system": "2MASS 0939\u00e2\u02c6\u20192448",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 17.41,
     "Constellation": "Antlia",
@@ -1780,7 +1780,7 @@
     "Parallax": 187.3
   },
   {
-    "Common_name_of_the_star_system": "2MASS_0939\u00e2\u02c6\u20192448",
+    "Common_name_of_the_star_system": "2MASS 0939\u00e2\u02c6\u20192448",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 17.41,
     "Constellation": "Antlia",
@@ -1800,8 +1800,8 @@
     "Parallax": 187.3
   },
   {
-    "Common_name_of_the_star_system": "Gliese_3323",
-    "Common_name_of_the_star": "Gliese_3323",
+    "Common_name_of_the_star_system": "Gliese 3323",
+    "Common_name_of_the_star": "Gliese 3323",
     "Distance_from_the_Sun": 17.5309,
     "Constellation": "Eridanus",
     "RA_in_degrees": 75.489167,
@@ -1820,8 +1820,8 @@
     "Parallax": 186.0
   },
   {
-    "Common_name_of_the_star_system": "Gliese_526",
-    "Common_name_of_the_star": "Gliese_526",
+    "Common_name_of_the_star_system": "Gliese 526",
+    "Common_name_of_the_star": "Gliese 526",
     "Distance_from_the_Sun": 17.7263,
     "Constellation": "Bo\u00c3\u00b6tes",
     "RA_in_degrees": 206.4325,
@@ -1840,7 +1840,7 @@
     "Parallax": 184.0
   },
   {
-    "Common_name_of_the_star_system": "Stein_2051",
+    "Common_name_of_the_star_system": "Stein 2051",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 17.9925,
     "Constellation": "Camelopardalis",
@@ -1860,7 +1860,7 @@
     "Parallax": 181.3
   },
   {
-    "Common_name_of_the_star_system": "Stein_2051",
+    "Common_name_of_the_star_system": "Stein 2051",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 17.9925,
     "Constellation": "Camelopardalis",
@@ -1880,8 +1880,8 @@
     "Parallax": 181.3
   },
   {
-    "Common_name_of_the_star_system": "2MASS_J11145133\u00e2\u02c6\u20192618235",
-    "Common_name_of_the_star": "2MASS_J11145133\u00e2\u02c6\u20192618235",
+    "Common_name_of_the_star_system": "2MASS J11145133\u00e2\u02c6\u20192618235",
+    "Common_name_of_the_star": "2MASS J11145133\u00e2\u02c6\u20192618235",
     "Distance_from_the_Sun": 18.2,
     "Constellation": "Hydra",
     "RA_in_degrees": 168.71375,
@@ -1900,8 +1900,8 @@
     "Parallax": 179.2
   },
   {
-    "Common_name_of_the_star_system": "Gliese_251",
-    "Common_name_of_the_star": "Gliese_251",
+    "Common_name_of_the_star_system": "Gliese 251",
+    "Common_name_of_the_star": "Gliese 251",
     "Distance_from_the_Sun": 18.2146,
     "Constellation": "Gemini",
     "RA_in_degrees": 103.704167,
@@ -1920,8 +1920,8 @@
     "Parallax": 179.1
   },
   {
-    "Common_name_of_the_star_system": "LP_816-60",
-    "Common_name_of_the_star": "LP_816-60",
+    "Common_name_of_the_star_system": "LP 816-60",
+    "Common_name_of_the_star": "LP 816-60",
     "Distance_from_the_Sun": 18.3305,
     "Constellation": "Capricornus",
     "RA_in_degrees": 313.1375,
@@ -1940,8 +1940,8 @@
     "Parallax": 177.9
   },
   {
-    "Common_name_of_the_star_system": "WISE_0350\u00e2\u02c6\u20195658",
-    "Common_name_of_the_star": "WISE_0350\u00e2\u02c6\u20195658",
+    "Common_name_of_the_star_system": "WISE 0350\u00e2\u02c6\u20195658",
+    "Common_name_of_the_star": "WISE 0350\u00e2\u02c6\u20195658",
     "Distance_from_the_Sun": 18.49,
     "Constellation": "Reticulum",
     "RA_in_degrees": 57.50125,
@@ -1960,8 +1960,8 @@
     "Parallax": 176.4
   },
   {
-    "Common_name_of_the_star_system": "LSR_J1835+3259",
-    "Common_name_of_the_star": "LSR_J1835+3259",
+    "Common_name_of_the_star_system": "LSR J1835+3259",
+    "Common_name_of_the_star": "LSR J1835+3259",
     "Distance_from_the_Sun": 18.5534,
     "Constellation": "Lyra",
     "RA_in_degrees": 278.907917,
@@ -1980,8 +1980,8 @@
     "Parallax": 175.8
   },
   {
-    "Common_name_of_the_star_system": "Gliese_205",
-    "Common_name_of_the_star": "Gliese_205",
+    "Common_name_of_the_star_system": "Gliese 205",
+    "Common_name_of_the_star": "Gliese 205",
     "Distance_from_the_Sun": 18.6042,
     "Constellation": "Orion",
     "RA_in_degrees": 82.864167,
@@ -2000,8 +2000,8 @@
     "Parallax": 175.3
   },
   {
-    "Common_name_of_the_star_system": "2MASS_J04151954\u00e2\u02c6\u20190935066",
-    "Common_name_of_the_star": "2MASS_J04151954\u00e2\u02c6\u20190935066",
+    "Common_name_of_the_star_system": "2MASS J04151954\u00e2\u02c6\u20190935066",
+    "Common_name_of_the_star": "2MASS J04151954\u00e2\u02c6\u20190935066",
     "Distance_from_the_Sun": 18.62,
     "Constellation": "Eridanus",
     "RA_in_degrees": 63.83125,
@@ -2020,7 +2020,7 @@
     "Parallax": 175.2
   },
   {
-    "Common_name_of_the_star_system": "Gliese_229",
+    "Common_name_of_the_star_system": "Gliese 229",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 18.7906,
     "Constellation": "Lepus",
@@ -2040,7 +2040,7 @@
     "Parallax": 173.6
   },
   {
-    "Common_name_of_the_star_system": "Gliese_229",
+    "Common_name_of_the_star_system": "Gliese 229",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 18.7906,
     "Constellation": "Lepus",
@@ -2100,8 +2100,8 @@
     "Parallax": 173.5
   },
   {
-    "Common_name_of_the_star_system": "V1352_Ori",
-    "Common_name_of_the_star": "V1352_Ori",
+    "Common_name_of_the_star_system": "V1352 Ori",
+    "Common_name_of_the_star": "V1352 Ori",
     "Distance_from_the_Sun": 18.8883,
     "Constellation": "Orion",
     "RA_in_degrees": 85.53875,
@@ -2120,7 +2120,7 @@
     "Parallax": 172.7
   },
   {
-    "Common_name_of_the_star_system": "33_G._Librae",
+    "Common_name_of_the_star_system": "33 G. Librae",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 19.1987,
     "Constellation": "Libra",
@@ -2140,7 +2140,7 @@
     "Parallax": 169.9
   },
   {
-    "Common_name_of_the_star_system": "33_G._Librae",
+    "Common_name_of_the_star_system": "33 G. Librae",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 19.1987,
     "Constellation": "Libra",
@@ -2160,7 +2160,7 @@
     "Parallax": 169.9
   },
   {
-    "Common_name_of_the_star_system": "33_G._Librae",
+    "Common_name_of_the_star_system": "33 G. Librae",
     "Common_name_of_the_star": "C",
     "Distance_from_the_Sun": 19.1987,
     "Constellation": "Libra",
@@ -2180,7 +2180,7 @@
     "Parallax": 169.9
   },
   {
-    "Common_name_of_the_star_system": "33_G._Librae",
+    "Common_name_of_the_star_system": "33 G. Librae",
     "Common_name_of_the_star": "D",
     "Distance_from_the_Sun": 19.1987,
     "Constellation": "Libra",
@@ -2200,8 +2200,8 @@
     "Parallax": 169.9
   },
   {
-    "Common_name_of_the_star_system": "Gliese_693",
-    "Common_name_of_the_star": "Gliese_693",
+    "Common_name_of_the_star_system": "Gliese 693",
+    "Common_name_of_the_star": "Gliese 693",
     "Distance_from_the_Sun": 19.2078,
     "Constellation": "Pavo",
     "RA_in_degrees": 266.635,
@@ -2220,8 +2220,8 @@
     "Parallax": 169.8
   },
   {
-    "Common_name_of_the_star_system": "Gliese_754",
-    "Common_name_of_the_star": "Gliese_754",
+    "Common_name_of_the_star_system": "Gliese 754",
+    "Common_name_of_the_star": "Gliese 754",
     "Distance_from_the_Sun": 19.2724,
     "Constellation": "Telescopium",
     "RA_in_degrees": 290.2,
@@ -2240,8 +2240,8 @@
     "Parallax": 169.2
   },
   {
-    "Common_name_of_the_star_system": "BR_Piscium",
-    "Common_name_of_the_star": "BR_Piscium",
+    "Common_name_of_the_star_system": "BR Piscium",
+    "Common_name_of_the_star": "BR Piscium",
     "Distance_from_the_Sun": 19.2745,
     "Constellation": "Pisces",
     "RA_in_degrees": 357.302083,
@@ -2260,7 +2260,7 @@
     "Parallax": 169.2
   },
   {
-    "Common_name_of_the_star_system": "V1428_Aql",
+    "Common_name_of_the_star_system": "V1428 Aql",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 19.2922,
     "Constellation": "Aquila",
@@ -2280,8 +2280,8 @@
     "Parallax": 169.1
   },
   {
-    "Common_name_of_the_star_system": "V1428_Aql",
-    "Common_name_of_the_star": "Van_Biesbroecks_star",
+    "Common_name_of_the_star_system": "V1428 Aql",
+    "Common_name_of_the_star": "Stella Van Biesbroecksi",
     "Distance_from_the_Sun": 19.2922,
     "Constellation": "Aquila",
     "RA_in_degrees": 289.24,
@@ -2300,8 +2300,8 @@
     "Parallax": 169.1
   },
   {
-    "Common_name_of_the_star_system": "Gliese_588",
-    "Common_name_of_the_star": "Gliese_588",
+    "Common_name_of_the_star_system": "Gliese 588",
+    "Common_name_of_the_star": "Gliese 588",
     "Distance_from_the_Sun": 19.2996,
     "Constellation": "Lupus",
     "RA_in_degrees": 233.05375,
@@ -2320,7 +2320,7 @@
     "Parallax": 169.0
   },
   {
-    "Common_name_of_the_star_system": "Eta_Cassiopeiae",
+    "Common_name_of_the_star_system": "Eta Cassiopeiae",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 19.3314,
     "Constellation": "Cassiopeia",
@@ -2340,7 +2340,7 @@
     "Parallax": 168.7
   },
   {
-    "Common_name_of_the_star_system": "Eta_Cassiopeiae",
+    "Common_name_of_the_star_system": "Eta Cassiopeiae",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 19.3314,
     "Constellation": "Cassiopeia",
@@ -2360,7 +2360,7 @@
     "Parallax": 168.7
   },
   {
-    "Common_name_of_the_star_system": "36_Ophiuchi",
+    "Common_name_of_the_star_system": "36 Ophiuchi",
     "Common_name_of_the_star": "Guniibuu",
     "Distance_from_the_Sun": 19.4185,
     "Constellation": "Ophiuchus",
@@ -2380,7 +2380,7 @@
     "Parallax": 168.0
   },
   {
-    "Common_name_of_the_star_system": "36_Ophiuchi",
+    "Common_name_of_the_star_system": "36 Ophiuchi",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 19.4185,
     "Constellation": "Ophiuchus",
@@ -2400,7 +2400,7 @@
     "Parallax": 168.0
   },
   {
-    "Common_name_of_the_star_system": "36_Ophiuchi",
+    "Common_name_of_the_star_system": "36 Ophiuchi",
     "Common_name_of_the_star": "C",
     "Distance_from_the_Sun": 19.4185,
     "Constellation": "Ophiuchus",
@@ -2420,8 +2420,8 @@
     "Parallax": 168.0
   },
   {
-    "Common_name_of_the_star_system": "YZ_Canis_Minoris",
-    "Common_name_of_the_star": "YZ_Canis_Minoris",
+    "Common_name_of_the_star_system": "YZ Canis_Minoris",
+    "Common_name_of_the_star": "YZ Canis Minoris",
     "Distance_from_the_Sun": 19.533,
     "Constellation": "Canis_Minor",
     "RA_in_degrees": 116.1675,
@@ -2440,8 +2440,8 @@
     "Parallax": 167.0
   },
   {
-    "Common_name_of_the_star_system": "WISE_J1541-2250",
-    "Common_name_of_the_star": "WISE_J1541-2250",
+    "Common_name_of_the_star_system": "WISE J1541-2250",
+    "Common_name_of_the_star": "WISE J1541-2250",
     "Distance_from_the_Sun": 19.54,
     "Constellation": "Libra",
     "RA_in_degrees": 235.465,
@@ -2460,7 +2460,7 @@
     "Parallax": 166.9
   },
   {
-    "Common_name_of_the_star_system": "Gliese_1005",
+    "Common_name_of_the_star_system": "Gliese 1005",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 19.577,
     "Constellation": "Cetus",
@@ -2480,7 +2480,7 @@
     "Parallax": 166.6
   },
   {
-    "Common_name_of_the_star_system": "Gliese_1005",
+    "Common_name_of_the_star_system": "Gliese 1005",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 19.577,
     "Constellation": "Cetus",
@@ -2500,7 +2500,7 @@
     "Parallax": 166.6
   },
   {
-    "Common_name_of_the_star_system": "279_G._Sagittarii",
+    "Common_name_of_the_star_system": "279 G. Sagittarii",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 19.609,
     "Constellation": "Sagittarius",
@@ -2520,7 +2520,7 @@
     "Parallax": 166.3
   },
   {
-    "Common_name_of_the_star_system": "279_G._Sagittarii",
+    "Common_name_of_the_star_system": "279 G. Sagittarii",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 19.609,
     "Constellation": "Sagittarius",
@@ -2540,8 +2540,8 @@
     "Parallax": 166.3
   },
   {
-    "Common_name_of_the_star_system": "82_Eridani",
-    "Common_name_of_the_star": "82_Eridani",
+    "Common_name_of_the_star_system": "82 Eridani",
+    "Common_name_of_the_star": "82 Eridani",
     "Distance_from_the_Sun": 19.7045,
     "Constellation": "Eridanus",
     "RA_in_degrees": 49.982083,
@@ -2560,7 +2560,7 @@
     "Parallax": 165.5
   },
   {
-    "Common_name_of_the_star_system": "QY_Aurigae",
+    "Common_name_of_the_star_system": "QY Aurigae",
     "Common_name_of_the_star": "A",
     "Distance_from_the_Sun": 19.7414,
     "Constellation": "Auriga",
@@ -2580,7 +2580,7 @@
     "Parallax": 165.2
   },
   {
-    "Common_name_of_the_star_system": "QY_Aurigae",
+    "Common_name_of_the_star_system": "QY Aurigae",
     "Common_name_of_the_star": "B",
     "Distance_from_the_Sun": 19.7414,
     "Constellation": "Auriga",
@@ -2600,8 +2600,8 @@
     "Parallax": 165.2
   },
   {
-    "Common_name_of_the_star_system": "Delta_Pavonis",
-    "Common_name_of_the_star": "Delta_Pavonis",
+    "Common_name_of_the_star_system": "Delta Pavonis",
+    "Common_name_of_the_star": "Delta Pavonis",
     "Distance_from_the_Sun": 19.893,
     "Constellation": "Pavo",
     "RA_in_degrees": 302.181667,
@@ -2620,8 +2620,8 @@
     "Parallax": 163.9
   },
   {
-    "Common_name_of_the_star_system": "SIMP_J013656.5+093347",
-    "Common_name_of_the_star": "SIMP_J013656.5+093347",
+    "Common_name_of_the_star_system": "SIMP J013656.5+093347",
+    "Common_name_of_the_star": "SIMP J013656.5+093347",
     "Distance_from_the_Sun": 19.955,
     "Constellation": "Pisces",
     "RA_in_degrees": 24.235417,
@@ -2640,8 +2640,8 @@
     "Parallax": 163.4
   },
   {
-    "Common_name_of_the_star_system": "2MASS_0937+2931",
-    "Common_name_of_the_star": "2MASS_0937+2931_A",
+    "Common_name_of_the_star_system": "2MASS 0937+2931",
+    "Common_name_of_the_star": "2MASS 0937+2931_A",
     "Distance_from_the_Sun": 19.96,
     "Constellation": "Leo",
     "RA_in_degrees": 144.395417,
