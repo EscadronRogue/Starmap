@@ -1,7 +1,7 @@
 [
   {
-    "Common_name_of_the_star_system": "Solar_System",
-    "Common_name_of_the_star": "Sun",
+    "Common_name_of_the_star_system": "Systema Solaris",
+    "Common_name_of_the_star": "Sol",
     "Distance_from_the_Sun": 0.0,
     "Constellation": "Sol",
     "RA_in_degrees": 0.0,
@@ -20,8 +20,8 @@
     "Parallax": 0
   },
   {
-    "Common_name_of_the_star_system": "Alpha_Centauri",
-    "Common_name_of_the_star": "Proxima_Centauri",
+    "Common_name_of_the_star_system": "Alpha Centauri",
+    "Common_name_of_the_star": "Proxima Centauri",
     "Distance_from_the_Sun": 4.2465,
     "Constellation": "Centaurus",
     "RA_in_degrees": 217.429167,
