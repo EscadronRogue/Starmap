@@ -1,24 +1,39 @@
 // /filters/densityGridOverlay.js
-
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor, getBlueColor } from './densityColorUtils.js';
-import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent } from './densitySegmentation.js';
+import {
+  getDoubleSidedLabelMaterial,
+  getBaseColor,
+  lightenColor,
+  darkenColor,
+  getBlueColor
+} from './densityColorUtils.js';
+import {
+  getGreatCirclePoints,
+  computeInterconnectedCell,
+  segmentOceanCandidate,
+  computeCentroid,
+  assignDistinctColorsToIndependent
+} from './densitySegmentation.js';
 
 /**
- * The DensityGridOverlay class manages 3D cells for density-based empty regions,
- * plus logic for cluster classification (“Sea [constellation]”, etc.).
+ * The DensityGridOverlay class manages a 3D “grid” of cells used to visualize empty
+ * regions, then classifies them (Sea/ Ocean / Lake + constellation majority).
  */
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
     this.maxDistance = maxDistance;
     this.gridSize = gridSize;
-    this.cubesData = [];          // array of “cell” objects
-    this.adjacentLines = [];      // lines for adjacency on the globe
-    this.regionClusters = [];     // result of cluster classification
+    this.cubesData = [];
+    this.adjacentLines = [];
+    this.regionClusters = [];
+    // Two groups for label sprites/meshes, one for TrueCoords, one for Globe
     this.regionLabelsGroupTC = new THREE.Group();
     this.regionLabelsGroupGlobe = new THREE.Group();
   }
 
+  /**
+   * Creates the cell grid within [maxDistance].
+   */
   createGrid(stars) {
     const halfExt = Math.ceil(this.maxDistance / this.gridSize) * this.gridSize;
     this.cubesData = [];
@@ -30,6 +45,7 @@ export class DensityGridOverlay {
           const distFromCenter = posTC.length();
           if (distFromCenter > this.maxDistance) continue;
 
+          // TrueCoordinates box
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
           const material = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
@@ -40,16 +56,14 @@ export class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
 
-          // For the globe: a plane to represent the cell projected on a sphere
+          // Globe plane
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
 
           if (distFromCenter < 1e-6) {
-            // near center
             squareGlobe.position.set(0,0,0);
           } else {
-            // project onto sphere radius=100
             const ra = Math.atan2(-posTC.z, -posTC.x);
             const dec = Math.asin(posTC.y / distFromCenter);
             const radius = 100;
@@ -84,7 +98,10 @@ export class DensityGridOverlay {
     this.computeDistances(stars);
     this.computeAdjacentLines();
   }
-  
+
+  /**
+   * For each cell, build a sorted list of star distances (for isolation).
+   */
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
       const dArr = stars.map(star => {
@@ -100,7 +117,10 @@ export class DensityGridOverlay {
       cell.distances = dArr;
     });
   }
-  
+
+  /**
+   * Compute adjacency lines so we can link adjacent cells on the globe for visualization.
+   */
   computeAdjacentLines() {
     this.adjacentLines = [];
     const cellMap = new Map();
@@ -157,11 +177,16 @@ export class DensityGridOverlay {
       });
     });
   }
-  
+
+  /**
+   * Applies the user’s “isolation distance” & “tolerance” from the UI
+   * to mark cells as “active” or not, and sets visibility on their meshes.
+   */
   update(stars) {
     const densitySlider = document.getElementById('density-slider');
     const toleranceSlider = document.getElementById('tolerance-slider');
     if (!densitySlider || !toleranceSlider) return;
+
     const isolationVal = parseFloat(densitySlider.value) || 1;
     const toleranceVal = parseInt(toleranceSlider.value) || 0;
 
@@ -194,6 +219,7 @@ export class DensityGridOverlay {
         const points = getGreatCirclePoints(cell1.globeMesh.position, cell2.globeMesh.position, 100, 16);
         const positions = [];
         const colors = [];
+
         const c1 = cell1.globeMesh.material.color;
         const c2 = cell2.globeMesh.material.color;
         for (let i = 0; i < points.length; i++) {
@@ -220,10 +246,10 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Classify active cells into clusters, find majority constellation, etc.
+   * BFS/DFS cluster classification – group active cells, find majority constellation, etc.
    */
   classifyEmptyRegions() {
-    // Normalize each active cell's constellation
+    // normalize each active cell's constellation to uppercase or "UNKNOWN"
     this.cubesData.forEach(cell => {
       if (cell.active) {
         if (cell.constellation && cell.constellation !== "UNKNOWN") {
@@ -234,7 +260,7 @@ export class DensityGridOverlay {
       }
     });
 
-    // BFS/DFS to group clusters
+    // BFS/DFS to group them
     const gridMap = new Map();
     this.cubesData.forEach(cell => {
       cell.clusterId = null;
@@ -243,6 +269,7 @@ export class DensityGridOverlay {
         gridMap.set(key, cell.id);
       }
     });
+
     const clusters = [];
     const visited = new Set();
 
@@ -250,8 +277,8 @@ export class DensityGridOverlay {
       const cell = this.cubesData[i];
       if (!cell.active || visited.has(cell.id)) continue;
 
-      let clusterCells = [];
-      let stack = [cell];
+      const clusterCells = [];
+      const stack = [cell];
       while (stack.length > 0) {
         const current = stack.pop();
         if (visited.has(current.id)) continue;
@@ -278,17 +305,20 @@ export class DensityGridOverlay {
     }
 
     let V_max = 0;
-    clusters.forEach(c => { if (c.length > V_max) V_max = c.length; });
+    clusters.forEach(c => {
+      if (c.length > V_max) V_max = c.length;
+    });
 
     const regions = [];
     clusters.forEach((cells, idx) => {
-      // build frequency map
+      // build freq map
       const freq = {};
       cells.forEach(cell => {
         if (cell.constellation !== "UNKNOWN") {
           freq[cell.constellation] = (freq[cell.constellation] || 0) + 1;
         }
       });
+
       let majority = "UNKNOWN";
       let maxCount = 0;
       for (const nm in freq) {
@@ -298,7 +328,6 @@ export class DensityGridOverlay {
         }
       }
 
-      // pick region type
       const size = cells.length;
       let regionType = "Ocean";
       let labelScale = 1.0;
@@ -310,7 +339,7 @@ export class DensityGridOverlay {
         labelScale = 0.9;
       }
 
-      // check segmentation for ocean
+      // check for segmentation
       const segResult = segmentOceanCandidate(cells);
       if (regionType === "Ocean" && segResult.segmented) {
         segResult.cores.forEach((core, i) => {
@@ -357,23 +386,27 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Actually builds the region labels as 2D sprites or planes in 3D.
+   * Called to add region labels to the scene in either TrueCoordinates or Globe map.
    */
   addRegionLabelsToScene(scene, mapType) {
     // remove old
     if (mapType === 'TrueCoordinates') {
-      if (this.regionLabelsGroupTC.parent) scene.remove(this.regionLabelsGroupTC);
+      if (this.regionLabelsGroupTC.parent) {
+        scene.remove(this.regionLabelsGroupTC);
+      }
       this.regionLabelsGroupTC = new THREE.Group();
     } else {
-      if (this.regionLabelsGroupGlobe.parent) scene.remove(this.regionLabelsGroupGlobe);
+      if (this.regionLabelsGroupGlobe.parent) {
+        scene.remove(this.regionLabelsGroupGlobe);
+      }
       this.regionLabelsGroupGlobe = new THREE.Group();
     }
 
-    // re-classify
+    // re-classify and color
     this.updateRegionColors();
     const regions = this.classifyEmptyRegions();
 
-    // build a label for each region
+    // build labels
     regions.forEach(region => {
       let labelPos;
       if (region.bestCell) {
@@ -385,7 +418,7 @@ export class DensityGridOverlay {
         labelPos = this.projectToGlobe(labelPos);
       }
 
-      // *** call createRegionLabel ***
+      // IMPORTANT: We call createRegionLabel below
       const labelSprite = this.createRegionLabel(region.label, labelPos, mapType);
       labelSprite.userData.labelScale = region.labelScale;
 
@@ -404,12 +437,13 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Re-classify and color the watery regions.
+   * Re-classify, color watery regions, etc.
    */
   updateRegionColors() {
     const regions = this.classifyEmptyRegions();
     const watery = regions.filter(r => r.type === 'Ocean' || r.type === 'Sea' || r.type === 'Lake');
     assignDistinctColorsToIndependent(watery);
+
     regions.forEach(region => {
       if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
         region.cells.forEach(cell => {
@@ -417,7 +451,7 @@ export class DensityGridOverlay {
           cell.globeMesh.material.color.set(region.color || getBlueColor(region.constName));
         });
       } else if (region.type === 'Strait') {
-        let pColor = getBlueColor(region.constName);
+        const pColor = getBlueColor(region.constName);
         region.color = lightenColor(pColor, 0.1);
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color);
@@ -428,9 +462,10 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Actually create a label plane or sprite in 3D with the region name.
+   * Creates a plane or sprite label for the region name in the correct map coordinate system.
    */
   createRegionLabel(text, position, mapType) {
+    // The method the script complains is missing if your file is out of sync
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const baseFontSize = (mapType === 'Globe' ? 300 : 400);
@@ -438,6 +473,7 @@ export class DensityGridOverlay {
     const textWidth = ctx.measureText(text).width;
     canvas.width = textWidth + 20;
     canvas.height = baseFontSize * 1.2;
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.font = `${baseFontSize}px Arial`;
     ctx.fillStyle = '#ffffff';
@@ -454,9 +490,9 @@ export class DensityGridOverlay {
       labelObj = new THREE.Mesh(planeGeom, material);
       labelObj.renderOrder = 1;
 
-      // orient tangent to the sphere
+      // orient tangent to sphere
       const normal = position.clone().normalize();
-      const globalUp = new THREE.Vector3(0, 1, 0);
+      const globalUp = new THREE.Vector3(0,1,0);
       let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
       if (desiredUp.lengthSq() < 1e-6) {
         desiredUp = new THREE.Vector3(0,0,1);
@@ -466,6 +502,7 @@ export class DensityGridOverlay {
       const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
       const matrix = new THREE.Matrix4().makeBasis(desiredRight, desiredUp, normal);
       labelObj.setRotationFromMatrix(matrix);
+
     } else {
       const spriteMaterial = new THREE.SpriteMaterial({
         map: texture,
@@ -477,22 +514,41 @@ export class DensityGridOverlay {
       const scaleFactor = 0.22;
       labelObj.scale.set((canvas.width/100)*scaleFactor, (canvas.height/100)*scaleFactor, 1);
     }
+
     labelObj.position.copy(position);
     return labelObj;
   }
 
   /**
-   * Assign each active cell to a constellation using the user-provided RA/DEC polygons.
+   * Convert a 3D position in TrueCoordinates to a position on the Globe radius=100
+   */
+  projectToGlobe(position) {
+    const dist = position.length();
+    if (dist < 1e-6) {
+      return new THREE.Vector3(0,0,0);
+    }
+    const ra = Math.atan2(-position.z, -position.x);
+    const dec = Math.asin(position.y / dist);
+    const radius = 100;
+    return new THREE.Vector3(
+      -radius * Math.cos(dec) * Math.cos(ra),
+       radius * Math.sin(dec),
+      -radius * Math.cos(dec) * Math.sin(ra)
+    );
+  }
+
+  /**
+   * Assign each active cell to a constellation name, if found, from the RA/DEC polygons
    */
   assignConstellationsToCells(constellationData) {
     this.cubesData.forEach(cell => {
       if (!cell.active) return;
       const R = 100;
       const projected = cell.tcPos.clone().normalize().multiplyScalar(R);
-      const cellRaDec = vectorToRaDec(projected);
+      const { ra, dec } = vectorToRaDec(projected);
       let foundConst = null;
       for (const cObj of constellationData) {
-        if (pointInPolygon(cellRaDec, cObj.raDecPolygon)) {
+        if (pointInPolygon({ra, dec}, cObj.raDecPolygon)) {
           foundConst = cObj.constellation;
           break;
         }
@@ -503,7 +559,7 @@ export class DensityGridOverlay {
   }
 }
 
-// HELPER: Convert a Vector3 on the sphere to RA/DEC
+// Helper: Convert a sphere vector to {ra, dec}
 function vectorToRaDec(vector) {
   const dec = Math.asin(vector.y / 100);
   let ra = Math.atan2(-vector.z, -vector.x);
@@ -512,8 +568,8 @@ function vectorToRaDec(vector) {
   return { ra: raDeg, dec: dec * 180 / Math.PI };
 }
 
+// Basic point-in-polygon in RA/DEC
 function pointInPolygon(point, vs) {
-  // simple 2D ray-casting
   let inside = false;
   for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
     const xi = vs[i].ra, yi = vs[i].dec;
