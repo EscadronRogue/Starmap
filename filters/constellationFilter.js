@@ -112,14 +112,12 @@ export function createConstellationLabelsForGlobe() {
     const textWidth = ctx.measureText(c.name).width;
     canvas.width = textWidth + 20;
     canvas.height = baseFontSize * 1.2;
-    // Clear background so it's transparent.
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.font = `${baseFontSize}px Arial`;
     ctx.fillStyle = '#888888';
     ctx.fillText(c.name, 10, baseFontSize);
     const texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
-    // Use a shader material similar to that used for star labels.
     const material = new THREE.ShaderMaterial({
       uniforms: {
         map: { value: texture },
@@ -145,10 +143,9 @@ export function createConstellationLabelsForGlobe() {
       transparent: true,
       side: THREE.DoubleSide
     });
-    const planeGeom = new THREE.PlaneGeometry((canvas.width / 100), (canvas.height / 100));
+    const planeGeom = new THREE.PlaneGeometry(canvas.width / 100, canvas.height / 100);
     const label = new THREE.Mesh(planeGeom, material);
     label.position.copy(p);
-    // Orientation: set label's normal to be p.normalize(), then build a basis where the label’s up equals the projection of global up.
     const normal = p.clone().normalize();
     const globalUp = new THREE.Vector3(0, 1, 0);
     let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
@@ -186,15 +183,7 @@ function degToRad(d) {
 
 /**
  * Converts RA and DEC (in radians) into a position on the sphere of radius R.
- * This conversion is done as seen from Earth (from inside the globe) so that:
- *
- *   x = -R · cos(dec) · cos(ra)
- *   y =  R · sin(dec)
- *   z = -R · cos(dec) · sin(ra)
- *
- * In other words, the x and z coordinates are reversed compared to the standard formula.
- * This ensures that the celestial north (DEC = +90°) appears at (0,R,0) and stars fall into
- * their proper constellations when viewed from inside.
+ * (The x and z coordinates are reversed so that the celestial north appears at (0,R,0))
  */
 function radToSphere(ra, dec, R) {
   const x = -R * Math.cos(dec) * Math.cos(ra);
@@ -204,7 +193,7 @@ function radToSphere(ra, dec, R) {
 }
 
 /**
- * Generates points along the great‐circle path between two points on the sphere.
+ * Generates points along the great‑circle path between two points on the sphere.
  */
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
