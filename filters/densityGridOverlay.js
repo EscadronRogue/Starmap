@@ -192,6 +192,7 @@ export class DensityGridOverlay {
     });
   }
   
+  // UPDATED: Classify empty regions (clusters) and assign region labels using the majority constellation name.
   classifyEmptyRegions() {
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
@@ -240,7 +241,24 @@ export class DensityGridOverlay {
     });
     const regions = [];
     clusters.forEach((cells, idx) => {
-      const regionConst = "Unknown";
+      // NEW: Determine the majority constellation in this cluster
+      const freq = {};
+      cells.forEach(cell => {
+        if (cell.constellation) {
+          freq[cell.constellation] = (freq[cell.constellation] || 0) + 1;
+        }
+      });
+      let majority = "Unknown";
+      let maxCount = 0;
+      for (const key in freq) {
+        if (freq[key] > maxCount) {
+          maxCount = freq[key];
+          majority = key;
+        }
+      }
+      const regionConst = majority; // use the most common constellation in the cluster
+      
+      // Determine region type based on cluster size
       if (cells.length < 0.1 * V_max) {
         regions.push({
           clusterId: idx,
@@ -278,31 +296,28 @@ export class DensityGridOverlay {
           });
         } else {
           segResult.cores.forEach((core, i) => {
-            const seaConst = "Unknown";
             regions.push({
               clusterId: idx + "_sea_" + i,
               cells: core,
               volume: core.length,
-              constName: seaConst,
+              constName: regionConst,
               type: "Sea",
-              label: `Sea ${seaConst}`,
+              label: `Sea ${regionConst}`,
               labelScale: 0.9,
               bestCell: computeInterconnectedCell(core)
             });
           });
           if (segResult.neck && segResult.neck.length > 0) {
-            const neckConst = "Unknown";
-            let straitColor = lightenColor(getBlueColor(neckConst), 0.1);
             regions.push({
               clusterId: idx + "_neck",
               cells: segResult.neck,
               volume: segResult.neck.length,
-              constName: neckConst,
+              constName: regionConst,
               type: "Strait",
-              label: `Strait ${neckConst}`,
+              label: `Strait ${regionConst}`,
               labelScale: 0.7,
               bestCell: computeInterconnectedCell(segResult.neck),
-              color: straitColor
+              color: lightenColor(getBlueColor(regionConst), 0.1)
             });
           }
         }
