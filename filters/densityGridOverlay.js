@@ -63,7 +63,7 @@ export class DensityGridOverlay {
             },
             active: false
           };
-          // assign an ID (used later for logging)
+          // assign an ID for later logging
           cell.id = this.cubesData.length;
           this.cubesData.push(cell);
         }
@@ -444,8 +444,6 @@ export class DensityGridOverlay {
       }
     });
   }
-  
-  // End of DensityGridOverlay class
 }
 
 // --- Helper functions for RA/DEC conversion and point-in-polygon testing ---
@@ -453,8 +451,10 @@ export class DensityGridOverlay {
 function vectorToRaDec(vector) {
   // Assumes a sphere of radius 100
   const dec = Math.asin(vector.y / 100);
-  const ra = Math.atan2(-vector.z, -vector.x);
-  return { ra: ra * 180 / Math.PI, dec: dec * 180 / Math.PI };
+  let ra = Math.atan2(-vector.z, -vector.x);
+  let raDeg = ra * 180 / Math.PI;
+  if (raDeg < 0) raDeg += 360;
+  return { ra: raDeg, dec: dec * 180 / Math.PI };
 }
 
 function pointInPolygon(point, vs) {
@@ -463,7 +463,6 @@ function pointInPolygon(point, vs) {
   for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
     const xi = vs[i].ra, yi = vs[i].dec;
     const xj = vs[j].ra, yj = vs[j].dec;
-    // Check if the point is between the y-values of the edge, then compute intersection
     const intersect = ((yi > point.dec) !== (yj > point.dec)) &&
       (point.ra < (xj - xi) * (point.dec - yi) / ((yj - yi) || 1e-10) + xi);
     if (intersect) inside = !inside;
