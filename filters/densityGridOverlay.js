@@ -63,7 +63,6 @@ export class DensityGridOverlay {
             },
             active: false
           };
-          // assign an ID (used later for logging and frequency counts)
           cell.id = this.cubesData.length;
           this.cubesData.push(cell);
         }
@@ -193,7 +192,7 @@ export class DensityGridOverlay {
   }
   
   classifyEmptyRegions() {
-    // Set IDs and reset clusterId for each cell.
+    // Reset each cell's ID and cluster assignment.
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
       cell.clusterId = null;
@@ -257,6 +256,7 @@ export class DensityGridOverlay {
         }
       }
       
+      // Build label using the region type and the dominant constellation.
       if (cells.length < 0.1 * V_max) {
         regions.push({
           clusterId: idx,
@@ -465,8 +465,7 @@ export class DensityGridOverlay {
   // --- NEW: Assign constellation to each active cell using RA/DEC polygons ---
   assignConstellationsToCells(constellationData) {
     this.cubesData.forEach(cell => {
-      if (!cell.active) return; // Only consider active cells
-      // Project the cell's true coordinate onto a sphere of radius 100
+      if (!cell.active) return;
       const projected = cell.tcPos.clone().normalize().multiplyScalar(100);
       const cellRaDec = vectorToRaDec(projected);
       let foundConstellation = null;
@@ -490,7 +489,6 @@ export class DensityGridOverlay {
 // --- Helper functions for RA/DEC conversion and point-in-polygon testing ---
 
 function vectorToRaDec(vector) {
-  // Assumes a sphere of radius 100
   const dec = Math.asin(vector.y / 100);
   let ra = Math.atan2(-vector.z, -vector.x);
   let raDeg = ra * 180 / Math.PI;
@@ -499,7 +497,6 @@ function vectorToRaDec(vector) {
 }
 
 function pointInPolygon(point, vs) {
-  // point: {ra, dec}, vs: array of {ra, dec}
   let inside = false;
   for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
     const xi = vs[i].ra, yi = vs[i].dec;
@@ -509,4 +506,25 @@ function pointInPolygon(point, vs) {
     if (intersect) inside = !inside;
   }
   return inside;
+}
+
+function getGreatCirclePoints(p1, p2, R, segments) {
+  const points = [];
+  const start = p1.clone().normalize().multiplyScalar(R);
+  const end = p2.clone().normalize().multiplyScalar(R);
+  const axis = new THREE.Vector3().crossVectors(start, end).normalize();
+  const angle = start.angleTo(end);
+  for (let i = 0; i <= segments; i++) {
+    const theta = (i / segments) * angle;
+    const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, theta);
+    const point = start.clone().applyQuaternion(quaternion);
+    points.push(point);
+  }
+  return points;
+}
+
+export function assignDistinctColorsToIndependent(regions) {
+  regions.forEach(region => {
+    region.color = getIndividualBlueColor(region.clusterId + region.constName + region.type);
+  });
 }
