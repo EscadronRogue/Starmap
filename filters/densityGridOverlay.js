@@ -1,7 +1,7 @@
-// File: /filters/densityGridOverlay.js
+// /filters/densityGridOverlay.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor, getBlueColor } from './densityColorUtils.js';
-import { getGreatCirclePoints, computeInterconnectedCell, getConstellationForCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent, getMajorityConstellation } from './densitySegmentation.js';
+import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent } from './densitySegmentation.js';
 
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
@@ -238,7 +238,7 @@ export class DensityGridOverlay {
     });
     const regions = [];
     clusters.forEach((cells, idx) => {
-      const regionConst = getMajorityConstellation(cells);
+      const regionConst = "Unknown";
       if (cells.length < 0.1 * V_max) {
         regions.push({
           clusterId: idx,
@@ -276,7 +276,7 @@ export class DensityGridOverlay {
           });
         } else {
           segResult.cores.forEach((core, i) => {
-            const seaConst = getMajorityConstellation(core);
+            const seaConst = "Unknown";
             regions.push({
               clusterId: idx + "_sea_" + i,
               cells: core,
@@ -289,7 +289,7 @@ export class DensityGridOverlay {
             });
           });
           if (segResult.neck && segResult.neck.length > 0) {
-            const neckConst = getMajorityConstellation(segResult.neck);
+            const neckConst = "Unknown";
             let straitColor = lightenColor(getBlueColor(neckConst), 0.1);
             regions.push({
               clusterId: idx + "_neck",
@@ -417,125 +417,5 @@ export class DensityGridOverlay {
         });
       }
     });
-  }
-  
-  classifyEmptyRegions() {
-    this.cubesData.forEach((cell, index) => {
-      cell.id = index;
-      cell.clusterId = null;
-    });
-    const gridMap = new Map();
-    this.cubesData.forEach((cell, index) => {
-      if (cell.active) {
-        const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
-        gridMap.set(key, index);
-      }
-    });
-    const clusters = [];
-    const visited = new Set();
-    for (let i = 0; i < this.cubesData.length; i++) {
-      const cell = this.cubesData[i];
-      if (!cell.active || visited.has(cell.id)) continue;
-      let clusterCells = [];
-      let stack = [cell];
-      while (stack.length > 0) {
-        const current = stack.pop();
-        if (visited.has(current.id)) continue;
-        visited.add(current.id);
-        clusterCells.push(current);
-        for (let dx = -1; dx <= 1; dx++) {
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dz = -1; dz <= 1; dz++) {
-              if (dx === 0 && dy === 0 && dz === 0) continue;
-              const neighborKey = `${current.grid.ix + dx},${current.grid.iy + dy},${current.grid.iz + dz}`;
-              if (gridMap.has(neighborKey)) {
-                const neighborIndex = gridMap.get(neighborKey);
-                const neighborCell = this.cubesData[neighborIndex];
-                if (!visited.has(neighborCell.id)) {
-                  stack.push(neighborCell);
-                }
-              }
-            }
-          }
-        }
-      }
-      clusters.push(clusterCells);
-    }
-    let V_max = 0;
-    clusters.forEach(cells => {
-      if (cells.length > V_max) V_max = cells.length;
-    });
-    const regions = [];
-    clusters.forEach((cells, idx) => {
-      const regionConst = getMajorityConstellation(cells);
-      if (cells.length < 0.1 * V_max) {
-        regions.push({
-          clusterId: idx,
-          cells,
-          volume: cells.length,
-          constName: regionConst,
-          type: "Lake",
-          label: `Lake ${regionConst}`,
-          labelScale: 0.8,
-          bestCell: computeInterconnectedCell(cells)
-        });
-      } else if (cells.length < 0.5 * V_max) {
-        regions.push({
-          clusterId: idx,
-          cells,
-          volume: cells.length,
-          constName: regionConst,
-          type: "Sea",
-          label: `Sea ${regionConst}`,
-          labelScale: 0.9,
-          bestCell: computeInterconnectedCell(cells)
-        });
-      } else {
-        const segResult = segmentOceanCandidate(cells);
-        if (!segResult.segmented) {
-          regions.push({
-            clusterId: idx,
-            cells,
-            volume: cells.length,
-            constName: regionConst,
-            type: "Ocean",
-            label: `Ocean ${regionConst}`,
-            labelScale: 1.0,
-            bestCell: computeInterconnectedCell(cells)
-          });
-        } else {
-          segResult.cores.forEach((core, i) => {
-            const seaConst = getMajorityConstellation(core);
-            regions.push({
-              clusterId: idx + "_sea_" + i,
-              cells: core,
-              volume: core.length,
-              constName: seaConst,
-              type: "Sea",
-              label: `Sea ${seaConst}`,
-              labelScale: 0.9,
-              bestCell: computeInterconnectedCell(core)
-            });
-          });
-          if (segResult.neck && segResult.neck.length > 0) {
-            const neckConst = getMajorityConstellation(segResult.neck);
-            let straitColor = lightenColor(getBlueColor(neckConst), 0.1);
-            regions.push({
-              clusterId: idx + "_neck",
-              cells: segResult.neck,
-              volume: segResult.neck.length,
-              constName: neckConst,
-              type: "Strait",
-              label: `Strait ${neckConst}`,
-              labelScale: 0.7,
-              bestCell: computeInterconnectedCell(segResult.neck),
-              color: straitColor
-            });
-          }
-        }
-      }
-    });
-    this.regionClusters = regions;
-    return regions;
   }
 }
