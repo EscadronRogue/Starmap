@@ -6,10 +6,9 @@ import {
   lightenColor, 
   darkenColor, 
   getBlueColor,
-  // Removed hexToRGBA because it’s not provided by densityColorUtils.js
 } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate } from './densitySegmentation.js';
-// Note: We now import both the loader and getter for constellation centers
+// We import the constellation centers loader & getter
 import { loadConstellationCenters, getConstellationCenters } from './constellationFilter.js';
 
 export class DensityGridOverlay {
@@ -77,8 +76,7 @@ export class DensityGridOverlay {
           };
 
           // Calculate RA/DEC directly from the grid cell.
-          // RA: map x from [-halfExt,halfExt] to [0,360]
-          // DEC: map y from [-halfExt,halfExt] to [-90,+90]
+          // (This is no longer used for constellation attribution.)
           const cellRa = ((posTC.x + halfExt) / (2 * halfExt)) * 360;
           const cellDec = ((posTC.y + halfExt) / (2 * halfExt)) * 180 - 90;
           cell.ra = cellRa;
@@ -236,11 +234,21 @@ export class DensityGridOverlay {
       const delta = Math.acos(THREE.MathUtils.clamp(cosDelta, -1, 1));
       return THREE.Math.radToDeg(delta);
     };
+
+    // NEW: Use a helper that converts a globe mesh position back to RA/DEC (in degrees)
+    function vectorToRaDec(vector) {
+      const R = 100;
+      const dec = Math.asin(vector.y / R);
+      let ra = Math.atan2(-vector.z, -vector.x);
+      let raDeg = ra * 180 / Math.PI;
+      if (raDeg < 0) raDeg += 360;
+      return { ra: raDeg, dec: dec * 180 / Math.PI };
+    }
+
     this.cubesData.forEach(cell => {
       if (!cell.active) return;
-      // Use the cell.ra and cell.dec computed directly in createGrid.
-      const cellRA = cell.ra;
-      const cellDec = cell.dec;
+      // Instead of using cell.ra and cell.dec from grid mapping, we recalc RA/DEC from the globeMesh position.
+      const { ra: cellRA, dec: cellDec } = vectorToRaDec(cell.globeMesh.position);
       let bestConstellation = "UNKNOWN";
       let minAngle = Infinity;
       centers.forEach(center => {
@@ -260,8 +268,6 @@ export class DensityGridOverlay {
   // ------------------ End Constellation Attribution ------------------
 
   // ------------------ NEW: Region Classification ------------------
-  // This method groups active cells into connected clusters and then classifies each cluster as a
-  // Lake, Sea, or Ocean (with possible segmentation into cores and a neck for straits).
   classifyEmptyRegions() {
     // Reset cell IDs and clear any previous cluster info.
     this.cubesData.forEach((cell, index) => {
@@ -312,7 +318,7 @@ export class DensityGridOverlay {
     const regions = [];
     clusters.forEach((cells, idx) => {
       const majority = this.getMajorityConstellation(cells);
-      // Use thresholds to classify clusters:
+      // Classify clusters based on thresholds relative to the largest cluster.
       if (cells.length < 0.1 * V_max) {
         regions.push({
           clusterId: idx,
