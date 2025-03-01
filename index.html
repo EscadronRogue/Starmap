@@ -11,7 +11,7 @@
   <!-- Loader -->
   <div id="loader" class="active">Loading Stars...</div>
 
-  <!-- Header with Menu Toggle Button -->
+  <!-- Header with Menu Toggle Button (positioned at top left, separate from title) -->
   <header>
     <button id="menu-toggle" aria-label="Toggle Menu">☰</button>
     <h1>Starmap Visualization</h1>
@@ -19,7 +19,7 @@
 
   <!-- Main Container -->
   <div class="main-container">
-    <!-- Sidebar for Filters -->
+    <!-- Sidebar for Filters (as an overlay) -->
     <aside class="sidebar">
       <h2>Filters</h2>
       <form id="filters-form">
@@ -118,22 +118,25 @@
               <input type="checkbox" id="enable-density-mapping" name="enable-density-mapping" />
               <label for="enable-density-mapping">Enable Density Mapping</label>
             </div>
-            <!-- Low Density Slider -->
             <div class="filter-item">
-              <label>Low Density Isolation (LY): <span id="density-value">7</span> LY</label>
+              <label>Isolation Distance (LY): <span id="density-value">7</span> LY</label>
               <input type="range" id="density-slider" name="density" min="1" max="20" value="7" disabled />
-            </div>
-            <!-- High Density Slider -->
-            <div class="filter-item">
-              <label>High Density Threshold (LY): <span id="high-density-value">1</span> LY</label>
-              <input type="range" id="high-density-slider" name="high-density" min="0.1" max="10" step="0.1" value="1" disabled />
             </div>
             <div class="filter-item">
               <label>Ignore this many closest stars: <span id="tolerance-value">0</span></label>
               <input type="range" id="tolerance-slider" name="tolerance" min="0" max="10" value="0" disabled />
             </div>
+            <!-- NEW: Density Mode selector -->
+            <div class="filter-item">
+              <label for="density-mode">Density Mode:</label>
+              <select id="density-mode" name="density-mode">
+                <option value="low" selected>Low Density (Empty Space)</option>
+                <option value="high">High Density (Landmasses)</option>
+              </select>
+            </div>
           </div>
         </fieldset>
+        <!-- End static fieldsets -->
       </form>
     </aside>
 
@@ -172,31 +175,32 @@
   <!-- Scripts -->
   <script type="module" src="script.js"></script>
   <script>
-    // Toggle sidebar menu on mobile
+    // Toggle sidebar menu on mobile by toggling the "open" class
     document.getElementById('menu-toggle').addEventListener('click', function() {
       document.querySelector('.sidebar').classList.toggle('open');
     });
 
-    // Enable/disable connection slider
+    // Enable/disable connection slider based on checkbox state
     document.getElementById('enable-connections').addEventListener('change', function() {
       document.getElementById('connection-slider').disabled = !this.checked;
     });
 
-    // Enable/disable density mapping sliders
+    // Enable/disable density mapping sliders based on checkbox state
     document.getElementById('enable-density-mapping').addEventListener('change', function() {
       document.getElementById('density-slider').disabled = !this.checked;
-      document.getElementById('high-density-slider').disabled = !this.checked;
       document.getElementById('tolerance-slider').disabled = !this.checked;
     });
     
     // Fullscreen button event listeners
     document.querySelectorAll('.fullscreen-btn').forEach(btn => {
       btn.addEventListener('click', function() {
+        // Find the canvas within the same map container
         const mapContainer = this.parentElement;
         const canvas = mapContainer.querySelector('canvas');
         if (document.fullscreenElement) {
           document.exitFullscreen();
         } else {
+          // Request true fullscreen on the canvas element
           canvas.requestFullscreen().catch(err => {
             console.error("Error attempting to enable full-screen mode:", err);
           });
@@ -204,6 +208,7 @@
       });
     });
 
+    // When exiting fullscreen, clear any inline sizing on the canvases and dispatch a resize event.
     document.addEventListener("fullscreenchange", function() {
       if (!document.fullscreenElement) {
         document.querySelectorAll('.map-container canvas').forEach(canvas => {
