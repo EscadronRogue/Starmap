@@ -12,15 +12,8 @@ import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate 
 import { loadConstellationCenters, getConstellationCenters, loadConstellationBoundaries, getConstellationBoundaries } from './constellationFilter.js';
 
 /**
- * Helper function to convert a string to Title Case.
- */
-function toTitleCase(str) {
-  if (!str || typeof str !== "string") return str;
-  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-}
-
-/**
- * NEW: Load constellation full names from an external JSON file.
+ * Mapping from 3‑letter constellation abbreviations to full proper names has been moved to an external JSON file.
+ * This helper function loads that JSON file asynchronously.
  */
 let constellationFullNames = null;
 async function loadConstellationFullNames() {
@@ -37,18 +30,17 @@ async function loadConstellationFullNames() {
   return constellationFullNames;
 }
 
-/** 
- * Helper function to convert RA and DEC (in radians) to a position on the sphere of radius R.
+/**
+ * Helper function to convert a string to Title Case.
  */
-function radToSphere(ra, dec, R) {
-  const x = -R * Math.cos(dec) * Math.cos(ra);
-  const y = R * Math.sin(dec);
-  const z = -R * Math.cos(dec) * Math.sin(ra);
-  return new THREE.Vector3(x, y, z);
+function toTitleCase(str) {
+  if (!str || typeof str !== "string") return str;
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
-/** --- Spherical Triangulation Helpers --- **/
-
+/**
+ * Spherical Triangulation Helpers
+ */
 function computeSphericalCentroid(vertices) {
   const sum = new THREE.Vector3(0, 0, 0);
   vertices.forEach(v => sum.add(v));
@@ -119,7 +111,9 @@ function subdivideGeometry(geometry, iterations) {
   return geo;
 }
 
-/** --- Helper to convert a sphere point (THREE.Vector3) to RA/DEC in degrees --- **/
+/**
+ * Helper to convert a sphere point (THREE.Vector3) to RA/DEC in degrees.
+ */
 function vectorToRaDec(vector) {
   const R = 100;
   const dec = Math.asin(vector.y / R);
@@ -129,8 +123,19 @@ function vectorToRaDec(vector) {
   return { ra: raDeg, dec: dec * 180 / Math.PI };
 }
 
-/** --- Overlay Creation --- **/
+/**
+ * Helper to convert RA/DEC (in radians) to a point on the sphere of radius R.
+ */
+function radToSphere(ra, dec, R) {
+  const x = -R * Math.cos(dec) * Math.cos(ra);
+  const y = R * Math.sin(dec);
+  const z = -R * Math.cos(dec) * Math.sin(ra);
+  return new THREE.Vector3(x, y, z);
+}
 
+/**
+ * Overlay Creation: Create constellation overlays for the Globe.
+ */
 export function createConstellationOverlayForGlobe() {
   const boundaries = getConstellationBoundaries(); // Each segment: {ra1, dec1, ra2, dec2, const1, const2}
   const groups = {};
@@ -146,7 +151,7 @@ export function createConstellationOverlayForGlobe() {
       groups[key].push(seg);
     }
   });
-  // Begin building overlay meshes
+  // Begin loading the full names mapping from JSON.
   const namesMappingPromise = loadConstellationFullNames();
   const overlays = [];
   for (const constellation in groups) {
@@ -154,12 +159,12 @@ export function createConstellationOverlayForGlobe() {
     const ordered = [];
     const used = new Array(segs.length).fill(false);
     const convert = (seg, endpoint) =>
-      radToSphere(endpoint === 0 ? seg.ra1 : seg.dec1, endpoint === 0 ? seg.dec1 : seg.dec2, 100);
+      radToSphere(endpoint === 0 ? seg.ra1 : seg.ra2, endpoint === 0 ? seg.dec1 : seg.dec2, 100);
     if (segs.length === 0) continue;
-    let currentPoint = radToSphere(segs[0].ra1, segs[0].dec1, 100);
+    let currentPoint = convert(segs[0], 0);
     ordered.push(currentPoint);
     used[0] = true;
-    let currentEnd = radToSphere(segs[0].ra2, segs[0].dec2, 100);
+    let currentEnd = convert(segs[0], 1);
     ordered.push(currentEnd);
     let changed = true;
     let iteration = 0;
@@ -168,8 +173,8 @@ export function createConstellationOverlayForGlobe() {
       for (let i = 0; i < segs.length; i++) {
         if (used[i]) continue;
         const seg = segs[i];
-        const p0 = radToSphere(seg.ra1, seg.dec1, 100);
-        const p1 = radToSphere(seg.ra2, seg.dec2, 100);
+        const p0 = convert(seg, 0);
+        const p1 = convert(seg, 1);
         if (p0.distanceTo(currentEnd) < 0.001) {
           ordered.push(p1);
           currentEnd = p1;
@@ -234,7 +239,7 @@ export function createConstellationOverlayForGlobe() {
       posAttr.needsUpdate = true;
     }
     geometry = subdivideGeometry(geometry, 2);
-    // Wait for the constellation full names mapping before creating the mesh.
+    // When creating the mesh material, wait for the names mapping to load.
     namesMappingPromise.then(namesMapping => {
       const fullName = namesMapping[constellation] || toTitleCase(constellation);
       const material = new THREE.MeshBasicMaterial({
@@ -246,6 +251,7 @@ export function createConstellationOverlayForGlobe() {
       });
       const mesh = new THREE.Mesh(geometry, material);
       mesh.renderOrder = 1;
+      // Store the polygon and constellation data for later lookup.
       mesh.userData.polygon = ordered;
       mesh.userData.constellation = constellation;
       const orderedRADEC = ordered.map(p => vectorToRaDec(p));
@@ -256,6 +262,9 @@ export function createConstellationOverlayForGlobe() {
   return overlays;
 }
 
+/**
+ * Assigns constellations to density grid cells based on the nearest boundary.
+ */
 export async function assignConstellationsToCells() {
   await loadConstellationCenters();
   await loadConstellationBoundaries();
@@ -265,14 +274,14 @@ export async function assignConstellationsToCells() {
     console.warn("No constellation boundaries available!");
     return;
   }
-  // Helper: convert RA/DEC (in radians) into a position on the sphere (radius R).
+  // Helper: convert RA/DEC to sphere point.
   function radToSphere(ra, dec, R) {
     const x = -R * Math.cos(dec) * Math.cos(ra);
     const y = R * Math.sin(dec);
     const z = -R * Math.cos(dec) * Math.sin(ra);
     return new THREE.Vector3(x, y, z);
   }
-  // Helper: compute minimal angular distance (in degrees) from a point (cellPos) to a segment defined by p1 and p2.
+  // Helper: compute minimal angular distance from a cell position to a great‑circle segment.
   function minAngularDistanceToSegment(cellPos, p1, p2) {
     const angleToP1 = cellPos.angleTo(p1);
     const angleToP2 = cellPos.angleTo(p2);
@@ -284,7 +293,7 @@ export async function assignConstellationsToCells() {
       return THREE.Math.radToDeg(Math.min(angleToP1, angleToP2));
     }
   }
-  // Helper: Convert position vector (on sphere) to RA/DEC (degrees).
+  // Helper: convert position vector to RA/DEC.
   function vectorToRaDec(vector) {
     const R = 100;
     const dec = Math.asin(vector.y / R);
@@ -294,7 +303,7 @@ export async function assignConstellationsToCells() {
     return { ra: raDeg, dec: dec * 180 / Math.PI };
   }
   
-  // Load constellation full names mapping.
+  // Load the constellation full names mapping.
   const namesMapping = await loadConstellationFullNames();
   
   this.cubesData.forEach(cell => {
@@ -315,18 +324,16 @@ export async function assignConstellationsToCells() {
       cell.constellation = "Unknown";
       return;
     }
-    // Retrieve the two constellations separated by the boundary.
     const abbr1 = nearestBoundary.const1.toUpperCase();
     const abbr2 = nearestBoundary.const2 ? nearestBoundary.const2.toUpperCase() : null;
     const fullName1 = namesMapping[abbr1] || toTitleCase(abbr1);
     const fullName2 = abbr2 ? (namesMapping[abbr2] || toTitleCase(abbr2)) : null;
     
-    // Compute the 3D positions for the boundary endpoints.
+    // Compute boundary endpoints.
     const bp1 = radToSphere(nearestBoundary.ra1, nearestBoundary.dec1, 100);
     const bp2 = radToSphere(nearestBoundary.ra2, nearestBoundary.dec2, 100);
-    // Compute the boundary's normal.
     let normal = bp1.clone().cross(bp2).normalize();
-    // Force the normal to point toward fullName1.
+    // Find constellation center for abbr1.
     const center1 = centers.find(c => {
       const nameUp = c.name.toUpperCase();
       return nameUp === abbr1 || nameUp === fullName1.toUpperCase();
@@ -341,7 +348,7 @@ export async function assignConstellationsToCells() {
     } else if (fullName2) {
       cell.constellation = toTitleCase(fullName2);
     } else {
-      // Fallback to nearest-center check
+      // Fallback to nearest-center check.
       const { ra: cellRA, dec: cellDec } = vectorToRaDec(cellPos);
       let bestConstellation = "Unknown";
       let minAngle = Infinity;
@@ -369,7 +376,6 @@ export async function assignConstellationsToCells() {
       return THREE.Math.radToDeg(delta);
     }
   });
-  // End of assignConstellationsToCells
 }
 
 /**
@@ -381,7 +387,7 @@ export function createConstellationLabelsForGlobe() {
   const centers = getConstellationCenters();
   centers.forEach(c => {
     const p = radToSphere(c.ra, c.dec, R);
-    const baseFontSize = 300;
+    const baseFontSize = 300; // Very large base font size
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     ctx.font = `${baseFontSize}px Arial`;
