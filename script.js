@@ -4,7 +4,6 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 import { applyFilters, setupFilterUI } from './filters/index.js';
 import { createConnectionLines, mergeConnectionLines } from './filters/connectionsFilter.js';
 import { createConstellationBoundariesForGlobe, createConstellationLabelsForGlobe, loadConstellationBoundaries, loadConstellationCenters } from './filters/constellationFilter.js';
-// Note: We no longer use createConstellationOverlayForGlobe as we removed the JSON version.
 import { initDensityOverlay, updateDensityMapping } from './filters/densityFilter.js';
 import { globeSurfaceOpaque } from './filters/globeSurfaceFilter.js';
 import { ThreeDControls } from './cameraControls.js';
@@ -25,11 +24,14 @@ let globeMap;
 
 let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
-// We no longer use constellationOverlayGlobe
+// We no longer use any constellationOverlay (JSON based) so it is removed.
 let globeSurfaceSphere = null;
 let densityOverlay = null;
 let globeGrid = null;
 
+/**
+ * Converts RA and DEC (radians) to a 3D position on a sphere of radius R.
+ */
 function radToSphere(ra, dec, R) {
   return new THREE.Vector3(
     -R * Math.cos(dec) * Math.cos(ra),
@@ -38,16 +40,25 @@ function radToSphere(ra, dec, R) {
   );
 }
 
+/**
+ * Returns a star’s true position based on its RA/DEC and distance.
+ */
 function getStarTruePosition(star) {
   const R = star.Distance_from_the_Sun;
   return radToSphere(star.RA_in_radian, star.DEC_in_radian, R);
 }
 
+/**
+ * Projects a star’s position onto a sphere of radius 100.
+ */
 function projectStarGlobe(star) {
   const R = 100;
   return radToSphere(star.RA_in_radian, star.DEC_in_radian, R);
 }
 
+/**
+ * Create a grid of RA and DEC lines for the Globe map.
+ */
 function createGlobeGrid(R = 100, options = {}) {
   const gridGroup = new THREE.Group();
   const gridColor = options.color || 0x444444;
@@ -87,6 +98,9 @@ function createGlobeGrid(R = 100, options = {}) {
   return gridGroup;
 }
 
+/**
+ * MapManager handles the 3D map (either TrueCoordinates or Globe).
+ */
 class MapManager {
   constructor({ canvasId, mapType }) {
     this.canvas = document.getElementById(canvasId);
@@ -251,7 +265,7 @@ function initStarInteractions(map) {
 }
 
 function updateSelectedStarHighlight() {
-  // Placeholder if you want to highlight the selected star on both maps
+  // Implement highlight if needed.
 }
 
 window.onload = async () => {
@@ -349,6 +363,9 @@ function getCurrentFilters() {
   };
 }
 
+/**
+ * Build and apply filters to update both maps.
+ */
 async function buildAndApplyFilters() {
   if (!cachedStars) return;
   const {
@@ -358,7 +375,6 @@ async function buildAndApplyFilters() {
     globeConnections,
     showConstellationBoundaries,
     showConstellationNames,
-    // Removed showConstellationOverlay block as we are no longer using it.
     globeOpaqueSurface,
     enableConnections,
     enableDensityMapping
@@ -382,7 +398,9 @@ async function buildAndApplyFilters() {
   globeMap.labelManager.refreshLabels(currentGlobeFilteredStars);
 
   removeConstellationObjectsFromGlobe();
-  removeConstellationOverlayObjectsFromGlobe(); // Now a no-op since overlay is not used
+  // Remove overlay objects – since we no longer use a JSON-based overlay,
+  // this function is defined as a no-op.
+  removeConstellationOverlayObjectsFromGlobe();
 
   if (showConstellationBoundaries) {
     constellationLinesGlobe = createConstellationBoundariesForGlobe() || [];
@@ -410,6 +428,7 @@ async function buildAndApplyFilters() {
     }
     updateDensityMapping(currentFilteredStars);
     await loadConstellationCenters();
+    // Use the revised method for attributing constellations.
     densityOverlay.assignConstellationsToCells();
     densityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
     densityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
@@ -452,9 +471,12 @@ function removeConstellationObjectsFromGlobe() {
   constellationLabelsGlobe = [];
 }
 
+/**
+ * Since we no longer use a JSON-based constellation overlay,
+ * define this function as a no-op.
+ */
 function removeConstellationOverlayObjectsFromGlobe() {
-  // Since we are no longer using the overlay, this function can simply clear the variable.
-  constellationOverlayGlobe = [];
+  // No overlay objects to remove.
 }
 
 function applyGlobeSurface(isOpaque) {
