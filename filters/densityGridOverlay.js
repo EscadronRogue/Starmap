@@ -239,20 +239,7 @@ export class DensityGridOverlay {
     });
     const regions = [];
     clusters.forEach((cells, idx) => {
-      const freq = {};
-      cells.forEach(cell => {
-        if (cell.constellation) {
-          freq[cell.constellation] = (freq[cell.constellation] || 0) + 1;
-        }
-      });
-      let regionConst = "Unknown";
-      let maxCount = 0;
-      for (let key in freq) {
-        if (freq[key] > maxCount) {
-          maxCount = freq[key];
-          regionConst = key;
-        }
-      }
+      const regionConst = "Unknown";
       if (cells.length < 0.1 * V_max) {
         regions.push({
           clusterId: idx,
@@ -290,46 +277,21 @@ export class DensityGridOverlay {
           });
         } else {
           segResult.cores.forEach((core, i) => {
-            const coreFreq = {};
-            core.forEach(cell => {
-              if (cell.constellation) {
-                coreFreq[cell.constellation] = (coreFreq[cell.constellation] || 0) + 1;
-              }
-            });
-            let coreConst = "Unknown";
-            let coreMax = 0;
-            for (let key in coreFreq) {
-              if (coreFreq[key] > coreMax) {
-                coreMax = coreFreq[key];
-                coreConst = key;
-              }
-            }
+            const seaConst = "Unknown";
             regions.push({
               clusterId: idx + "_sea_" + i,
               cells: core,
               volume: core.length,
-              constName: coreConst,
+              constName: seaConst,
               type: "Sea",
-              label: `Sea ${coreConst}`,
+              label: `Sea ${seaConst}`,
               labelScale: 0.9,
               bestCell: computeInterconnectedCell(core)
             });
           });
           if (segResult.neck && segResult.neck.length > 0) {
-            const neckFreq = {};
-            segResult.neck.forEach(cell => {
-              if (cell.constellation) {
-                neckFreq[cell.constellation] = (neckFreq[cell.constellation] || 0) + 1;
-              }
-            });
-            let neckConst = "Unknown";
-            let neckMax = 0;
-            for (let key in neckFreq) {
-              if (neckFreq[key] > neckMax) {
-                neckMax = neckFreq[key];
-                neckConst = key;
-              }
-            }
+            const neckConst = "Unknown";
+            let straitColor = lightenColor(getBlueColor(neckConst), 0.1);
             regions.push({
               clusterId: idx + "_neck",
               cells: segResult.neck,
@@ -339,7 +301,7 @@ export class DensityGridOverlay {
               label: `Strait ${neckConst}`,
               labelScale: 0.7,
               bestCell: computeInterconnectedCell(segResult.neck),
-              color: lightenColor(getBlueColor(neckConst), 0.1)
+              color: straitColor
             });
           }
         }
@@ -458,10 +420,11 @@ export class DensityGridOverlay {
     });
   }
   
-  // --- Assign constellation to each active cell using RA/DEC polygons ---
+  // --- NEW: Assign constellation to each active cell using RA/DEC polygons ---
   assignConstellationsToCells(constellationData) {
     this.cubesData.forEach(cell => {
-      if (!cell.active) return;
+      if (!cell.active) return; // Only consider active cells
+      // Project the cell's true coordinate onto a sphere of radius 100
       const projected = cell.tcPos.clone().normalize().multiplyScalar(100);
       const cellRaDec = vectorToRaDec(projected);
       let foundConstellation = null;
@@ -485,6 +448,7 @@ export class DensityGridOverlay {
 // --- Helper functions for RA/DEC conversion and point-in-polygon testing ---
 
 function vectorToRaDec(vector) {
+  // Assumes a sphere of radius 100
   const dec = Math.asin(vector.y / 100);
   let ra = Math.atan2(-vector.z, -vector.x);
   let raDeg = ra * 180 / Math.PI;
@@ -493,6 +457,7 @@ function vectorToRaDec(vector) {
 }
 
 function pointInPolygon(point, vs) {
+  // point: {ra, dec}, vs: array of {ra, dec}
   let inside = false;
   for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
     const xi = vs[i].ra, yi = vs[i].dec;
