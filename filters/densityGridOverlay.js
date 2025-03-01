@@ -1,7 +1,19 @@
 // /filters/densityGridOverlay.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor, getBlueColor } from './densityColorUtils.js';
-import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate, computeCentroid, assignDistinctColorsToIndependent } from './densitySegmentation.js';
+import {
+  getDoubleSidedLabelMaterial,
+  getBaseColor,
+  lightenColor,
+  darkenColor,
+  getBlueColor
+} from './densityColorUtils.js';
+import {
+  getGreatCirclePoints,
+  computeInterconnectedCell,
+  segmentOceanCandidate,
+  computeCentroid,
+  assignDistinctColorsToIndependent
+} from './densitySegmentation.js';
 
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
@@ -196,6 +208,7 @@ export class DensityGridOverlay {
   getMostCommonConstellation(cells) {
     const counts = {};
     cells.forEach(cell => {
+      // Ignore cells whose constellation is still "UNKNOWN" if there are other valid ones.
       const con = (cell.constellation || "UNKNOWN").toUpperCase();
       counts[con] = (counts[con] || 0) + 1;
     });
@@ -208,6 +221,26 @@ export class DensityGridOverlay {
       }
     }
     return mostCommon;
+  }
+  
+  // NEW: Assign constellation names to active cells using the RA/DEC polygon data.
+  assignConstellationsToCells(constellationData) {
+    this.cubesData.forEach(cell => {
+      if (!cell.active) return; // Only consider active cells
+      // Project the cell's true coordinate (tcPos) onto a sphere of radius 100
+      const projected = cell.tcPos.clone().normalize().multiplyScalar(100);
+      const cellRaDec = vectorToRaDec(projected);
+      let foundConstellation = null;
+      for (const constellationObj of constellationData) {
+        const polygon = constellationObj.raDecPolygon;
+        if (pointInPolygon(cellRaDec, polygon)) {
+          foundConstellation = constellationObj.constellation.toUpperCase();
+          break;
+        }
+      }
+      cell.constellation = foundConstellation || "UNKNOWN";
+      console.log(`Cell ID ${cell.id} belongs to constellation ${cell.constellation}`);
+    });
   }
   
   classifyEmptyRegions() {
@@ -259,10 +292,7 @@ export class DensityGridOverlay {
     });
     const regions = [];
     clusters.forEach((cells, idx) => {
-      // Compute most common constellation among the cells in this cluster
       const commonConstellation = this.getMostCommonConstellation(cells);
-      
-      // Determine region type based on cluster volume
       if (cells.length < 0.1 * V_max) {
         regions.push({
           clusterId: idx,
@@ -442,29 +472,38 @@ export class DensityGridOverlay {
       }
     });
   }
-  
-  // --- This function assigns constellation names to active cells using the RA/DEC polygon data
-  assignConstellationsToCells(constellationData) {
-    this.cubesData.forEach(cell => {
-      if (!cell.active) return; // Only consider active cells
-      // Project the cell's true coordinate onto a sphere of radius 100
-      const projected = cell.tcPos.clone().normalize().multiplyScalar(100);
-      const cellRaDec = vectorToRaDec(projected);
-      let foundConstellation = null;
-      for (const constellationObj of constellationData) {
-        const polygon = constellationObj.raDecPolygon;
-        if (pointInPolygon(cellRaDec, polygon)) {
-          foundConstellation = constellationObj.constellation.toUpperCase();
-          break;
-        }
-      }
-      cell.constellation = foundConstellation || "UNKNOWN";
-      console.log(`Cell ID ${cell.id} belongs to constellation ${cell.constellation}`);
-    });
-  }
 }
 
 // --- Helper functions for RA/DEC conversion and point-in-polygon testing ---
+
+// Modified pointInPolygon to handle wrap-around RA values.
+function pointInPolygon(point, vs) {
+  // point: {ra, dec} with ra in [0,360) and dec in degrees
+  let minRa = Infinity, maxRa = -Infinity;
+  vs.forEach(v => {
+    if (v.ra < minRa) minRa = v.ra;
+    if (v.ra > maxRa) maxRa = v.ra;
+  });
+  // If the polygon spans more than 180 degrees, assume it crosses the 0° boundary.
+  let adjustedPoint = { ...point };
+  let adjustedVs = vs.map(v => ({ ...v }));
+  if ((maxRa - minRa) > 180) {
+    adjustedPoint.ra = (adjustedPoint.ra < 180) ? adjustedPoint.ra + 360 : adjustedPoint.ra;
+    adjustedVs = vs.map(v => ({
+      ra: (v.ra < 180 ? v.ra + 360 : v.ra),
+      dec: v.dec
+    }));
+  }
+  let inside = false;
+  for (let i = 0, j = adjustedVs.length - 1; i < adjustedVs.length; j = i++) {
+    const xi = adjustedVs[i].ra, yi = adjustedVs[i].dec;
+    const xj = adjustedVs[j].ra, yj = adjustedVs[j].dec;
+    const intersect = ((yi > adjustedPoint.dec) !== (yj > adjustedPoint.dec)) &&
+      (adjustedPoint.ra < (xj - xi) * (adjustedPoint.dec - yi) / ((yj - yi) || 1e-10) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
 
 function vectorToRaDec(vector) {
   // Assumes a sphere of radius 100
@@ -475,16 +514,8 @@ function vectorToRaDec(vector) {
   return { ra: raDeg, dec: dec * 180 / Math.PI };
 }
 
-function pointInPolygon(point, vs) {
-  // point: {ra, dec}, vs: array of {ra, dec}
-  // This implements the ray-casting algorithm; note that RA values are assumed in 0-360.
-  let inside = false;
-  for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-    const xi = vs[i].ra, yi = vs[i].dec;
-    const xj = vs[j].ra, yj = vs[j].dec;
-    const intersect = ((yi > point.dec) !== (yj > point.dec)) &&
-      (point.ra < (xj - xi) * (point.dec - yi) / ((yj - yi) || 1e-10) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
+function computeCentroid(cells) {
+  let sum = new THREE.Vector3(0, 0, 0);
+  cells.forEach(c => sum.add(c.tcPos));
+  return sum.divideScalar(cells.length);
 }
