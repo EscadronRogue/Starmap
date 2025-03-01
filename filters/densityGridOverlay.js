@@ -1,4 +1,5 @@
-// /filters/densityGridOverlay.js
+// filters/densityGridOverlay.js
+
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { 
   getDoubleSidedLabelMaterial, 
@@ -40,7 +41,7 @@ export class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
 
-          // Create the corresponding square for the Globe view:
+          // Create Globe square
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -73,13 +74,13 @@ export class DensityGridOverlay {
             active: false
           };
 
-          // Compute RA/DEC directly from grid coordinates.
+          // Compute RA/DEC directly from grid coordinates
           const cellRa = ((posTC.x + halfExt) / (2 * halfExt)) * 360;
           const cellDec = ((posTC.y + halfExt) / (2 * halfExt)) * 180 - 90;
           cell.ra = cellRa;
           cell.dec = cellDec;
 
-          // assign an ID for logging
+          // assign an ID
           cell.id = this.cubesData.length;
           this.cubesData.push(cell);
         }
@@ -98,9 +99,9 @@ export class DensityGridOverlay {
         const dx = cell.tcPos.x - starPos.x;
         const dy = cell.tcPos.y - starPos.y;
         const dz = cell.tcPos.z - starPos.z;
-        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+        return Math.sqrt(dx*dx + dy*dy + dz*dz);
       });
-      dArr.sort((a, b) => a - b);
+      dArr.sort((a,b) => a - b);
       cell.distances = dArr;
     });
   }
@@ -116,16 +117,16 @@ export class DensityGridOverlay {
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dz = -1; dz <= 1; dz++) {
-          if (dx === 0 && dy === 0 && dz === 0) continue;
-          if (dx > 0 || (dx === 0 && dy > 0) || (dx === 0 && dy === 0 && dz > 0)) {
-            directions.push({ dx, dy, dz });
+          if (dx===0 && dy===0 && dz===0) continue;
+          if (dx>0 || (dx===0 && dy>0) || (dx===0 && dy===0 && dz>0)) {
+            directions.push({dx,dy,dz});
           }
         }
       }
     }
     directions.forEach(dir => {
       this.cubesData.forEach(cell => {
-        const neighborKey = `${cell.grid.ix + dir.dx},${cell.grid.iy + dir.dy},${cell.grid.iz + dir.dz}`;
+        const neighborKey = `${cell.grid.ix+dir.dx},${cell.grid.iy+dir.dy},${cell.grid.iz+dir.dz}`;
         if (cellMap.has(neighborKey)) {
           const neighbor = cellMap.get(neighborKey);
           const points = getGreatCirclePoints(cell.globeMesh.position, neighbor.globeMesh.position, 100, 16);
@@ -211,7 +212,7 @@ export class DensityGridOverlay {
   }
   
   // ------------------ NEW: Constellation Attribution ------------------
-  // Assign each active cell to a constellation by finding the nearest constellation center.
+  // Now using the TXT centers, assign each active cell its constellation
   async assignConstellationsToCells() {
     await loadConstellationCenters();
     const centers = getConstellationCenters();
@@ -219,7 +220,7 @@ export class DensityGridOverlay {
       console.warn("No constellation centers available!");
       return;
     }
-    // Local helper: Compute angular distance (in degrees) between two (RA, DEC) points.
+    // Helper: Compute angular distance (in degrees) between two (RA, DEC) pairs.
     const angularDistance = (ra1, dec1, ra2, dec2) => {
       const ra1Rad = THREE.Math.degToRad(ra1);
       const dec1Rad = THREE.Math.degToRad(dec1);
@@ -232,12 +233,12 @@ export class DensityGridOverlay {
     };
     this.cubesData.forEach(cell => {
       if (!cell.active) return;
-      const cellRA = cell.ra;   // in degrees
-      const cellDec = cell.dec; // in degrees
+      const cellRA = cell.ra;   // already in degrees from createGrid()
+      const cellDec = cell.dec;
       let bestConstellation = "UNKNOWN";
       let minAngle = Infinity;
       centers.forEach(center => {
-        // The centers were parsed as radians—convert to degrees.
+        // The centers are stored in radians; convert them to degrees.
         const centerRAdeg = THREE.Math.radToDeg(center.ra);
         const centerDecdeg = THREE.Math.radToDeg(center.dec);
         const angDist = angularDistance(cellRA, cellDec, centerRAdeg, centerDecdeg);
@@ -252,8 +253,8 @@ export class DensityGridOverlay {
   }
   // ------------------ End Constellation Attribution ------------------
   
-  // ------------------ NEW: Basic Region Classification ------------------
-  // For demonstration, group active cells by constellation.
+  // ------------------ NEW: Region Classification Based on Constellation ------------------
+  // Group active cells by their assigned constellation
   classifyEmptyRegions() {
     const groups = {};
     this.cubesData.forEach(cell => {
@@ -339,72 +340,66 @@ export class DensityGridOverlay {
   }
   
   addRegionLabelsToScene(scene, mapType) {
-    if (mapType === 'TrueCoordinates') {
-      if (this.regionLabelsGroupTC.parent) scene.remove(this.regionLabelsGroupTC);
-      this.regionLabelsGroupTC = new THREE.Group();
-    } else if (mapType === 'Globe') {
-      if (this.regionLabelsGroupGlobe.parent) scene.remove(this.regionLabelsGroupGlobe);
-      this.regionLabelsGroupGlobe = new THREE.Group();
-    }
-    this.updateRegionColors();
-    const regions = this.classifyEmptyRegions();
-    console.log("=== DEBUG: Checking cluster distribution after assignment ===");
-    regions.forEach((region, idx) => {
-      console.log(`Cluster #${idx} => Type: ${region.type}, Label: ${region.label}, Constellation: ${region.constName}`);
-      let cellStr = "Cells: [";
-      region.cells.forEach(cell => {
-        cellStr += `ID${cell.id}:${cell.constellation || "UNKNOWN"}, `;
-      });
-      cellStr += "]";
-      console.log(cellStr);
-    });
-    regions.forEach(region => {
-      let labelPos;
-      if (region.bestCell) {
-        labelPos = region.bestCell.tcPos;
-      } else {
-        labelPos = this.computeCentroid(region.cells);
-      }
-      if (mapType === 'Globe') {
-        labelPos = this.projectToGlobe(labelPos);
-      }
-      const labelSprite = this.createRegionLabel(region.label, labelPos, mapType);
-      labelSprite.userData.labelScale = region.labelScale;
+    // First update cell constellation attributions.
+    // Note: In an async context you might want to await this call.
+    this.assignConstellationsToCells().then(() => {
       if (mapType === 'TrueCoordinates') {
-        this.regionLabelsGroupTC.add(labelSprite);
+        if (this.regionLabelsGroupTC.parent) scene.remove(this.regionLabelsGroupTC);
+        this.regionLabelsGroupTC = new THREE.Group();
       } else if (mapType === 'Globe') {
-        this.regionLabelsGroupGlobe.add(labelSprite);
+        if (this.regionLabelsGroupGlobe.parent) scene.remove(this.regionLabelsGroupGlobe);
+        this.regionLabelsGroupGlobe = new THREE.Group();
       }
+      this.updateRegionColors();
+      const regions = this.classifyEmptyRegions();
+      console.log("=== DEBUG: Checking cluster distribution after assignment ===");
+      regions.forEach((region, idx) => {
+        console.log(`Cluster #${idx} => Type: ${region.type}, Label: ${region.label}, Constellation: ${region.constName}`);
+        let cellStr = "Cells: [";
+        region.cells.forEach(cell => {
+          cellStr += `ID${cell.id}:${cell.constellation || "UNKNOWN"}, `;
+        });
+        cellStr += "]";
+        console.log(cellStr);
+      });
+      regions.forEach(region => {
+        let labelPos;
+        if (region.bestCell) {
+          labelPos = region.bestCell.tcPos;
+        } else {
+          labelPos = this.computeCentroid(region.cells);
+        }
+        if (mapType === 'Globe') {
+          labelPos = this.projectToGlobe(labelPos);
+        }
+        const labelSprite = this.createRegionLabel(region.label, labelPos, mapType);
+        labelSprite.userData.labelScale = region.labelScale;
+        if (mapType === 'TrueCoordinates') {
+          this.regionLabelsGroupTC.add(labelSprite);
+        } else if (mapType === 'Globe') {
+          this.regionLabelsGroupGlobe.add(labelSprite);
+        }
+      });
+      scene.add(mapType === 'TrueCoordinates' ? this.regionLabelsGroupTC : this.regionLabelsGroupGlobe);
     });
-    scene.add(mapType === 'TrueCoordinates' ? this.regionLabelsGroupTC : this.regionLabelsGroupGlobe);
   }
   
   updateRegionColors() {
     const regions = this.classifyEmptyRegions();
     regions.forEach(region => {
-      if (region.type === 'Ocean' || region.type === 'Sea' || region.type === 'Lake') {
-        region.cells.forEach(cell => {
-          cell.tcMesh.material.color.set(region.color || getBlueColor(region.constName));
-          cell.globeMesh.material.color.set(region.color || getBlueColor(region.constName));
-        });
-      } else if (region.type === 'Strait') {
-        let parentColor = getBlueColor(region.constName);
-        region.color = lightenColor(parentColor, 0.1);
-        region.cells.forEach(cell => {
-          cell.tcMesh.material.color.set(region.color);
-          cell.globeMesh.material.color.set(region.color);
-        });
-      }
+      // In this simple example, we set the color for cells in the region based on a blue shade from the constellation name.
+      region.cells.forEach(cell => {
+        cell.tcMesh.material.color.set(getBlueColor(region.constName));
+        cell.globeMesh.material.color.set(getBlueColor(region.constName));
+      });
     });
   }
   
   computeCentroid(cells) {
-    let sum = new THREE.Vector3(0, 0, 0);
+    let sum = new THREE.Vector3(0,0,0);
     cells.forEach(c => sum.add(c.tcPos));
     return sum.divideScalar(cells.length);
   }
-  
-  // ------------------ End of DensityGridOverlay Methods ------------------
   
   vectorToRaDec(vector) {
     const r = vector.length();
@@ -414,5 +409,3 @@ export class DensityGridOverlay {
     return { ra: THREE.Math.radToDeg(ra), dec: THREE.Math.radToDeg(dec) };
   }
 }
-
-// Note: The duplicate getGreatCirclePoints function has been removed since it is imported.
