@@ -1,5 +1,11 @@
-// /filters/constellationFilter.js
+// filters/constellationFilter.js
+
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
+
+/**
+ * This file manages constellation boundaries & labels for the Globe map.
+ * We store the parsed data from your .txt files and build lines/labels.
+ */
 
 let boundaryData = [];
 let centerData = [];
@@ -7,85 +13,6 @@ let centerData = [];
 export let globeConstellationLines = [];
 export let globeConstellationLabels = [];
 
-/**
- * Build full constellation polygons from the segments parsed from the txt file.
- * The txt file contains segments (each with two endpoints in RA/DEC in degrees)
- * and two constellation names. Here we group segments by constellation and then order
- * them (using a greedy algorithm) to form a closed polygon.
- */
-function buildConstellationPolygons() {
-  const polygons = {}; // key: constellation, value: array of segments
-
-  // Group each segment into each constellation it touches.
-  boundaryData.forEach(seg => {
-    const c1 = seg.const1;
-    const c2 = seg.const2;
-    if (c1) {
-      if (!polygons[c1]) polygons[c1] = [];
-      polygons[c1].push(seg);
-    }
-    if (c2) {
-      if (!polygons[c2]) polygons[c2] = [];
-      polygons[c2].push(seg);
-    }
-  });
-
-  const result = [];
-  Object.keys(polygons).forEach(constName => {
-    const segments = polygons[constName];
-    // Greedily order segments to form a polygon.
-    const used = new Array(segments.length).fill(false);
-    let polygonPoints = [];
-
-    // Start with the first segment.
-    const firstSeg = segments[0];
-    let currentPoint = { ra: firstSeg.ra1, dec: firstSeg.dec1 };
-    polygonPoints.push(currentPoint);
-    let endPoint = { ra: firstSeg.ra2, dec: firstSeg.dec2 };
-    used[0] = true;
-
-    let found;
-    do {
-      found = false;
-      for (let i = 0; i < segments.length; i++) {
-        if (used[i]) continue;
-        const seg = segments[i];
-        // Check if one endpoint matches the current endpoint (within a small tolerance, say 0.5°)
-        if (pointsMatch(endPoint, { ra: seg.ra1, dec: seg.dec1 })) {
-          polygonPoints.push({ ra: seg.ra2, dec: seg.dec2 });
-          endPoint = { ra: seg.ra2, dec: seg.dec2 };
-          used[i] = true;
-          found = true;
-          break;
-        } else if (pointsMatch(endPoint, { ra: seg.ra2, dec: seg.dec2 })) {
-          polygonPoints.push({ ra: seg.ra1, dec: seg.dec1 });
-          endPoint = { ra: seg.ra1, dec: seg.dec1 };
-          used[i] = true;
-          found = true;
-          break;
-        }
-      }
-    } while (found);
-
-    // If the polygon is closed (first and last points match) then remove duplicate final point.
-    if (pointsMatch(polygonPoints[0], polygonPoints[polygonPoints.length - 1])) {
-      polygonPoints.pop();
-    }
-    result.push({ constellation: constName, raDecPolygon: polygonPoints });
-  });
-  return result;
-}
-
-function pointsMatch(p1, p2, tol = 0.5) {
-  // tol is in degrees
-  return (Math.abs(p1.ra - p2.ra) < tol) && (Math.abs(p1.dec - p2.dec) < tol);
-}
-
-/**
- * Loads the constellation boundaries from the legacy text file.
- * The file format is assumed to be lines such as:
- * 001:002 M+ 22:52:00 +34:30:00 22:52:00 +52:30:00 AND LAC
- */
 export async function loadConstellationBoundaries() {
   try {
     const resp = await fetch('constellation_boundaries.txt');
@@ -93,10 +20,9 @@ export async function loadConstellationBoundaries() {
     const raw = await resp.text();
     const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
     boundaryData = [];
-    lines.forEach(line => {
+    for (const line of lines) {
       const parts = line.split(/\s+/);
-      if (parts.length < 8) return;
-      // parts[0] is an index pair, parts[1] is a flag, parts[2]-[5] are RA/DEC endpoints, parts[6] and [7] are constellation names.
+      if (parts.length < 8) continue;
       const raStr1 = parts[2];
       const decStr1 = parts[3];
       const raStr2 = parts[4];
@@ -108,18 +34,14 @@ export async function loadConstellationBoundaries() {
       const ra2 = parseRA(raStr2);
       const dec2 = parseDec(decStr2);
       boundaryData.push({ ra1, dec1, ra2, dec2, const1: c1, const2: c2 });
-    });
-    console.log(`[ConstellationFilter] Boundaries: loaded ${boundaryData.length} segments from txt.`);
+    }
+    console.log(`[ConstellationFilter] Boundaries: loaded ${boundaryData.length} lines.`);
   } catch (err) {
     console.error('Error loading constellation boundaries:', err);
     boundaryData = [];
   }
 }
 
-/**
- * Loads the constellation centers from constellation_center.txt.
- * (The format is assumed to be similar to the legacy format.)
- */
 export async function loadConstellationCenters() {
   try {
     const resp = await fetch('constellation_center.txt');
@@ -129,9 +51,9 @@ export async function loadConstellationCenters() {
     centerData = [];
     for (const line of lines) {
       const parts = line.split(/\s+/);
-      if (parts.length < 4) continue;
-      const raStr = parts[1];
-      const decStr = parts[2];
+      if (parts.length < 5) continue;
+      const raStr = parts[2];
+      const decStr = parts[3];
       const matchName = line.match(/"([^"]+)"/);
       const name = matchName ? matchName[1] : 'Unknown';
       const raVal = parseRA(raStr);
@@ -145,31 +67,20 @@ export async function loadConstellationCenters() {
   }
 }
 
-/**
- * Creates constellation boundary lines for the Globe.
- * This function builds full polygons from the txt segments.
- */
 export function createConstellationBoundariesForGlobe() {
   const lines = [];
   const R = 100;
-  const polygons = buildConstellationPolygons();
-  polygons.forEach(polyObj => {
-    const points = polyObj.raDecPolygon.map(v => {
-      const raRad = THREE.Math.degToRad(v.ra);
-      const decRad = THREE.Math.degToRad(v.dec);
-      const x = -R * Math.cos(decRad) * Math.cos(raRad);
-      const y = R * Math.sin(decRad);
-      const z = -R * Math.cos(decRad) * Math.sin(raRad);
-      return new THREE.Vector3(x, y, z);
-    });
-    const curve = new THREE.CatmullRomCurve3(points);
-    const curvePoints = curve.getPoints(64);
-    const geometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
+  boundaryData.forEach(b => {
+    const p1 = radToSphere(b.ra1, b.dec1, R);
+    const p2 = radToSphere(b.ra2, b.dec2, R);
+    const curve = new THREE.CatmullRomCurve3(getGreatCirclePoints(p1, p2, R, 32));
+    const points = curve.getPoints(32);
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
     const material = new THREE.LineDashedMaterial({
       color: 0x888888,
       dashSize: 2,
       gapSize: 1,
-      linewidth: 1,
+      linewidth: 1
     });
     const line = new THREE.Line(geometry, material);
     line.computeLineDistances();
@@ -179,26 +90,31 @@ export function createConstellationBoundariesForGlobe() {
 }
 
 /**
- * Creates constellation labels for the Globe using the centers.
+ * Creates constellation label meshes for the Globe.
+ * The labels are rendered using a custom shader material (see LabelManager) so that
+ * they are double-sided and always oriented with their up equal to the projection of global up.
+ * Also, constellation labels use a very large base font size, lower opacity, and no background.
  */
 export function createConstellationLabelsForGlobe() {
   const labels = [];
   const R = 100;
   centerData.forEach(c => {
     const p = radToSphere(c.ra, c.dec, R);
-    const baseFontSize = 300; // very large
+    const baseFontSize = 300; // Very large
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     ctx.font = `${baseFontSize}px Arial`;
     const textWidth = ctx.measureText(c.name).width;
     canvas.width = textWidth + 20;
     canvas.height = baseFontSize * 1.2;
+    // Clear background so it's transparent.
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.font = `${baseFontSize}px Arial`;
     ctx.fillStyle = '#888888';
     ctx.fillText(c.name, 10, baseFontSize);
     const texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
+    // Use a shader material similar to that used for star labels.
     const material = new THREE.ShaderMaterial({
       uniforms: {
         map: { value: texture },
@@ -227,6 +143,7 @@ export function createConstellationLabelsForGlobe() {
     const planeGeom = new THREE.PlaneGeometry((canvas.width / 100), (canvas.height / 100));
     const label = new THREE.Mesh(planeGeom, material);
     label.position.copy(p);
+    // Orientation: set label's normal to be p.normalize(), then build a basis where the label’s up equals the projection of global up.
     const normal = p.clone().normalize();
     const globalUp = new THREE.Vector3(0, 1, 0);
     let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
@@ -242,27 +159,12 @@ export function createConstellationLabelsForGlobe() {
   return labels;
 }
 
-function radToSphere(ra, dec, R) {
-  const raRad = THREE.Math.degToRad(ra);
-  const decRad = THREE.Math.degToRad(dec);
-  const x = -R * Math.cos(decRad) * Math.cos(raRad);
-  const y = R * Math.sin(decRad);
-  const z = -R * Math.cos(decRad) * Math.sin(raRad);
-  return new THREE.Vector3(x, y, z);
-}
-
-/**
- * Returns the raw boundary segments.
- */
-export function getConstellationBoundaries() {
-  return boundaryData;
-}
-
+// Helpers
 function parseRA(raStr) {
   const [hh, mm, ss] = raStr.split(':').map(x => parseFloat(x));
   const hours = hh + mm / 60 + ss / 3600;
   const deg = hours * 15;
-  return deg;
+  return degToRad(deg);
 }
 
 function parseDec(decStr) {
@@ -270,5 +172,75 @@ function parseDec(decStr) {
   const stripped = decStr.replace('+', '').replace('-', '');
   const [dd, mm, ss] = stripped.split(':').map(x => parseFloat(x));
   const degVal = (dd + mm / 60 + ss / 3600) * sign;
-  return degVal;
+  return degToRad(degVal);
+}
+
+function degToRad(d) {
+  return d * Math.PI / 180;
+}
+
+/**
+ * Converts RA and DEC (in radians) into a position on the sphere of radius R.
+ * This conversion is done as seen from Earth (from inside the globe) so that:
+ *
+ *   x = -R · cos(dec) · cos(ra)
+ *   y =  R · sin(dec)
+ *   z = -R · cos(dec) · sin(ra)
+ *
+ * In other words, the x and z coordinates are reversed compared to the standard formula.
+ * This ensures that the celestial north (DEC = +90°) appears at (0,R,0) and stars fall into
+ * their proper constellations when viewed from inside.
+ */
+function radToSphere(ra, dec, R) {
+  const x = -R * Math.cos(dec) * Math.cos(ra);
+  const y = R * Math.sin(dec);
+  const z = -R * Math.cos(dec) * Math.sin(ra);
+  return new THREE.Vector3(x, y, z);
+}
+
+/**
+ * Generates points along the great‐circle path between two points on the sphere.
+ */
+function getGreatCirclePoints(p1, p2, R, segments) {
+  const points = [];
+  const start = p1.clone().normalize().multiplyScalar(R);
+  const end = p2.clone().normalize().multiplyScalar(R);
+  const axis = new THREE.Vector3().crossVectors(start, end).normalize();
+  const angle = start.angleTo(end);
+  for (let i = 0; i <= segments; i++) {
+    const theta = (i / segments) * angle;
+    const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, theta);
+    const point = start.clone().applyQuaternion(quaternion);
+    points.push(point);
+  }
+  return points;
+}
+
+/**
+ * (Legacy) Creates a text sprite.
+ */
+function makeTextSprite(txt, opts) {
+  const fontSize = opts.fontSize || 100;
+  const color = opts.color || '#888888';
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.font = `${fontSize}px sans-serif`;
+  const w = ctx.measureText(txt).width;
+  canvas.width = w;
+  canvas.height = fontSize * 1.2;
+  ctx.font = `${fontSize}px sans-serif`;
+  ctx.fillStyle = color;
+  ctx.fillText(txt, 0, fontSize);
+  const tex = new THREE.Texture(canvas);
+  tex.needsUpdate = true;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  const scaleFactor = 0.02;
+  sprite.scale.set(canvas.width * scaleFactor, canvas.height * scaleFactor, 1);
+  return sprite;
+}
+
+// NEW: Export a getter for the loaded boundary data.
+export function getConstellationBoundaries() {
+  return boundaryData;
 }
