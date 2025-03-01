@@ -1,11 +1,5 @@
-// filters/constellationFilter.js
-
+// constellationFilter.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-
-/**
- * This file manages constellation boundaries & labels for the Globe map.
- * We store the parsed data from your .txt files and build lines/labels.
- */
 
 let boundaryData = [];
 let centerData = [];
@@ -67,9 +61,39 @@ export async function loadConstellationCenters() {
   }
 }
 
-// NEW: Export a getter for the loaded constellation centers.
+export function getConstellationBoundaries() {
+  return boundaryData;
+}
+
 export function getConstellationCenters() {
   return centerData;
+}
+
+// Helper functions
+function parseRA(raStr) {
+  const [hh, mm, ss] = raStr.split(':').map(x => parseFloat(x));
+  const hours = hh + mm / 60 + ss / 3600;
+  const deg = hours * 15;
+  return degToRad(deg);
+}
+
+function parseDec(decStr) {
+  const sign = decStr.startsWith('-') ? -1 : 1;
+  const stripped = decStr.replace('+', '').replace('-', '');
+  const [dd, mm, ss] = stripped.split(':').map(x => parseFloat(x));
+  const degVal = (dd + mm / 60 + ss / 3600) * sign;
+  return degToRad(degVal);
+}
+
+function degToRad(d) {
+  return d * Math.PI / 180;
+}
+
+function radToSphere(ra, dec, R) {
+  const x = -R * Math.cos(dec) * Math.cos(ra);
+  const y = R * Math.sin(dec);
+  const z = -R * Math.cos(dec) * Math.sin(ra);
+  return new THREE.Vector3(x, y, z);
 }
 
 export function createConstellationBoundariesForGlobe() {
@@ -94,18 +118,12 @@ export function createConstellationBoundariesForGlobe() {
   return lines;
 }
 
-/**
- * Creates constellation label meshes for the Globe.
- * The labels are rendered using a custom shader material (see LabelManager) so that
- * they are double-sided and always oriented with their up equal to the projection of global up.
- * Also, constellation labels use a very large base font size, lower opacity, and no background.
- */
 export function createConstellationLabelsForGlobe() {
   const labels = [];
   const R = 100;
   centerData.forEach(c => {
     const p = radToSphere(c.ra, c.dec, R);
-    const baseFontSize = 300; // Very large
+    const baseFontSize = 300;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     ctx.font = `${baseFontSize}px Arial`;
@@ -143,7 +161,7 @@ export function createConstellationLabelsForGlobe() {
       transparent: true,
       side: THREE.DoubleSide
     });
-    const planeGeom = new THREE.PlaneGeometry(canvas.width / 100, canvas.height / 100);
+    const planeGeom = new THREE.PlaneGeometry((canvas.width / 100), (canvas.height / 100));
     const label = new THREE.Mesh(planeGeom, material);
     label.position.copy(p);
     const normal = p.clone().normalize();
@@ -161,40 +179,6 @@ export function createConstellationLabelsForGlobe() {
   return labels;
 }
 
-// Helpers
-function parseRA(raStr) {
-  const [hh, mm, ss] = raStr.split(':').map(x => parseFloat(x));
-  const hours = hh + mm / 60 + ss / 3600;
-  const deg = hours * 15;
-  return degToRad(deg);
-}
-
-function parseDec(decStr) {
-  const sign = decStr.startsWith('-') ? -1 : 1;
-  const stripped = decStr.replace('+', '').replace('-', '');
-  const [dd, mm, ss] = stripped.split(':').map(x => parseFloat(x));
-  const degVal = (dd + mm / 60 + ss / 3600) * sign;
-  return degToRad(degVal);
-}
-
-function degToRad(d) {
-  return d * Math.PI / 180;
-}
-
-/**
- * Converts RA and DEC (in radians) into a position on the sphere of radius R.
- * (The x and z coordinates are reversed so that the celestial north appears at (0,R,0))
- */
-function radToSphere(ra, dec, R) {
-  const x = -R * Math.cos(dec) * Math.cos(ra);
-  const y = R * Math.sin(dec);
-  const z = -R * Math.cos(dec) * Math.sin(ra);
-  return new THREE.Vector3(x, y, z);
-}
-
-/**
- * Generates points along the great‑circle path between two points on the sphere.
- */
 function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
   const start = p1.clone().normalize().multiplyScalar(R);
@@ -208,33 +192,4 @@ function getGreatCirclePoints(p1, p2, R, segments) {
     points.push(point);
   }
   return points;
-}
-
-/**
- * (Legacy) Creates a text sprite.
- */
-function makeTextSprite(txt, opts) {
-  const fontSize = opts.fontSize || 100;
-  const color = opts.color || '#888888';
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  ctx.font = `${fontSize}px sans-serif`;
-  const w = ctx.measureText(txt).width;
-  canvas.width = w;
-  canvas.height = fontSize * 1.2;
-  ctx.font = `${fontSize}px sans-serif`;
-  ctx.fillStyle = color;
-  ctx.fillText(txt, 0, fontSize);
-  const tex = new THREE.Texture(canvas);
-  tex.needsUpdate = true;
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false });
-  const sprite = new THREE.Sprite(mat);
-  const scaleFactor = 0.02;
-  sprite.scale.set(canvas.width * scaleFactor, canvas.height * scaleFactor, 1);
-  return sprite;
-}
-
-// NEW: Export a getter for the loaded boundary data.
-export function getConstellationBoundaries() {
-  return boundaryData;
 }
