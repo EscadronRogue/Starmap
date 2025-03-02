@@ -7,8 +7,12 @@ import { applyOpacityFilter } from './opacityFilter.js';
 import { applyStarsShownFilter } from './starsShownFilter.js';
 import { computeConnectionPairs } from './connectionsFilter.js';
 import { applyStellarClassLogic, generateStellarClassFilters as scGenerate } from './stellarClassFilter.js';
+
+// For constellations
 import { loadConstellationBoundaries, loadConstellationCenters } from './constellationFilter.js';
+// Globe surface filter
 import { applyGlobeSurfaceFilter } from './globeSurfaceFilter.js';
+// NEW: Constellation overlay filter.
 import { createConstellationOverlayForGlobe } from './constellationOverlayFilter.js';
 
 let filterForm = null;
@@ -42,7 +46,6 @@ export async function setupFilterUI(allStars) {
 }
 
 function addConstellationsFieldset() {
-  // (Unchanged from original.)
   const fs = document.createElement('fieldset');
   const legend = document.createElement('legend');
   legend.classList.add('collapsible');
@@ -86,6 +89,7 @@ function addConstellationsFieldset() {
   namesDiv.appendChild(namesLbl);
   contentDiv.appendChild(namesDiv);
 
+  // NEW: Overlay checkbox.
   const overlayDiv = document.createElement('div');
   overlayDiv.classList.add('filter-item');
   const overlayChk = document.createElement('input');
@@ -105,7 +109,6 @@ function addConstellationsFieldset() {
 }
 
 function addGlobeSurfaceFieldset() {
-  // (Unchanged from original.)
   const fs = document.createElement('fieldset');
   const legend = document.createElement('legend');
   legend.classList.add('collapsible');
