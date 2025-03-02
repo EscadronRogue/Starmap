@@ -1,5 +1,3 @@
-// script.js
-
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { applyFilters, setupFilterUI } from './filters/index.js';
 import { createConnectionLines, mergeConnectionLines } from './filters/connectionsFilter.js';
@@ -24,6 +22,7 @@ let selectedStarData = null;
 
 let trueCoordinatesMap;
 let globeMap;
+let cylindricalMap; // New map for cylindrical projection
 
 let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
@@ -48,6 +47,16 @@ function getStarTruePosition(star) {
 function projectStarGlobe(star) {
   const R = 100;
   return radToSphere(star.RA_in_radian, star.DEC_in_radian, R);
+}
+
+function projectStarCylindrical(star) {
+  // Cylindrical equidistant (plate carrée) projection:
+  // x = scale * (RA - PI)
+  // y = scale * DEC
+  const scale = 100; // adjust scale as needed
+  const x = scale * (star.RA_in_radian - Math.PI);
+  const y = scale * star.DEC_in_radian;
+  return new THREE.Vector3(x, y, 0);
 }
 
 function createGlobeGrid(R = 100, options = {}) {
@@ -99,16 +108,32 @@ class MapManager {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
 
-    this.camera = new THREE.PerspectiveCamera(
-      75,
-      this.canvas.clientWidth / this.canvas.clientHeight,
-      0.1,
-      10000
-    );
-    if (mapType === 'TrueCoordinates') {
-      this.camera.position.set(0, 0, 70);
+    if (this.mapType === 'Cylindrical') {
+      // For a flat 2D view, use an orthographic camera.
+      const aspect = this.canvas.clientWidth / this.canvas.clientHeight;
+      const frustumSize = 400;
+      this.camera = new THREE.OrthographicCamera(
+        -frustumSize * aspect / 2,
+         frustumSize * aspect / 2,
+         frustumSize / 2,
+        -frustumSize / 2,
+        -1000,
+         1000
+      );
+      this.camera.position.set(0, 0, 1);
+      this.camera.lookAt(new THREE.Vector3(0, 0, 0));
     } else {
-      this.camera.position.set(0, 0, 200);
+      this.camera = new THREE.PerspectiveCamera(
+        75,
+        this.canvas.clientWidth / this.canvas.clientHeight,
+        0.1,
+        10000
+      );
+      if (this.mapType === 'TrueCoordinates') {
+        this.camera.position.set(0, 0, 70);
+      } else {
+        this.camera.position.set(0, 0, 200);
+      }
     }
     this.scene.add(this.camera);
 
@@ -135,22 +160,33 @@ class MapManager {
     }
     stars.forEach(star => {
       const size = star.displaySize || 1;
-      const sphereGeometry = new THREE.SphereGeometry(size * 0.2, 12, 12);
-      const material = new THREE.MeshBasicMaterial({
-        color: star.displayColor || '#ffffff',
-        transparent: true,
-        opacity: 1.0
-      });
-      const starMesh = new THREE.Mesh(sphereGeometry, material);
-      let pos;
-      if (this.mapType === 'TrueCoordinates') {
-        pos = star.truePosition
-          ? star.truePosition.clone()
-          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+      let starMesh;
+      if (this.mapType === 'Cylindrical') {
+        const geometry = new THREE.CircleGeometry(size * 0.2, 12);
+        const material = new THREE.MeshBasicMaterial({
+          color: star.displayColor || '#ffffff',
+          transparent: true,
+          opacity: 1.0
+        });
+        starMesh = new THREE.Mesh(geometry, material);
+        let pos = star.cylindricalPosition ? new THREE.Vector3(star.cylindricalPosition.x, star.cylindricalPosition.y, 0) : new THREE.Vector3(0,0,0);
+        starMesh.position.copy(pos);
       } else {
-        pos = star.spherePosition || new THREE.Vector3(0, 0, 0);
+        const sphereGeometry = new THREE.SphereGeometry(size * 0.2, 12, 12);
+        const material = new THREE.MeshBasicMaterial({
+          color: star.displayColor || '#ffffff',
+          transparent: true,
+          opacity: 1.0
+        });
+        starMesh = new THREE.Mesh(sphereGeometry, material);
+        if (this.mapType === 'TrueCoordinates') {
+          let pos = star.truePosition ? star.truePosition.clone() : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+          starMesh.position.copy(pos);
+        } else {
+          let pos = star.spherePosition || new THREE.Vector3(0, 0, 0);
+          starMesh.position.copy(pos);
+        }
       }
-      starMesh.position.copy(pos);
       this.starGroup.add(starMesh);
     });
     this.starObjects = stars;
@@ -164,12 +200,40 @@ class MapManager {
     if (!connectionObjs || connectionObjs.length === 0) return;
 
     this.connectionGroup = new THREE.Group();
-    if (this.mapType === 'Globe') {
-      const linesArray = createConnectionLines(stars, connectionObjs, 'Globe');
-      linesArray.forEach(line => this.connectionGroup.add(line));
-    } else {
-      const merged = mergeConnectionLines(connectionObjs);
-      this.connectionGroup.add(merged);
+    if (this.mapType === 'Globe' || this.mapType === 'TrueCoordinates') {
+      if (this.mapType === 'Globe') {
+        const linesArray = createConnectionLines(stars, connectionObjs, 'Globe');
+        linesArray.forEach(line => this.connectionGroup.add(line));
+      } else {
+        const merged = mergeConnectionLines(connectionObjs);
+        this.connectionGroup.add(merged);
+      }
+    } else if (this.mapType === 'Cylindrical') {
+      // For 2D, simply draw straight lines between the cylindrical positions.
+      const positions = [];
+      const colors = [];
+      connectionObjs.forEach(pair => {
+        const posA = starPositionCylindrical(pair.starA);
+        const posB = starPositionCylindrical(pair.starB);
+        positions.push(posA.x, posA.y, 0);
+        positions.push(posB.x, posB.y, 0);
+        const cA = new THREE.Color(pair.starA.displayColor || '#ffffff');
+        const cB = new THREE.Color(pair.starB.displayColor || '#ffffff');
+        colors.push(cA.r, cA.g, cA.b);
+        colors.push(cB.r, cB.g, cB.b);
+      });
+      if (positions.length > 0) {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        const material = new THREE.LineBasicMaterial({
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.5
+        });
+        const lines = new THREE.LineSegments(geometry, material);
+        this.connectionGroup.add(lines);
+      }
     }
     this.scene.add(this.connectionGroup);
   }
@@ -182,33 +246,29 @@ class MapManager {
   onResize() {
     const w = this.canvas.clientWidth;
     const h = this.canvas.clientHeight;
-    this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
+    if (this.mapType === 'Cylindrical') {
+      const aspect = w / h;
+      const frustumSize = 400;
+      this.camera.left = -frustumSize * aspect / 2;
+      this.camera.right = frustumSize * aspect / 2;
+      this.camera.top = frustumSize / 2;
+      this.camera.bottom = -frustumSize / 2;
+      this.camera.updateProjectionMatrix();
+    } else {
+      this.camera.aspect = w / h;
+      this.camera.updateProjectionMatrix();
+    }
     this.renderer.setSize(w, h);
   }
 
   animate() {
     requestAnimationFrame(() => this.animate());
-    if (this.mapType === 'Globe' && window.constellationOverlayGlobe) {
-      window.constellationOverlayGlobe.forEach(mesh => {
-        if (this.camera.position.length() > 100) {
-          mesh.material.depthTest = false;
-          mesh.renderOrder = 2;
-        } else {
-          mesh.material.depthTest = true;
-          mesh.renderOrder = 0;
-        }
-      });
-    }
-    if (this.mapType === 'Globe') {
-      this.scene.traverse(child => {
-        if (child.material && child.material.uniforms && child.material.uniforms.cameraPos) {
-          child.material.uniforms.cameraPos.value.copy(this.camera.position);
-        }
-      });
-    }
     this.renderer.render(this.scene, this.camera);
   }
+}
+
+function starPositionCylindrical(star) {
+  return star.cylindricalPosition ? new THREE.Vector3(star.cylindricalPosition.x, star.cylindricalPosition.y, 0) : new THREE.Vector3(0,0,0);
 }
 
 function initStarInteractions(map) {
@@ -281,15 +341,19 @@ window.onload = async () => {
 
     trueCoordinatesMap = new MapManager({ canvasId: 'map3D', mapType: 'TrueCoordinates' });
     globeMap = new MapManager({ canvasId: 'sphereMap', mapType: 'Globe' });
+    cylindricalMap = new MapManager({ canvasId: 'cylindricalMap', mapType: 'Cylindrical' });
     window.trueCoordinatesMap = trueCoordinatesMap;
     window.globeMap = globeMap;
+    window.cylindricalMap = cylindricalMap;
 
     initStarInteractions(trueCoordinatesMap);
     initStarInteractions(globeMap);
+    initStarInteractions(cylindricalMap);
 
     cachedStars.forEach(star => {
       star.spherePosition = projectStarGlobe(star);
       star.truePosition = getStarTruePosition(star);
+      star.cylindricalPosition = projectStarCylindrical(star);
     });
 
     const globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
@@ -367,12 +431,15 @@ async function buildAndApplyFilters() {
   });
   currentFilteredStars.forEach(star => {
     star.truePosition = getStarTruePosition(star);
+    star.cylindricalPosition = projectStarCylindrical(star);
   });
 
   trueCoordinatesMap.updateMap(currentFilteredStars, currentConnections);
   trueCoordinatesMap.labelManager.refreshLabels(currentFilteredStars);
   globeMap.updateMap(currentGlobeFilteredStars, currentGlobeConnections);
   globeMap.labelManager.refreshLabels(currentGlobeFilteredStars);
+  cylindricalMap.updateMap(currentFilteredStars, currentConnections);
+  cylindricalMap.labelManager.refreshLabels(currentFilteredStars);
 
   removeConstellationObjectsFromGlobe();
   removeConstellationOverlayObjectsFromGlobe();
