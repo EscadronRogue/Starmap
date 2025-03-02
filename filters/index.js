@@ -12,6 +12,8 @@ import { applyStellarClassLogic, generateStellarClassFilters as scGenerate } fro
 import { loadConstellationBoundaries, loadConstellationCenters } from './constellationFilter.js';
 // Globe surface filter
 import { applyGlobeSurfaceFilter } from './globeSurfaceFilter.js';
+// NEW: Constellation overlay filter.
+import { createConstellationOverlayForGlobe } from './constellationOverlayFilter.js';
 
 let filterForm = null;
 
@@ -94,7 +96,7 @@ function addConstellationsFieldset() {
   overlayChk.type = 'checkbox';
   overlayChk.id = 'show-constellation-overlay';
   overlayChk.name = 'show-constellation-overlay';
-  overlayChk.checked = false; // default false
+  overlayChk.checked = false; // Set to false by default
   const overlayLbl = document.createElement('label');
   overlayLbl.htmlFor = 'show-constellation-overlay';
   overlayLbl.textContent = 'Show Constellation Overlays';
@@ -127,7 +129,7 @@ function addGlobeSurfaceFieldset() {
   surfChk.type = 'checkbox';
   surfChk.id = 'globe-opaque-surface';
   surfChk.name = 'globe-opaque-surface';
-  // Opaque surface ON by default
+  // Opaque surface ON by default.
   surfChk.checked = true;
   const surfLbl = document.createElement('label');
   surfLbl.htmlFor = 'globe-opaque-surface';
@@ -178,10 +180,7 @@ export function applyFilters(allStars) {
   filteredStars = applyColorFilter(filteredStars, filters);
   filteredStars = applyOpacityFilter(filteredStars, filters);
 
-  // Exclude the Sun from globe
-  // (assuming "Sun" or "Sol" is in Common_name_of_the_star)
-  const globeFiltered = filteredStars.filter(s => s.Common_name_of_the_star !== 'Sun');
-
+  const globeFiltered = filteredStars.filter(s => s.Common_name_of_the_star !== 'Sol');
   let pairs = [];
   let globePairs = [];
   if (filters.enableConnections) {
