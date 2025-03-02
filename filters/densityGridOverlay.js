@@ -117,8 +117,7 @@ function radToSphere(ra, dec, R) {
   return new THREE.Vector3(x, y, z);
 }
 
-// Helper to compute nearest star for each cell based on distance
-// (Also stores the distances array as before)
+// Helper: compute distances for a cell and store the nearest star.
 function computeCellDistances(cell, stars) {
   const dArr = stars.map(star => {
     let starPos = star.truePosition ? star.truePosition : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
@@ -132,11 +131,36 @@ function computeCellDistances(cell, stars) {
   cell.nearestStar = dArr.length > 0 ? dArr[0].star : null;
 }
 
+// Returns a rank for stellar classes: higher is better.
 function getStellarClassRank(star) {
   if (!star || !star.Stellar_class) return 0;
   const letter = star.Stellar_class.charAt(0).toUpperCase();
   const rankMap = { 'O':7, 'B':6, 'A':5, 'F':4, 'G':3, 'K':2, 'M':1 };
   return rankMap[letter] || 0;
+}
+
+// For high density mode, choose the best star based on stellar class rank
+// (tie-break by lowest absolute magnitude), then return its star system name.
+function getBestStarLabel(cells) {
+  let bestStar = null;
+  let bestRank = -Infinity;
+  cells.forEach(cell => {
+    if (cell.nearestStar) {
+      const rank = getStellarClassRank(cell.nearestStar);
+      if (rank > bestRank) {
+        bestRank = rank;
+        bestStar = cell.nearestStar;
+      } else if (rank === bestRank && bestStar) {
+        if (cell.nearestStar.Absolute_magnitude !== undefined && bestStar.Absolute_magnitude !== undefined) {
+          if (cell.nearestStar.Absolute_magnitude < bestStar.Absolute_magnitude) {
+            bestStar = cell.nearestStar;
+          }
+        }
+      }
+    }
+  });
+  // Return the star system name of the best star, if available.
+  return bestStar ? (bestStar.Common_name_of_the_star_system || bestStar.Common_name_of_the_star || "Unknown") : "Unknown";
 }
 
 export class DensityGridOverlay {
@@ -212,7 +236,6 @@ export class DensityGridOverlay {
         }
       }
     }
-    // For each cell, compute distances and store nearest star.
     this.cubesData.forEach(cell => computeCellDistances(cell, stars));
     this.computeAdjacentLines();
   }
@@ -325,7 +348,7 @@ export class DensityGridOverlay {
     });
   }
 
-  // For high density mode, determine the cluster label from the best (biggest/brighest) star
+  // For high density mode, choose the best star's star system name.
   getBestStarLabel(cells) {
     let bestStar = null;
     let bestRank = -Infinity;
@@ -344,12 +367,11 @@ export class DensityGridOverlay {
         }
       }
     });
-    return bestStar ? (bestStar.Common_name_of_the_star || bestStar.Common_name_of_the_star_system || "Unknown") : "Unknown";
+    // Now return the star system name instead of the individual star name.
+    return bestStar ? (bestStar.Common_name_of_the_star_system || bestStar.Common_name_of_the_star || "Unknown") : "Unknown";
   }
 
   async assignConstellationsToCells() {
-    // For low density mode, use the original boundary‐based assignment.
-    // For high density mode, we now want to assign each cell’s label based on its best star.
     if (this.mode === "low") {
       await loadConstellationCenters();
       await loadConstellationBoundaries();
@@ -444,11 +466,10 @@ export class DensityGridOverlay {
           cell.constellation = bestConstellation;
         }
       });
-    } else { // High density mode: assign using best star
-      // For each active cell, assign the label from its nearest star.
+    } else { // High density mode: assign using best star's star system name.
       this.cubesData.forEach(cell => {
         if (cell.active) {
-          cell.clusterLabel = cell.nearestStar ? (cell.nearestStar.Common_name_of_the_star || cell.nearestStar.Common_name_of_the_star_system || "Unknown") : "Unknown";
+          cell.clusterLabel = getBestStarLabel([cell]);
         }
       });
     }
@@ -553,7 +574,6 @@ export class DensityGridOverlay {
     });
   }
 
-  // For high density mode, use getBestStarLabel instead of majority
   getMajorityConstellation(cells) {
     const freq = {};
     cells.forEach(cell => {
@@ -617,7 +637,7 @@ export class DensityGridOverlay {
         const majority = this.getMajorityConstellation(c);
         subRegions = this.recursiveSegmentCluster(c, V_max, majority);
       } else {
-        const bestLabel = this.getBestStarLabel(c);
+        const bestLabel = getBestStarLabel(c);
         subRegions = this.recursiveSegmentCluster(c, V_max, bestLabel);
       }
       subRegions.forEach(sr => allRegions.push(sr));
@@ -626,7 +646,7 @@ export class DensityGridOverlay {
     return allRegions;
   }
 
-  // Modified recursiveSegmentCluster now accepts a label parameter computed from majority (low) or best star (high)
+  // Modified recursiveSegmentCluster accepts a label parameter computed from majority (low) or best star (high)
   recursiveSegmentCluster(cells, V_max, labelForCells) {
     const size = cells.length;
     if (this.mode === "low") {
@@ -710,7 +730,7 @@ export class DensityGridOverlay {
       }
       const regions = [];
       segResult.cores.forEach(core => {
-        let sub = this.recursiveSegmentCluster(core, V_max, this.getBestStarLabel(core));
+        let sub = this.recursiveSegmentCluster(core, V_max, getBestStarLabel(core));
         sub.forEach(r => {
           r.type = "Peninsula";
           r.label = `Peninsula ${r.constName}`;
@@ -718,7 +738,7 @@ export class DensityGridOverlay {
         });
       });
       if (segResult.neck && segResult.neck.length > 0) {
-        const neckLabel = this.getBestStarLabel(segResult.neck);
+        const neckLabel = getBestStarLabel(segResult.neck);
         regions.push({
           cells: segResult.neck,
           volume: segResult.neck.length,
