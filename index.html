@@ -20,8 +20,6 @@
   <!-- Main Container -->
   <div class="main-container">
     <!-- Sidebar for Filters (as an overlay) -->
-    <!-- Note: The outdated static fieldsets for "Constellations" and "Globe Surface" have been removed.
-         The dynamic, collapsible versions will be injected by filters/index.js. -->
     <aside class="sidebar">
       <h2>Filters</h2>
       <form id="filters-form">
@@ -112,25 +110,43 @@
           </div>
         </fieldset>
 
-        <!-- Density Mapping Filter (disabled by default) -->
+        <!-- LOW DENSITY MAPPING Filter -->
         <fieldset>
-          <legend class="collapsible" aria-expanded="false">Density Mapping</legend>
+          <legend class="collapsible" aria-expanded="false">Low Density Mapping</legend>
           <div class="filter-content">
             <div class="filter-item">
-              <input type="checkbox" id="enable-density-mapping" name="enable-density-mapping" />
-              <label for="enable-density-mapping">Enable Density Mapping</label>
+              <input type="checkbox" id="enable-low-density-mapping" name="enable-low-density-mapping" />
+              <label for="enable-low-density-mapping">Enable Low Density Mapping</label>
             </div>
             <div class="filter-item">
-              <label>Isolation Distance (LY): <span id="density-value">7</span> LY</label>
-              <input type="range" id="density-slider" name="density" min="1" max="20" value="7" disabled />
+              <label>Isolation Distance (LY): <span id="low-density-value">7</span> LY</label>
+              <input type="range" id="low-density-slider" name="low-density" min="1" max="20" value="7" disabled />
             </div>
             <div class="filter-item">
-              <label>Ignore this many closest stars: <span id="tolerance-value">0</span></label>
-              <input type="range" id="tolerance-slider" name="tolerance" min="0" max="10" value="0" disabled />
+              <label>Ignore this many closest stars: <span id="low-tolerance-value">0</span></label>
+              <input type="range" id="low-tolerance-slider" name="low-tolerance" min="0" max="10" value="0" disabled />
             </div>
           </div>
         </fieldset>
-        <!-- End static fieldsets -->
+
+        <!-- HIGH DENSITY MAPPING Filter -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">High Density Mapping</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <input type="checkbox" id="enable-high-density-mapping" name="enable-high-density-mapping" />
+              <label for="enable-high-density-mapping">Enable High Density Mapping</label>
+            </div>
+            <div class="filter-item">
+              <label>Isolation Distance (LY): <span id="high-density-value">1</span> LY</label>
+              <input type="range" id="high-density-slider" name="high-density" min="1" max="20" value="1" disabled />
+            </div>
+            <div class="filter-item">
+              <label>Ignore this many closest stars: <span id="high-tolerance-value">0</span></label>
+              <input type="range" id="high-tolerance-slider" name="high-tolerance" min="0" max="10" value="0" disabled />
+            </div>
+          </div>
+        </fieldset>
       </form>
     </aside>
 
@@ -169,32 +185,33 @@
   <!-- Scripts -->
   <script type="module" src="script.js"></script>
   <script>
-    // Toggle sidebar menu on mobile by toggling the "open" class
     document.getElementById('menu-toggle').addEventListener('click', function() {
       document.querySelector('.sidebar').classList.toggle('open');
     });
 
-    // Enable/disable connection slider based on checkbox state
     document.getElementById('enable-connections').addEventListener('change', function() {
       document.getElementById('connection-slider').disabled = !this.checked;
     });
 
-    // Enable/disable density mapping sliders based on checkbox state
-    document.getElementById('enable-density-mapping').addEventListener('change', function() {
-      document.getElementById('density-slider').disabled = !this.checked;
-      document.getElementById('tolerance-slider').disabled = !this.checked;
+    // Enable/disable low density mapping sliders
+    document.getElementById('enable-low-density-mapping').addEventListener('change', function() {
+      document.getElementById('low-density-slider').disabled = !this.checked;
+      document.getElementById('low-tolerance-slider').disabled = !this.checked;
+    });
+
+    // Enable/disable high density mapping sliders
+    document.getElementById('enable-high-density-mapping').addEventListener('change', function() {
+      document.getElementById('high-density-slider').disabled = !this.checked;
+      document.getElementById('high-tolerance-slider').disabled = !this.checked;
     });
     
-    // Fullscreen button event listeners
     document.querySelectorAll('.fullscreen-btn').forEach(btn => {
       btn.addEventListener('click', function() {
-        // Find the canvas within the same map container
         const mapContainer = this.parentElement;
         const canvas = mapContainer.querySelector('canvas');
         if (document.fullscreenElement) {
           document.exitFullscreen();
         } else {
-          // Request true fullscreen on the canvas element
           canvas.requestFullscreen().catch(err => {
             console.error("Error attempting to enable full-screen mode:", err);
           });
@@ -202,7 +219,6 @@
       });
     });
 
-    // When exiting fullscreen, clear any inline sizing on the canvases and dispatch a resize event.
     document.addEventListener("fullscreenchange", function() {
       if (!document.fullscreenElement) {
         document.querySelectorAll('.map-container canvas').forEach(canvas => {
