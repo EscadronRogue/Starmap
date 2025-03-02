@@ -32,7 +32,9 @@ let globeSurfaceSphere = null;
 let lowDensityOverlay = null;
 let highDensityOverlay = null;
 
-// Helper: Convert spherical coordinates to a THREE.Vector3 for a given radius
+/**
+ * Helper: Convert spherical coordinates (ra, dec in radians) to a THREE.Vector3 for a given radius.
+ */
 function radToSphere(ra, dec, R) {
   return new THREE.Vector3(
     -R * Math.cos(dec) * Math.cos(ra),
@@ -51,15 +53,95 @@ function projectStarGlobe(star) {
   return radToSphere(star.RA_in_radian, star.DEC_in_radian, R);
 }
 
-// New: Compute 2D cylindrical (equirectangular) projection for a star.
+/**
+ * New: Compute the 2D cylindrical (equirectangular) projection for a star.
+ * RA is normalized into [-π, π] so that RA = 0 is centered.
+ */
 function projectStarCylindrical(star, canvasWidth, canvasHeight) {
-  // Normalize RA into the [-π, π] range
   let ra = star.RA_in_radian;
   if (ra > Math.PI) ra = ra - 2 * Math.PI;
   const dec = star.DEC_in_radian;
   const x = ((ra + Math.PI) / (2 * Math.PI)) * canvasWidth;
   const y = ((Math.PI / 2 - dec) / Math.PI) * canvasHeight;
   return new THREE.Vector3(x, y, 0);
+}
+
+/**
+ * New: Create a Globe grid for the Globe map.
+ * It draws meridians (vertical curves) and parallels (horizontal curves).
+ */
+function createGlobeGrid(R = 100, options = {}) {
+  const gridGroup = new THREE.Group();
+  const gridColor = options.color || 0x444444;
+  const lineOpacity = options.opacity !== undefined ? options.opacity : 0.2;
+  const lineWidth = options.lineWidth || 1;
+  const material = new THREE.LineBasicMaterial({
+    color: gridColor,
+    transparent: true,
+    opacity: lineOpacity,
+    linewidth: lineWidth
+  });
+  // Draw meridians: for every 30° of RA
+  for (let raDeg = 0; raDeg < 360; raDeg += 30) {
+    const ra = THREE.Math.degToRad(raDeg);
+    const points = [];
+    for (let decDeg = -80; decDeg <= 80; decDeg += 2) {
+      const dec = THREE.Math.degToRad(decDeg);
+      points.push(radToSphere(ra, dec, R));
+    }
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geometry, material);
+    gridGroup.add(line);
+  }
+  // Draw parallels: for every 30° of DEC
+  for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
+    const dec = THREE.Math.degToRad(decDeg);
+    const points = [];
+    const segments = 64;
+    for (let i = 0; i <= segments; i++) {
+      const ra = (i / segments) * 2 * Math.PI;
+      points.push(radToSphere(ra, dec, R));
+    }
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geometry, material);
+    gridGroup.add(line);
+  }
+  return gridGroup;
+}
+
+/**
+ * New: Create a grid for the cylindrical map (for reference).
+ */
+function createCylindricalGrid(width, height, options = {}) {
+  const gridGroup = new THREE.Group();
+  const gridColor = options.color || 0x444444;
+  const lineOpacity = options.opacity !== undefined ? options.opacity : 0.2;
+  const lineWidth = options.lineWidth || 1;
+  const material = new THREE.LineBasicMaterial({
+    color: gridColor,
+    transparent: true,
+    opacity: lineOpacity,
+    linewidth: lineWidth
+  });
+  // Vertical grid lines (e.g., every 30° RA)
+  const numVertical = 12;
+  for (let i = 0; i <= numVertical; i++) {
+    const x = (i / numVertical) * width;
+    const points = [new THREE.Vector3(x, 0, 0), new THREE.Vector3(x, height, 0)];
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geometry, material);
+    gridGroup.add(line);
+  }
+  // Horizontal grid lines (for DEC)
+  const numHorizontal = 6;
+  for (let j = 0; j <= numHorizontal; j++) {
+    const y = (j / numHorizontal) * height;
+    const points = [new THREE.Vector3(0, y, 0), new THREE.Vector3(width, y, 0)];
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geometry, material);
+    gridGroup.add(line);
+  }
+  return gridGroup;
 }
 
 // Existing MapManager for 3D maps (True Coordinates & Globe)
@@ -187,11 +269,11 @@ class MapManager {
   }
 }
 
-// New: CylindricalMapManager for 2D cylindrical equidistant projection
+// New: CylindricalMapManager for the 2D cylindrical (equirectangular) projection.
 class CylindricalMapManager {
   constructor({ canvasId, mapType }) {
     this.canvas = document.getElementById(canvasId);
-    this.mapType = mapType; // 'Cylindrical'
+    this.mapType = mapType; // Should be 'Cylindrical'
     this.scene = new THREE.Scene();
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
@@ -202,7 +284,7 @@ class CylindricalMapManager {
 
     const width = this.canvas.clientWidth;
     const height = this.canvas.clientHeight;
-    // Set up an orthographic camera so that the 2D coordinates match the canvas pixels.
+    // Set up an orthographic camera so that 2D coordinates match canvas pixels.
     this.camera = new THREE.OrthographicCamera(0, width, 0, height, -1000, 1000);
     this.camera.position.set(0, 0, 1);
     this.camera.lookAt(new THREE.Vector3(0, 0, 0));
@@ -294,40 +376,7 @@ class CylindricalMapManager {
   }
 }
 
-// Optional: Create a grid for the cylindrical map (for reference)
-function createCylindricalGrid(width, height, options = {}) {
-  const gridGroup = new THREE.Group();
-  const gridColor = options.color || 0x444444;
-  const lineOpacity = options.opacity !== undefined ? options.opacity : 0.2;
-  const lineWidth = options.lineWidth || 1;
-  const material = new THREE.LineBasicMaterial({
-    color: gridColor,
-    transparent: true,
-    opacity: lineOpacity,
-    linewidth: lineWidth
-  });
-  // Vertical grid lines (e.g., every 30° RA)
-  const numVertical = 12;
-  for (let i = 0; i <= numVertical; i++) {
-    const x = (i / numVertical) * width;
-    const points = [new THREE.Vector3(x, 0, 0), new THREE.Vector3(x, height, 0)];
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, material);
-    gridGroup.add(line);
-  }
-  // Horizontal grid lines (for DEC)
-  const numHorizontal = 6;
-  for (let j = 0; j <= numHorizontal; j++) {
-    const y = (j / numHorizontal) * height;
-    const points = [new THREE.Vector3(0, y, 0), new THREE.Vector3(width, y, 0)];
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, material);
-    gridGroup.add(line);
-  }
-  return gridGroup;
-}
-
-// Initialize interactions (for 3D maps; 2D map interactions can be added similarly if needed)
+// Optional: Initialize interactions for 3D maps (for the 2D cylindrical map, similar interaction logic can be added if needed)
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
