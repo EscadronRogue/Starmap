@@ -16,13 +16,14 @@ let currentFilteredStars = [];
 let currentConnections = [];
 let currentGlobeFilteredStars = [];
 let currentGlobeConnections = [];
+let currentCylindricalConnections = [];
 
 let maxDistanceFromCenter = 0;
 let selectedStarData = null;
 
 let trueCoordinatesMap;
 let globeMap;
-let cylindricalMap; // New map for cylindrical projection
+let cylindricalMap; // New cylindrical map manager
 
 let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
@@ -31,6 +32,7 @@ let globeSurfaceSphere = null;
 let lowDensityOverlay = null;
 let highDensityOverlay = null;
 
+// Helper: Convert spherical coordinates to a THREE.Vector3 for a given radius
 function radToSphere(ra, dec, R) {
   return new THREE.Vector3(
     -R * Math.cos(dec) * Math.cos(ra),
@@ -49,53 +51,18 @@ function projectStarGlobe(star) {
   return radToSphere(star.RA_in_radian, star.DEC_in_radian, R);
 }
 
-function projectStarCylindrical(star) {
-  // Cylindrical equidistant (plate carrée) projection:
-  // x = scale * (RA - PI)
-  // y = scale * DEC
-  const scale = 100; // adjust scale as needed
-  const x = scale * (star.RA_in_radian - Math.PI);
-  const y = scale * star.DEC_in_radian;
+// New: Compute 2D cylindrical (equirectangular) projection for a star.
+function projectStarCylindrical(star, canvasWidth, canvasHeight) {
+  // Normalize RA into the [-π, π] range
+  let ra = star.RA_in_radian;
+  if (ra > Math.PI) ra = ra - 2 * Math.PI;
+  const dec = star.DEC_in_radian;
+  const x = ((ra + Math.PI) / (2 * Math.PI)) * canvasWidth;
+  const y = ((Math.PI / 2 - dec) / Math.PI) * canvasHeight;
   return new THREE.Vector3(x, y, 0);
 }
 
-function createGlobeGrid(R = 100, options = {}) {
-  const gridGroup = new THREE.Group();
-  const gridColor = options.color || 0x444444;
-  const lineOpacity = options.opacity !== undefined ? options.opacity : 0.2;
-  const lineWidth = options.lineWidth || 1;
-  const material = new THREE.LineBasicMaterial({
-    color: gridColor,
-    transparent: true,
-    opacity: lineOpacity,
-    linewidth: lineWidth
-  });
-  for (let raDeg = 0; raDeg < 360; raDeg += 30) {
-    const ra = THREE.Math.degToRad(raDeg);
-    const points = [];
-    for (let decDeg = -80; decDeg <= 80; decDeg += 2) {
-      const dec = THREE.Math.degToRad(decDeg);
-      points.push(radToSphere(ra, dec, R));
-    }
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, material);
-    gridGroup.add(line);
-  }
-  for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
-    const dec = THREE.Math.degToRad(decDeg);
-    const points = [];
-    const segments = 64;
-    for (let i = 0; i <= segments; i++) {
-      const ra = (i / segments) * 2 * Math.PI;
-      points.push(radToSphere(ra, dec, R));
-    }
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, material);
-    gridGroup.add(line);
-  }
-  return gridGroup;
-}
-
+// Existing MapManager for 3D maps (True Coordinates & Globe)
 class MapManager {
   constructor({ canvasId, mapType }) {
     this.canvas = document.getElementById(canvasId);
@@ -108,32 +75,16 @@ class MapManager {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
 
-    if (this.mapType === 'Cylindrical') {
-      // For a flat 2D view, use an orthographic camera.
-      const aspect = this.canvas.clientWidth / this.canvas.clientHeight;
-      const frustumSize = 400;
-      this.camera = new THREE.OrthographicCamera(
-        -frustumSize * aspect / 2,
-         frustumSize * aspect / 2,
-         frustumSize / 2,
-        -frustumSize / 2,
-        -1000,
-         1000
-      );
-      this.camera.position.set(0, 0, 1);
-      this.camera.lookAt(new THREE.Vector3(0, 0, 0));
+    this.camera = new THREE.PerspectiveCamera(
+      75,
+      this.canvas.clientWidth / this.canvas.clientHeight,
+      0.1,
+      10000
+    );
+    if (mapType === 'TrueCoordinates') {
+      this.camera.position.set(0, 0, 70);
     } else {
-      this.camera = new THREE.PerspectiveCamera(
-        75,
-        this.canvas.clientWidth / this.canvas.clientHeight,
-        0.1,
-        10000
-      );
-      if (this.mapType === 'TrueCoordinates') {
-        this.camera.position.set(0, 0, 70);
-      } else {
-        this.camera.position.set(0, 0, 200);
-      }
+      this.camera.position.set(0, 0, 200);
     }
     this.scene.add(this.camera);
 
@@ -155,38 +106,27 @@ class MapManager {
     while (this.starGroup.children.length > 0) {
       const child = this.starGroup.children[0];
       this.starGroup.remove(child);
-      child.geometry.dispose();
-      child.material.dispose();
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
     }
     stars.forEach(star => {
       const size = star.displaySize || 1;
-      let starMesh;
-      if (this.mapType === 'Cylindrical') {
-        const geometry = new THREE.CircleGeometry(size * 0.2, 12);
-        const material = new THREE.MeshBasicMaterial({
-          color: star.displayColor || '#ffffff',
-          transparent: true,
-          opacity: 1.0
-        });
-        starMesh = new THREE.Mesh(geometry, material);
-        let pos = star.cylindricalPosition ? new THREE.Vector3(star.cylindricalPosition.x, star.cylindricalPosition.y, 0) : new THREE.Vector3(0,0,0);
-        starMesh.position.copy(pos);
+      const sphereGeometry = new THREE.SphereGeometry(size * 0.2, 12, 12);
+      const material = new THREE.MeshBasicMaterial({
+        color: star.displayColor || '#ffffff',
+        transparent: true,
+        opacity: 1.0
+      });
+      const starMesh = new THREE.Mesh(sphereGeometry, material);
+      let pos;
+      if (this.mapType === 'TrueCoordinates') {
+        pos = star.truePosition
+          ? star.truePosition.clone()
+          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
       } else {
-        const sphereGeometry = new THREE.SphereGeometry(size * 0.2, 12, 12);
-        const material = new THREE.MeshBasicMaterial({
-          color: star.displayColor || '#ffffff',
-          transparent: true,
-          opacity: 1.0
-        });
-        starMesh = new THREE.Mesh(sphereGeometry, material);
-        if (this.mapType === 'TrueCoordinates') {
-          let pos = star.truePosition ? star.truePosition.clone() : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
-          starMesh.position.copy(pos);
-        } else {
-          let pos = star.spherePosition || new THREE.Vector3(0, 0, 0);
-          starMesh.position.copy(pos);
-        }
+        pos = star.spherePosition || new THREE.Vector3(0, 0, 0);
       }
+      starMesh.position.copy(pos);
       this.starGroup.add(starMesh);
     });
     this.starObjects = stars;
@@ -200,40 +140,12 @@ class MapManager {
     if (!connectionObjs || connectionObjs.length === 0) return;
 
     this.connectionGroup = new THREE.Group();
-    if (this.mapType === 'Globe' || this.mapType === 'TrueCoordinates') {
-      if (this.mapType === 'Globe') {
-        const linesArray = createConnectionLines(stars, connectionObjs, 'Globe');
-        linesArray.forEach(line => this.connectionGroup.add(line));
-      } else {
-        const merged = mergeConnectionLines(connectionObjs);
-        this.connectionGroup.add(merged);
-      }
-    } else if (this.mapType === 'Cylindrical') {
-      // For 2D, simply draw straight lines between the cylindrical positions.
-      const positions = [];
-      const colors = [];
-      connectionObjs.forEach(pair => {
-        const posA = starPositionCylindrical(pair.starA);
-        const posB = starPositionCylindrical(pair.starB);
-        positions.push(posA.x, posA.y, 0);
-        positions.push(posB.x, posB.y, 0);
-        const cA = new THREE.Color(pair.starA.displayColor || '#ffffff');
-        const cB = new THREE.Color(pair.starB.displayColor || '#ffffff');
-        colors.push(cA.r, cA.g, cA.b);
-        colors.push(cB.r, cB.g, cB.b);
-      });
-      if (positions.length > 0) {
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-        const material = new THREE.LineBasicMaterial({
-          vertexColors: true,
-          transparent: true,
-          opacity: 0.5
-        });
-        const lines = new THREE.LineSegments(geometry, material);
-        this.connectionGroup.add(lines);
-      }
+    if (this.mapType === 'Globe') {
+      const linesArray = createConnectionLines(stars, connectionObjs, 'Globe');
+      linesArray.forEach(line => this.connectionGroup.add(line));
+    } else {
+      const merged = mergeConnectionLines(connectionObjs);
+      this.connectionGroup.add(merged);
     }
     this.scene.add(this.connectionGroup);
   }
@@ -246,19 +158,134 @@ class MapManager {
   onResize() {
     const w = this.canvas.clientWidth;
     const h = this.canvas.clientHeight;
-    if (this.mapType === 'Cylindrical') {
-      const aspect = w / h;
-      const frustumSize = 400;
-      this.camera.left = -frustumSize * aspect / 2;
-      this.camera.right = frustumSize * aspect / 2;
-      this.camera.top = frustumSize / 2;
-      this.camera.bottom = -frustumSize / 2;
-      this.camera.updateProjectionMatrix();
-    } else {
-      this.camera.aspect = w / h;
-      this.camera.updateProjectionMatrix();
-    }
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
+  }
+
+  animate() {
+    requestAnimationFrame(() => this.animate());
+    if (this.mapType === 'Globe' && window.constellationOverlayGlobe) {
+      window.constellationOverlayGlobe.forEach(mesh => {
+        if (this.camera.position.length() > 100) {
+          mesh.material.depthTest = false;
+          mesh.renderOrder = 2;
+        } else {
+          mesh.material.depthTest = true;
+          mesh.renderOrder = 0;
+        }
+      });
+    }
+    if (this.mapType === 'Globe') {
+      this.scene.traverse(child => {
+        if (child.material && child.material.uniforms && child.material.uniforms.cameraPos) {
+          child.material.uniforms.cameraPos.value.copy(this.camera.position);
+        }
+      });
+    }
+    this.renderer.render(this.scene, this.camera);
+  }
+}
+
+// New: CylindricalMapManager for 2D cylindrical equidistant projection
+class CylindricalMapManager {
+  constructor({ canvasId, mapType }) {
+    this.canvas = document.getElementById(canvasId);
+    this.mapType = mapType; // 'Cylindrical'
+    this.scene = new THREE.Scene();
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: this.canvas,
+      antialias: true
+    });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
+
+    const width = this.canvas.clientWidth;
+    const height = this.canvas.clientHeight;
+    // Set up an orthographic camera so that the 2D coordinates match the canvas pixels.
+    this.camera = new THREE.OrthographicCamera(0, width, 0, height, -1000, 1000);
+    this.camera.position.set(0, 0, 1);
+    this.camera.lookAt(new THREE.Vector3(0, 0, 0));
+    this.scene.add(this.camera);
+
+    this.starGroup = new THREE.Group();
+    this.scene.add(this.starGroup);
+
+    this.connectionGroup = new THREE.Group();
+    this.scene.add(this.connectionGroup);
+
+    window.addEventListener('resize', () => this.onResize(), false);
+    this.animate();
+  }
+
+  addStars(stars) {
+    while (this.starGroup.children.length > 0) {
+      const child = this.starGroup.children[0];
+      this.starGroup.remove(child);
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
+    }
+    const cw = this.canvas.clientWidth;
+    const ch = this.canvas.clientHeight;
+    stars.forEach(star => {
+      let pos = star.cylindricalPosition;
+      if (!pos) {
+        pos = projectStarCylindrical(star, cw, ch);
+      }
+      const size = star.displaySize || 1;
+      const circleGeom = new THREE.CircleGeometry(size * 1.0, 16);
+      const material = new THREE.MeshBasicMaterial({
+        color: star.displayColor || '#ffffff',
+        transparent: true,
+        opacity: 1.0
+      });
+      const starMesh = new THREE.Mesh(circleGeom, material);
+      starMesh.position.copy(pos);
+      this.starGroup.add(starMesh);
+    });
+  }
+
+  updateConnections(stars, connectionObjs) {
+    while (this.connectionGroup.children.length > 0) {
+      const child = this.connectionGroup.children[0];
+      this.connectionGroup.remove(child);
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
+    }
+    if (!connectionObjs || connectionObjs.length === 0) return;
+    const cw = this.canvas.clientWidth;
+    const ch = this.canvas.clientHeight;
+    connectionObjs.forEach(pair => {
+      const starA = pair.starA;
+      const starB = pair.starB;
+      const posA = starA.cylindricalPosition || projectStarCylindrical(starA, cw, ch);
+      const posB = starB.cylindricalPosition || projectStarCylindrical(starB, cw, ch);
+      const geometry = new THREE.BufferGeometry().setFromPoints([posA, posB]);
+      const material = new THREE.LineBasicMaterial({
+        color: new THREE.Color(starA.displayColor || '#ffffff'),
+        transparent: true,
+        opacity: 0.5,
+        linewidth: 1
+      });
+      const line = new THREE.Line(geometry, material);
+      this.connectionGroup.add(line);
+    });
+  }
+
+  updateMap(stars, connectionObjs) {
+    this.addStars(stars);
+    this.updateConnections(stars, connectionObjs);
+  }
+
+  onResize() {
+    const width = this.canvas.clientWidth;
+    const height = this.canvas.clientHeight;
+    this.camera.left = 0;
+    this.camera.right = width;
+    this.camera.top = 0;
+    this.camera.bottom = height;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(width, height);
   }
 
   animate() {
@@ -267,10 +294,40 @@ class MapManager {
   }
 }
 
-function starPositionCylindrical(star) {
-  return star.cylindricalPosition ? new THREE.Vector3(star.cylindricalPosition.x, star.cylindricalPosition.y, 0) : new THREE.Vector3(0,0,0);
+// Optional: Create a grid for the cylindrical map (for reference)
+function createCylindricalGrid(width, height, options = {}) {
+  const gridGroup = new THREE.Group();
+  const gridColor = options.color || 0x444444;
+  const lineOpacity = options.opacity !== undefined ? options.opacity : 0.2;
+  const lineWidth = options.lineWidth || 1;
+  const material = new THREE.LineBasicMaterial({
+    color: gridColor,
+    transparent: true,
+    opacity: lineOpacity,
+    linewidth: lineWidth
+  });
+  // Vertical grid lines (e.g., every 30° RA)
+  const numVertical = 12;
+  for (let i = 0; i <= numVertical; i++) {
+    const x = (i / numVertical) * width;
+    const points = [new THREE.Vector3(x, 0, 0), new THREE.Vector3(x, height, 0)];
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geometry, material);
+    gridGroup.add(line);
+  }
+  // Horizontal grid lines (for DEC)
+  const numHorizontal = 6;
+  for (let j = 0; j <= numHorizontal; j++) {
+    const y = (j / numHorizontal) * height;
+    const points = [new THREE.Vector3(0, y, 0), new THREE.Vector3(width, y, 0)];
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geometry, material);
+    gridGroup.add(line);
+  }
+  return gridGroup;
 }
 
+// Initialize interactions (for 3D maps; 2D map interactions can be added similarly if needed)
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
@@ -335,29 +392,32 @@ window.onload = async () => {
 
     maxDistanceFromCenter = Math.max(
       ...cachedStars.map(s =>
-        Math.sqrt(s.x_coordinate**2 + s.y_coordinate**2 + s.z_coordinate**2)
+        Math.sqrt(s.x_coordinate ** 2 + s.y_coordinate ** 2 + s.z_coordinate ** 2)
       )
     );
 
     trueCoordinatesMap = new MapManager({ canvasId: 'map3D', mapType: 'TrueCoordinates' });
     globeMap = new MapManager({ canvasId: 'sphereMap', mapType: 'Globe' });
-    cylindricalMap = new MapManager({ canvasId: 'cylindricalMap', mapType: 'Cylindrical' });
+    cylindricalMap = new CylindricalMapManager({ canvasId: 'cylindricalMap', mapType: 'Cylindrical' });
     window.trueCoordinatesMap = trueCoordinatesMap;
     window.globeMap = globeMap;
     window.cylindricalMap = cylindricalMap;
 
     initStarInteractions(trueCoordinatesMap);
     initStarInteractions(globeMap);
-    initStarInteractions(cylindricalMap);
+    // For the cylindrical map, interactions can be added if desired.
 
     cachedStars.forEach(star => {
       star.spherePosition = projectStarGlobe(star);
       star.truePosition = getStarTruePosition(star);
-      star.cylindricalPosition = projectStarCylindrical(star);
     });
 
     const globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
+
+    // Optional: Add a grid to the cylindrical map
+    const cylGrid = createCylindricalGrid(cylindricalMap.canvas.clientWidth, cylindricalMap.canvas.clientHeight, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
+    cylindricalMap.scene.add(cylGrid);
 
     buildAndApplyFilters();
 
@@ -425,21 +485,25 @@ async function buildAndApplyFilters() {
   currentConnections = connections;
   currentGlobeFilteredStars = globeFilteredStars;
   currentGlobeConnections = globeConnections;
+  currentCylindricalConnections = connections; // Reuse connection data
 
   currentGlobeFilteredStars.forEach(star => {
     star.spherePosition = projectStarGlobe(star);
   });
   currentFilteredStars.forEach(star => {
     star.truePosition = getStarTruePosition(star);
-    star.cylindricalPosition = projectStarCylindrical(star);
+  });
+  currentFilteredStars.forEach(star => {
+    const cw = cylindricalMap.canvas.clientWidth;
+    const ch = cylindricalMap.canvas.clientHeight;
+    star.cylindricalPosition = projectStarCylindrical(star, cw, ch);
   });
 
   trueCoordinatesMap.updateMap(currentFilteredStars, currentConnections);
   trueCoordinatesMap.labelManager.refreshLabels(currentFilteredStars);
   globeMap.updateMap(currentGlobeFilteredStars, currentGlobeConnections);
   globeMap.labelManager.refreshLabels(currentGlobeFilteredStars);
-  cylindricalMap.updateMap(currentFilteredStars, currentConnections);
-  cylindricalMap.labelManager.refreshLabels(currentFilteredStars);
+  cylindricalMap.updateMap(currentFilteredStars, currentCylindricalConnections);
 
   removeConstellationObjectsFromGlobe();
   removeConstellationOverlayObjectsFromGlobe();
