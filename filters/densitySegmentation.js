@@ -187,7 +187,7 @@ export function segmentOceanCandidate(cells) {
   const candidateCells = [];
   cells.forEach(c => {
     const nCount = getNeighborCount(c, cells);
-    if (nCount >= 2 && nCount <= 7) {
+    if (nCount >= 2 && nCount <= 9) {
       candidateCells.push(c);
     }
   });
