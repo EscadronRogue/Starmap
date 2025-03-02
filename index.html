@@ -11,7 +11,7 @@
   <!-- Loader -->
   <div id="loader" class="active">Loading Stars...</div>
 
-  <!-- Header with Menu Toggle Button (positioned at top left, separate from title) -->
+  <!-- Header with Menu Toggle Button -->
   <header>
     <button id="menu-toggle" aria-label="Toggle Menu">☰</button>
     <h1>Starmap Visualization</h1>
@@ -19,7 +19,6 @@
 
   <!-- Main Container -->
   <div class="main-container">
-    <!-- Sidebar for Filters (as an overlay) -->
     <aside class="sidebar">
       <h2>Filters</h2>
       <form id="filters-form">
@@ -138,7 +137,7 @@
               <label for="enable-high-density-mapping">Enable High Density Mapping</label>
             </div>
             <div class="filter-item">
-              <label>Isolation Distance (LY): <span id="high-density-value">1</span> LY</label>
+              <label>Clustering Distance (LY): <span id="high-density-value">1</span> LY</label>
               <input type="range" id="high-density-slider" name="high-density" min="1" max="20" value="1" disabled />
             </div>
             <div class="filter-item">
@@ -185,10 +184,12 @@
   <!-- Scripts -->
   <script type="module" src="script.js"></script>
   <script>
+    // Toggle sidebar menu on mobile
     document.getElementById('menu-toggle').addEventListener('click', function() {
       document.querySelector('.sidebar').classList.toggle('open');
     });
 
+    // Enable/disable connection slider based on checkbox state
     document.getElementById('enable-connections').addEventListener('change', function() {
       document.getElementById('connection-slider').disabled = !this.checked;
     });
@@ -204,7 +205,22 @@
       document.getElementById('high-density-slider').disabled = !this.checked;
       document.getElementById('high-tolerance-slider').disabled = !this.checked;
     });
-    
+
+    // Update displayed slider values
+    document.getElementById('low-density-slider').addEventListener('input', function() {
+      document.getElementById('low-density-value').textContent = this.value;
+    });
+    document.getElementById('low-tolerance-slider').addEventListener('input', function() {
+      document.getElementById('low-tolerance-value').textContent = this.value;
+    });
+    document.getElementById('high-density-slider').addEventListener('input', function() {
+      document.getElementById('high-density-value').textContent = this.value;
+    });
+    document.getElementById('high-tolerance-slider').addEventListener('input', function() {
+      document.getElementById('high-tolerance-value').textContent = this.value;
+    });
+
+    // Fullscreen button listeners
     document.querySelectorAll('.fullscreen-btn').forEach(btn => {
       btn.addEventListener('click', function() {
         const mapContainer = this.parentElement;
@@ -219,6 +235,7 @@
       });
     });
 
+    // Adjust canvas on fullscreen exit
     document.addEventListener("fullscreenchange", function() {
       if (!document.fullscreenElement) {
         document.querySelectorAll('.map-container canvas').forEach(canvas => {
