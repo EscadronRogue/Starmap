@@ -1,5 +1,3 @@
-// labelManager.js
-
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { hexToRGBA } from './utils.js';
 
@@ -24,7 +22,6 @@ function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
       uniform float opacity;
       varying vec2 vUv;
       void main() {
-        // Flip the UV if rendering the back face
         vec2 uvCorrected = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);
         vec4 color = texture2D(map, uvCorrected);
         gl_FragColor = vec4(color.rgb, color.a * opacity);
@@ -45,7 +42,6 @@ export class LabelManager {
     this.lines = new Map();
 
     // Used to cache each star's last displayed label text, color, and size
-    // so we only rebuild the label texture if something has changed.
     this.labelCache = new Map(); 
   }
 
@@ -100,8 +96,9 @@ export class LabelManager {
       const texture = new THREE.CanvasTexture(canvas);
       texture.needsUpdate = true;
 
-      // Globe -> use a plane geometry with custom shader (double-sided).
-      // TrueCoordinates -> use a Sprite.
+      // For Globe maps, use a plane geometry with custom shader.
+      // For TrueCoordinates, use a Sprite.
+      // For Cylindrical maps, we use a Sprite so the label stays upright.
       if (this.mapType === 'Globe') {
         const planeGeom = new THREE.PlaneGeometry(
           (canvas.width / 100) * scaleFactor,
@@ -110,6 +107,7 @@ export class LabelManager {
         const material = getDoubleSidedLabelMaterial(texture);
         labelObj = new THREE.Mesh(planeGeom, material);
         labelObj.renderOrder = 1;
+        // For Globe, orient the label tangent to the sphere (handled in the main script)
       } else {
         const spriteMaterial = new THREE.SpriteMaterial({
           map: texture,
@@ -118,11 +116,9 @@ export class LabelManager {
           transparent: true,
         });
         labelObj = new THREE.Sprite(spriteMaterial);
-        labelObj.scale.set(
-          (canvas.width / 100) * scaleFactor,
-          (canvas.height / 100) * scaleFactor,
-          1
-        );
+        // For Cylindrical (and TrueCoordinates), keep the label upright.
+        const scaleFactor2 = this.mapType === 'Cylindrical' ? 0.5 : 0.22;
+        labelObj.scale.set((canvas.width / 100) * scaleFactor * scaleFactor2, (canvas.height / 100) * scaleFactor * scaleFactor2, 1);
       }
 
       this.sprites.set(star, labelObj);
@@ -157,17 +153,23 @@ export class LabelManager {
 
     // Update positions:
     // For TrueCoordinates map, use star.truePosition if available.
+    // For Globe, use the spherePosition.
+    // For Cylindrical, use the 2D computed position.
     const starPos = (this.mapType === 'TrueCoordinates')
       ? (star.truePosition 
           ? new THREE.Vector3(star.truePosition.x, star.truePosition.y, star.truePosition.z)
           : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate))
-      : new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z);
+      : (this.mapType === 'Globe'
+          ? new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z)
+          : new THREE.Vector3(star.cylindricalPosition.x, star.cylindricalPosition.y, 0));
 
+    // Compute label offset based on map type.
     const offset = this.computeLabelOffset(star, starPos);
     const labelPos = starPos.clone().add(offset);
     labelObj.position.copy(labelPos);
 
-    // Globe labels: orient plane tangent to sphere
+    // For Globe labels, orient the plane tangent to the sphere.
+    // For Cylindrical labels, we keep them upright (no rotation).
     if (this.mapType === 'Globe' && (labelObj instanceof THREE.Mesh)) {
       const normal = starPos.clone().normalize();
       const globalUp = new THREE.Vector3(0, 1, 0);
@@ -179,14 +181,14 @@ export class LabelManager {
       labelObj.setRotationFromMatrix(matrix);
     }
 
-    // Update line geometry
+    // Update line geometry: draw a line between the star and its label.
     const points = [starPos, labelPos];
     lineObj.geometry.setFromPoints(points);
     lineObj.material.color.set(star.displayColor || '#888888');
   }
 
   /**
-   * Simple helper to compute label offset from star position, so the label doesn't overlap the star mesh.
+   * Computes the label offset for a star based on the map type.
    */
   computeLabelOffset(star, starPos) {
     if (this.mapType === 'TrueCoordinates') {
@@ -194,8 +196,7 @@ export class LabelManager {
       return new THREE.Vector3(1, 1, 0).multiplyScalar(
         THREE.MathUtils.clamp(star.displaySize / 2, 0.5, 1.5)
       );
-    } else {
-      // For the Globe, offset tangentially around the star on the sphere
+    } else if (this.mapType === 'Globe') {
       const normal = starPos.clone().normalize();
       let tangent = new THREE.Vector3(0, 1, 0);
       if (Math.abs(normal.dot(tangent)) > 0.9) {
@@ -203,31 +204,28 @@ export class LabelManager {
       }
       tangent.cross(normal).normalize();
       const bitangent = normal.clone().cross(tangent).normalize();
-      // Random angle around the star
       const angle = Math.random() * Math.PI * 2;
       const baseDistance = 2;
       const scaleFactor = THREE.MathUtils.clamp(star.displaySize / 2, 1, 5);
       return tangent.clone().multiplyScalar(Math.cos(angle))
         .add(bitangent.clone().multiplyScalar(Math.sin(angle)))
         .multiplyScalar(baseDistance * scaleFactor);
+    } else if (this.mapType === 'Cylindrical') {
+      // For a flat 2D map, simply offset the label downward by a fixed amount (scaled by star size)
+      const offsetAmount = 15 * (star.displaySize || 1);
+      return new THREE.Vector3(0, offsetAmount, 0);
     }
   }
 
-  /**
-   * Called once every time the filter changes or the star set is replaced.
-   * We create/update labels for the new star list, and remove any labels for stars no longer present.
-   */
   refreshLabels(stars) {
     const inNewSet = new Set(stars);
 
-    // Create or update labels for every (visible) star in the new set
     stars.forEach(star => {
       if (star.displayVisible) {
         this.createOrUpdateLabel(star);
       }
     });
 
-    // Remove labels for stars not in the new set or no longer visible
     this.sprites.forEach((labelObj, star) => {
       if (!inNewSet.has(star) || !star.displayVisible) {
         this.scene.remove(labelObj);
@@ -242,9 +240,6 @@ export class LabelManager {
     });
   }
 
-  /**
-   * Removes all labels from the scene.
-   */
   removeAllLabels() {
     this.sprites.forEach(obj => this.scene.remove(obj));
     this.lines.forEach(obj => this.scene.remove(obj));
