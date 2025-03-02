@@ -2,7 +2,7 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 import { hexToRGBA } from './utils.js';
 
 /**
- * Returns a ShaderMaterial that renders a texture double‑sided.
+ * Returns a ShaderMaterial that renders a texture double‑sided without mirroring.
  */
 function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
   return new THREE.ShaderMaterial({
@@ -38,11 +38,11 @@ export class LabelManager {
     this.scene = scene;
     this.sprites = new Map();
     this.lines = new Map();
-    this.labelCache = new Map();
+    this.labelCache = new Map(); 
   }
 
   /**
-   * Creates or updates the label for a star.
+   * Creates or updates the 3D label and connecting line for a single star.
    */
   createOrUpdateLabel(star) {
     const starColor = star.displayColor || '#888888';
@@ -57,8 +57,7 @@ export class LabelManager {
     if (needsRebuild) {
       if (labelObj) this.scene.remove(labelObj);
       if (lineObj) this.scene.remove(lineObj);
-      // Increase font size for Cylindrical map.
-      const baseFontSize = (this.mapType === 'Globe' ? 64 : (this.mapType === 'Cylindrical' ? 32 : 24));
+      const baseFontSize = (this.mapType === 'Globe' ? 64 : 24);
       const scaleFactor = THREE.MathUtils.clamp(star.displaySize / 2, 1, 5);
       const fontSize = baseFontSize * scaleFactor;
       const canvas = document.createElement('canvas');
@@ -79,6 +78,7 @@ export class LabelManager {
       ctx.fillText(displayName, paddingX, canvas.height / 2);
       const texture = new THREE.CanvasTexture(canvas);
       texture.needsUpdate = true;
+      // For Globe map, use a plane geometry; for TrueCoordinates and Cylindrical, use a Sprite.
       if (this.mapType === 'Globe') {
         const planeGeom = new THREE.PlaneGeometry(
           (canvas.width / 100) * scaleFactor,
@@ -124,11 +124,14 @@ export class LabelManager {
     if (!this.scene.children.includes(lineObj)) {
       this.scene.add(lineObj);
     }
+    // For cylindrical map, use star.cylindricalPosition
     const starPos = (this.mapType === 'TrueCoordinates')
-      ? (star.truePosition ? new THREE.Vector3(star.truePosition.x, star.truePosition.y, star.truePosition.z) : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate))
+      ? (star.truePosition 
+          ? new THREE.Vector3(star.truePosition.x, star.truePosition.y, star.truePosition.z)
+          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate))
       : (this.mapType === 'Globe'
           ? new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z)
-          : (star.cylindricalPosition ? star.cylindricalPosition.clone() : new THREE.Vector3(0, 0, 0)));
+          : (star.cylindricalPosition ? star.cylindricalPosition.clone() : new THREE.Vector3(0,0,0)));
     const offset = this.computeLabelOffset(star, starPos);
     const labelPos = starPos.clone().add(offset);
     labelObj.position.copy(labelPos);
@@ -142,14 +145,17 @@ export class LabelManager {
       const matrix = new THREE.Matrix4().makeBasis(desiredRight, desiredUp, normal);
       labelObj.setRotationFromMatrix(matrix);
     }
-    // For 2D maps, no rotation is applied.
+    // For 2D cylindrical map, we do not apply any rotation.
     const points = [starPos, labelPos];
     lineObj.geometry.setFromPoints(points);
     lineObj.material.color.set(star.displayColor || '#888888');
   }
 
   /**
-   * Computes the label offset from the star position.
+   * Computes a label offset from the star position.
+   * For "TrueCoordinates", we use a small offset.
+   * For "Cylindrical", we simply return a fixed offset (no rotation).
+   * For "Globe", we use a tangent offset.
    */
   computeLabelOffset(star, starPos) {
     if (this.mapType === 'TrueCoordinates') {
@@ -157,7 +163,7 @@ export class LabelManager {
         THREE.MathUtils.clamp(star.displaySize / 2, 0.5, 1.5)
       );
     } else if (this.mapType === 'Cylindrical') {
-      // For 2D, use a fixed offset and no rotation.
+      // For a flat 2D map, just add a fixed pixel offset.
       return new THREE.Vector3(5, -5, 0);
     } else {
       const normal = starPos.clone().normalize();
