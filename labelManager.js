@@ -2,7 +2,7 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 import { hexToRGBA } from './utils.js';
 
 /**
- * Returns a ShaderMaterial that renders a texture double‑sided without mirroring.
+ * Returns a ShaderMaterial that renders a texture double‑sided.
  */
 function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
   return new THREE.ShaderMaterial({
@@ -38,11 +38,11 @@ export class LabelManager {
     this.scene = scene;
     this.sprites = new Map();
     this.lines = new Map();
-    this.labelCache = new Map(); 
+    this.labelCache = new Map();
   }
 
   /**
-   * Creates or updates the label and connecting line for a star.
+   * Creates or updates the label for a star.
    */
   createOrUpdateLabel(star) {
     const starColor = star.displayColor || '#888888';
@@ -57,10 +57,8 @@ export class LabelManager {
     if (needsRebuild) {
       if (labelObj) this.scene.remove(labelObj);
       if (lineObj) this.scene.remove(lineObj);
-      let baseFontSize;
-      if (this.mapType === 'Globe') baseFontSize = 64;
-      else if (this.mapType === 'Cylindrical') baseFontSize = 40; // Bigger font for 2D map
-      else baseFontSize = 24;
+      // Increase font size for Cylindrical map.
+      const baseFontSize = (this.mapType === 'Globe' ? 64 : (this.mapType === 'Cylindrical' ? 32 : 24));
       const scaleFactor = THREE.MathUtils.clamp(star.displaySize / 2, 1, 5);
       const fontSize = baseFontSize * scaleFactor;
       const canvas = document.createElement('canvas');
@@ -127,12 +125,10 @@ export class LabelManager {
       this.scene.add(lineObj);
     }
     const starPos = (this.mapType === 'TrueCoordinates')
-      ? (star.truePosition 
-          ? new THREE.Vector3(star.truePosition.x, star.truePosition.y, star.truePosition.z)
-          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate))
+      ? (star.truePosition ? new THREE.Vector3(star.truePosition.x, star.truePosition.y, star.truePosition.z) : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate))
       : (this.mapType === 'Globe'
           ? new THREE.Vector3(star.spherePosition.x, star.spherePosition.y, star.spherePosition.z)
-          : (star.cylindricalPosition ? star.cylindricalPosition.clone() : new THREE.Vector3(0,0,0)));
+          : (star.cylindricalPosition ? star.cylindricalPosition.clone() : new THREE.Vector3(0, 0, 0)));
     const offset = this.computeLabelOffset(star, starPos);
     const labelPos = starPos.clone().add(offset);
     labelObj.position.copy(labelPos);
@@ -146,17 +142,14 @@ export class LabelManager {
       const matrix = new THREE.Matrix4().makeBasis(desiredRight, desiredUp, normal);
       labelObj.setRotationFromMatrix(matrix);
     }
-    // For Cylindrical, do not apply rotation.
+    // For 2D maps, no rotation is applied.
     const points = [starPos, labelPos];
     lineObj.geometry.setFromPoints(points);
     lineObj.material.color.set(star.displayColor || '#888888');
   }
 
   /**
-   * Computes a label offset from the star position.
-   * For "TrueCoordinates", we use a small offset.
-   * For "Cylindrical", we simply return a fixed offset.
-   * For "Globe", we use a tangent offset.
+   * Computes the label offset from the star position.
    */
   computeLabelOffset(star, starPos) {
     if (this.mapType === 'TrueCoordinates') {
@@ -164,7 +157,8 @@ export class LabelManager {
         THREE.MathUtils.clamp(star.displaySize / 2, 0.5, 1.5)
       );
     } else if (this.mapType === 'Cylindrical') {
-      return new THREE.Vector3(5, -5, 0); // fixed 2D offset in pixels
+      // For 2D, use a fixed offset and no rotation.
+      return new THREE.Vector3(5, -5, 0);
     } else {
       const normal = starPos.clone().normalize();
       let tangent = new THREE.Vector3(0, 1, 0);
