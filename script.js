@@ -23,20 +23,16 @@ let selectedStarData = null;
 
 let trueCoordinatesMap;
 let globeMap;
-let cylindricalMap; // New cylindrical map manager
+let cylindricalMap; // 2D cylindrical map
+
+// New density overlay instances for the cylindrical map:
+let lowDensityOverlay2d = null;
+let highDensityOverlay2d = null;
 
 let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
 let constellationOverlayGlobe = [];
 let globeSurfaceSphere = null;
-let lowDensityOverlay = null;
-let highDensityOverlay = null;
-
-// We'll also keep references for cylindrical density and constellation objects.
-let cylindricalDensityObjects = [];
-let cylindricalAdjacentLines = [];
-let cylindricalConstellationBoundaries = [];
-let cylindricalConstellationLabels = [];
 
 /**
  * Helper: Convert spherical coordinates (ra, dec in radians) to a THREE.Vector3 for a given radius.
@@ -89,7 +85,7 @@ function createGlobeGrid(R = 100, options = {}) {
     opacity: lineOpacity,
     linewidth: lineWidth
   });
-  // Draw meridians
+  // Draw meridians: for every 30° of RA
   for (let raDeg = 0; raDeg < 360; raDeg += 30) {
     const ra = THREE.Math.degToRad(raDeg);
     const points = [];
@@ -101,7 +97,7 @@ function createGlobeGrid(R = 100, options = {}) {
     const line = new THREE.Line(geometry, material);
     gridGroup.add(line);
   }
-  // Draw parallels
+  // Draw parallels: for every 30° of DEC
   for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
     const dec = THREE.Math.degToRad(decDeg);
     const points = [];
@@ -131,6 +127,7 @@ function createCylindricalGrid(width, height, options = {}) {
     opacity: lineOpacity,
     linewidth: lineWidth
   });
+  // Vertical grid lines
   const numVertical = 12;
   for (let i = 0; i <= numVertical; i++) {
     const x = (i / numVertical) * width;
@@ -139,6 +136,7 @@ function createCylindricalGrid(width, height, options = {}) {
     const line = new THREE.Line(geometry, material);
     gridGroup.add(line);
   }
+  // Horizontal grid lines
   const numHorizontal = 6;
   for (let j = 0; j <= numHorizontal; j++) {
     const y = (j / numHorizontal) * height;
@@ -150,8 +148,34 @@ function createCylindricalGrid(width, height, options = {}) {
   return gridGroup;
 }
 
-// ----- MapManager classes (unchanged for Globe and TrueCoordinates) -----
+/**
+ * Transform a 3D object’s geometry (assumed to be on a sphere of radius 100)
+ * into cylindrical coordinates using the projection formula.
+ */
+function transformObjectToCylindrical(obj, width, height) {
+  if (!obj.geometry || !obj.geometry.attributes.position) return;
+  const posAttr = obj.geometry.attributes.position;
+  const positions = posAttr.array;
+  const R = 100;
+  for (let i = 0; i < positions.length; i += 3) {
+    const x = positions[i], y = positions[i+1], z = positions[i+2];
+    const dec = Math.asin(y / R);
+    let ra = Math.atan2(-z, -x);
+    if (ra > Math.PI) ra = ra - 2 * Math.PI;
+    const newX = ((ra + Math.PI) / (2 * Math.PI)) * width;
+    const newY = ((dec + Math.PI/2) / Math.PI) * height;
+    positions[i] = newX;
+    positions[i+1] = newY;
+    positions[i+2] = 0;
+  }
+  posAttr.needsUpdate = true;
+}
 
+/* =========================
+   Map Managers
+========================= */
+
+// 3D MapManager for TrueCoordinates & Globe maps.
 class MapManager {
   constructor({ canvasId, mapType }) {
     this.canvas = document.getElementById(canvasId);
@@ -209,7 +233,9 @@ class MapManager {
       const starMesh = new THREE.Mesh(sphereGeometry, material);
       let pos;
       if (this.mapType === 'TrueCoordinates') {
-        pos = star.truePosition ? star.truePosition.clone() : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+        pos = star.truePosition
+          ? star.truePosition.clone()
+          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
       } else {
         pos = star.spherePosition || new THREE.Vector3(0, 0, 0);
       }
@@ -225,6 +251,7 @@ class MapManager {
       this.connectionGroup = null;
     }
     if (!connectionObjs || connectionObjs.length === 0) return;
+
     this.connectionGroup = new THREE.Group();
     if (this.mapType === 'Globe') {
       const linesArray = createConnectionLines(stars, connectionObjs, 'Globe');
@@ -273,7 +300,7 @@ class MapManager {
   }
 }
 
-// New: CylindricalMapManager for the 2D cylindrical projection.
+// 2D CylindricalMapManager for the equirectangular projection.
 class CylindricalMapManager {
   constructor({ canvasId, mapType }) {
     this.canvas = document.getElementById(canvasId);
@@ -288,13 +315,13 @@ class CylindricalMapManager {
 
     const width = this.canvas.clientWidth;
     const height = this.canvas.clientHeight;
-    // Orthographic camera with (0,0) at the top‑left.
+    // Orthographic camera with (0,0) at the top-left.
     this.camera = new THREE.OrthographicCamera(0, width, height, 0, -1000, 1000);
     this.camera.position.set(0, 0, 1);
     this.camera.lookAt(new THREE.Vector3(0, 0, 0));
     this.scene.add(this.camera);
 
-    // Create a label manager for the 2D map.
+    // Label manager for 2D map
     this.labelManager = new LabelManager(this.mapType, this.scene);
 
     this.starGroup = new THREE.Group();
@@ -322,8 +349,7 @@ class CylindricalMapManager {
         pos = projectStarCylindrical(star, cw, ch);
       }
       const size = star.displaySize || 1;
-      // For 2D map, draw a circle; you can tweak the geometry to make the label size look bigger.
-      const circleGeom = new THREE.CircleGeometry(size * 1.2, 16);
+      const circleGeom = new THREE.CircleGeometry(size * 1.0, 16);
       const material = new THREE.MeshBasicMaterial({
         color: star.displayColor || '#ffffff',
         transparent: true,
@@ -351,13 +377,13 @@ class CylindricalMapManager {
       const posA = starA.cylindricalPosition || projectStarCylindrical(starA, cw, ch);
       const posB = starB.cylindricalPosition || projectStarCylindrical(starB, cw, ch);
       const dx = posB.x - posA.x;
-      // Handle wrap-around: if the horizontal difference exceeds half the canvas width.
+      // Handle wrap-around
       if (Math.abs(dx) > cw / 2) {
         let adjustedPosB = posB.clone();
         if (dx > 0) {
-          adjustedPosB.x -= cw;
+          adjustedPosB.x = posB.x - cw;
         } else {
-          adjustedPosB.x += cw;
+          adjustedPosB.x = posB.x + cw;
         }
         let geometry1 = new THREE.BufferGeometry().setFromPoints([posA, adjustedPosB]);
         let material1 = new THREE.LineBasicMaterial({
@@ -371,9 +397,9 @@ class CylindricalMapManager {
         
         let adjustedPosA = posA.clone();
         if (dx > 0) {
-          adjustedPosA.x += cw;
+          adjustedPosA.x = posA.x + cw;
         } else {
-          adjustedPosA.x -= cw;
+          adjustedPosA.x = posA.x - cw;
         }
         let geometry2 = new THREE.BufferGeometry().setFromPoints([adjustedPosA, posB]);
         let material2 = new THREE.LineBasicMaterial({
@@ -420,7 +446,9 @@ class CylindricalMapManager {
   }
 }
 
-// ----- Interaction and filtering routines (with additional cylindrical handling) -----
+/* ============================
+   Interaction and Filter Setup
+============================ */
 
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
@@ -554,6 +582,15 @@ function getCurrentFilters() {
   };
 }
 
+/**
+ * Helper: Transform a given 3D object (with BufferGeometry) from globe coordinates to cylindrical coordinates.
+ */
+function transformObjectToCylindricalWrapper(obj, canvas) {
+  const cw = canvas.clientWidth;
+  const ch = canvas.clientHeight;
+  transformObjectToCylindrical(obj, cw, ch);
+}
+
 async function buildAndApplyFilters() {
   if (!cachedStars) return;
   const {
@@ -578,7 +615,7 @@ async function buildAndApplyFilters() {
   currentConnections = connections;
   currentGlobeFilteredStars = globeFilteredStars;
   currentGlobeConnections = globeConnections;
-  currentCylindricalConnections = connections; // Reuse connection data
+  currentCylindricalConnections = connections;
 
   currentGlobeFilteredStars.forEach(star => {
     star.spherePosition = projectStarGlobe(star);
@@ -599,111 +636,95 @@ async function buildAndApplyFilters() {
   cylindricalMap.updateMap(currentFilteredStars, currentCylindricalConnections);
   cylindricalMap.labelManager.refreshLabels(currentFilteredStars);
 
-  removeConstellationObjectsFromGlobe();
-  removeConstellationOverlayObjectsFromGlobe();
-
-  // ---- Constellation boundaries and labels for cylindrical map ----
+  // Add constellation boundaries and labels to the cylindrical map
   if (showConstellationBoundaries) {
-    const consBoundaries = createConstellationBoundariesForGlobe();
-    cylindricalConstellationBoundaries = [];
-    consBoundaries.forEach(mesh => {
-      const meshClone = mesh.clone();
-      const posAttr = meshClone.geometry.getAttribute('position');
-      const cw = cylindricalMap.canvas.clientWidth;
-      const ch = cylindricalMap.canvas.clientHeight;
-      for (let i = 0; i < posAttr.count; i++) {
-        const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
-        let ra = Math.atan2(-v.z, -v.x);
-        if (ra > Math.PI) ra = ra - 2 * Math.PI;
-        const dec = Math.asin(v.y / 100);
-        const x = ((ra + Math.PI) / (2 * Math.PI)) * cw;
-        const y = ((dec + Math.PI / 2) / Math.PI) * ch;
-        posAttr.setXYZ(i, x, y, 0);
-      }
-      posAttr.needsUpdate = true;
-      cylindricalMap.scene.add(meshClone);
-      cylindricalConstellationBoundaries.push(meshClone);
+    let cylBoundaries = createConstellationBoundariesForGlobe();
+    cylBoundaries.forEach(ln => {
+      transformObjectToCylindricalWrapper(ln, cylindricalMap.canvas);
+      cylindricalMap.scene.add(ln);
     });
   }
   if (showConstellationNames) {
-    const consLabels = createConstellationLabelsForGlobe();
-    cylindricalConstellationLabels = [];
-    consLabels.forEach(mesh => {
-      const meshClone = mesh.clone();
-      const v = meshClone.position.clone();
-      let ra = Math.atan2(-v.z, -v.x);
-      if (ra > Math.PI) ra = ra - 2 * Math.PI;
-      const dec = Math.asin(v.y / 100);
-      const cw = cylindricalMap.canvas.clientWidth;
-      const ch = cylindricalMap.canvas.clientHeight;
-      const x = ((ra + Math.PI) / (2 * Math.PI)) * cw;
-      const y = ((dec + Math.PI / 2) / Math.PI) * ch;
-      meshClone.position.set(x, y, 0);
-      cylindricalMap.scene.add(meshClone);
-      cylindricalConstellationLabels.push(meshClone);
+    let cylLabels = createConstellationLabelsForGlobe();
+    cylLabels.forEach(lbl => {
+      transformObjectToCylindricalWrapper(lbl, cylindricalMap.canvas);
+      cylindricalMap.scene.add(lbl);
     });
   }
-  
-  // ---- Density mapping for cylindrical map ----
-  // For low density mapping, clone and reproject each density cell and adjacent line.
+
+  removeConstellationObjectsFromGlobe();
+  removeConstellationOverlayObjectsFromGlobe();
+  if (showConstellationBoundaries) {
+    constellationLinesGlobe = createConstellationBoundariesForGlobe();
+    constellationLinesGlobe.forEach(ln => globeMap.scene.add(ln));
+  }
+  if (showConstellationNames) {
+    constellationLabelsGlobe = createConstellationLabelsForGlobe();
+    constellationLabelsGlobe.forEach(lbl => globeMap.scene.add(lbl));
+  }
+
+  // LOW DENSITY MAPPING for cylindrical map
   if (lowDensityMapping) {
-    // Remove any previous cylindrical density objects.
-    if (cylindricalDensityObjects.length) {
-      cylindricalDensityObjects.forEach(obj => cylindricalMap.scene.remove(obj));
-      cylindricalDensityObjects = [];
-    }
-    if (cylindricalAdjacentLines.length) {
-      cylindricalAdjacentLines.forEach(line => cylindricalMap.scene.remove(line));
-      cylindricalAdjacentLines = [];
-    }
-    const cw = cylindricalMap.canvas.clientWidth;
-    const ch = cylindricalMap.canvas.clientHeight;
-    lowDensityOverlay.cubesData.forEach(cell => {
-      // Compute cylindrical projection for cell.tcPos
-      let pos = cell.tcPos;
-      // Compute RA and DEC from pos (assuming sphere radius 100)
-      let ra = Math.atan2(-pos.z, -pos.x);
-      if (ra > Math.PI) ra = ra - 2 * Math.PI;
-      const dec = Math.asin(pos.y / pos.length());
-      const x = ((ra + Math.PI) / (2 * Math.PI)) * cw;
-      const y = ((dec + Math.PI / 2) / Math.PI) * ch;
-      const newPos = new THREE.Vector3(x, y, 0);
-      const meshClone = cell.tcMesh.clone();
-      meshClone.position.copy(newPos);
-      cylindricalMap.scene.add(meshClone);
-      cylindricalDensityObjects.push(meshClone);
-    });
-    lowDensityOverlay.adjacentLines.forEach(obj => {
-      const posAttr = obj.line.geometry.getAttribute('position');
+    if (!lowDensityOverlay2d) {
+      lowDensityOverlay2d = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars, "low");
       const cw = cylindricalMap.canvas.clientWidth;
       const ch = cylindricalMap.canvas.clientHeight;
-      function projectVertex(v) {
-        let ra = Math.atan2(-v.z, -v.x);
-        if (ra > Math.PI) ra = ra - 2 * Math.PI;
-        const dec = Math.asin(v.y / 100);
-        const x = ((ra + Math.PI) / (2 * Math.PI)) * cw;
-        const y = ((dec + Math.PI / 2) / Math.PI) * ch;
-        return new THREE.Vector3(x, y, 0);
-      }
-      const p1 = new THREE.Vector3().fromBufferAttribute(posAttr, 0);
-      const p2 = new THREE.Vector3().fromBufferAttribute(posAttr, 1);
-      const newP1 = projectVertex(p1);
-      const newP2 = projectVertex(p2);
-      const geom = new THREE.BufferGeometry().setFromPoints([newP1, newP2]);
-      const mat = obj.line.material.clone();
-      const line = new THREE.Line(geom, mat);
-      cylindricalMap.scene.add(line);
-      cylindricalAdjacentLines.push(line);
+      lowDensityOverlay2d.cubesData.forEach(c => {
+        transformObjectToCylindrical(c.tcMesh, cw, ch);
+        cylindricalMap.scene.add(c.tcMesh);
+      });
+      lowDensityOverlay2d.adjacentLines.forEach(obj => {
+        transformObjectToCylindrical(obj.line, cw, ch);
+        cylindricalMap.scene.add(obj.line);
+      });
+    }
+    updateDensityMapping(currentFilteredStars, lowDensityOverlay2d);
+    lowDensityOverlay2d.assignConstellationsToCells().then(() => {
+      lowDensityOverlay2d.addRegionLabelsToScene(cylindricalMap.scene, 'Cylindrical');
+      console.log("=== DEBUG: Low Density cluster distribution (2D) ===");
     });
-    if (lowDensityOverlay.addRegionLabelsToScene) {
-      lowDensityOverlay.addRegionLabelsToScene(cylindricalMap.scene, 'Cylindrical');
+  } else {
+    if (lowDensityOverlay2d) {
+      lowDensityOverlay2d.cubesData.forEach(c => {
+        cylindricalMap.scene.remove(c.tcMesh);
+      });
+      lowDensityOverlay2d.adjacentLines.forEach(obj => {
+        cylindricalMap.scene.remove(obj.line);
+      });
+      lowDensityOverlay2d = null;
     }
   }
-  
+
+  // HIGH DENSITY MAPPING for cylindrical map
   if (highDensityMapping) {
-    // Similar logic for high density mapping...
-    // (For brevity, you can mirror the low density block above for high density,
-    // storing results in cylindricalDensityObjects/highDensityOverlay lists.)
+    if (!highDensityOverlay2d) {
+      highDensityOverlay2d = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars, "high");
+      const cw = cylindricalMap.canvas.clientWidth;
+      const ch = cylindricalMap.canvas.clientHeight;
+      highDensityOverlay2d.cubesData.forEach(c => {
+        transformObjectToCylindrical(c.tcMesh, cw, ch);
+        cylindricalMap.scene.add(c.tcMesh);
+      });
+      highDensityOverlay2d.adjacentLines.forEach(obj => {
+        transformObjectToCylindrical(obj.line, cw, ch);
+        cylindricalMap.scene.add(obj.line);
+      });
+    }
+    updateDensityMapping(currentFilteredStars, highDensityOverlay2d);
+    highDensityOverlay2d.assignConstellationsToCells().then(() => {
+      highDensityOverlay2d.addRegionLabelsToScene(cylindricalMap.scene, 'Cylindrical');
+      console.log("=== DEBUG: High Density cluster distribution (2D) ===");
+    });
+  } else {
+    if (highDensityOverlay2d) {
+      highDensityOverlay2d.cubesData.forEach(c => {
+        cylindricalMap.scene.remove(c.tcMesh);
+      });
+      highDensityOverlay2d.adjacentLines.forEach(obj => {
+        cylindricalMap.scene.remove(obj.line);
+      });
+      highDensityOverlay2d = null;
+    }
   }
 
   applyGlobeSurface(globeOpaqueSurface);
