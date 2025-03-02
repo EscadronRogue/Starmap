@@ -13,6 +13,8 @@ import { ThreeDControls } from './cameraControls.js';
 import { LabelManager } from './labelManager.js';
 import { showTooltip, hideTooltip } from './tooltips.js';
 
+// ---------------------------------------------------------
+// Global variables
 let cachedStars = null;
 let currentFilteredStars = [];
 let currentConnections = [];
@@ -31,6 +33,9 @@ let constellationOverlayGlobe = [];
 let globeSurfaceSphere = null;
 let densityOverlay = null;
 
+/**
+ * Convert star RA/DEC to x,y,z for each map.
+ */
 function radToSphere(ra, dec, R) {
   return new THREE.Vector3(
     -R * Math.cos(dec) * Math.cos(ra),
@@ -49,6 +54,9 @@ function projectStarGlobe(star) {
   return radToSphere(star.RA_in_radian, star.DEC_in_radian, R);
 }
 
+/**
+ * Optional helper to draw RA/DEC lines on the globe.
+ */
 function createGlobeGrid(R = 100, options = {}) {
   const gridGroup = new THREE.Group();
   const gridColor = options.color || 0x444444;
@@ -60,6 +68,7 @@ function createGlobeGrid(R = 100, options = {}) {
     opacity: lineOpacity,
     linewidth: lineWidth
   });
+  // RA lines
   for (let raDeg = 0; raDeg < 360; raDeg += 30) {
     const ra = THREE.Math.degToRad(raDeg);
     const points = [];
@@ -71,6 +80,7 @@ function createGlobeGrid(R = 100, options = {}) {
     const line = new THREE.Line(geometry, material);
     gridGroup.add(line);
   }
+  // DEC lines
   for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
     const dec = THREE.Math.degToRad(decDeg);
     const points = [];
@@ -86,6 +96,9 @@ function createGlobeGrid(R = 100, options = {}) {
   return gridGroup;
 }
 
+/**
+ * Main Map Manager for 3D
+ */
 class MapManager {
   constructor({ canvasId, mapType }) {
     this.canvas = document.getElementById(canvasId);
@@ -126,6 +139,7 @@ class MapManager {
   }
 
   addStars(stars) {
+    // Remove old star objects
     while (this.starGroup.children.length > 0) {
       const child = this.starGroup.children[0];
       this.starGroup.remove(child);
@@ -199,6 +213,7 @@ class MapManager {
         }
       });
     }
+    // Update any shader uniforms that depend on camera position
     if (this.mapType === 'Globe') {
       this.scene.traverse(child => {
         if (child.material && child.material.uniforms && child.material.uniforms.cameraPos) {
@@ -255,9 +270,12 @@ function initStarInteractions(map) {
 }
 
 function updateSelectedStarHighlight() {
-  // Placeholder for star highlighting if desired.
+  // Placeholder: implement highlighting if desired.
 }
 
+/**
+ * Main onload initialization.
+ */
 window.onload = async () => {
   const loader = document.getElementById('loader');
   loader.classList.remove('hidden');
@@ -314,15 +332,18 @@ window.onload = async () => {
     initStarInteractions(trueCoordinatesMap);
     initStarInteractions(globeMap);
 
+    // Set star positions
     cachedStars.forEach(star => {
       star.spherePosition = projectStarGlobe(star);
       star.truePosition = getStarTruePosition(star);
     });
 
+    // Optional: Add globe grid overlay
     const globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
 
-    buildAndApplyFilters();
+    buildAndApplyFilters(); // Initial filter application
+
     loader.classList.add('hidden');
   } catch (err) {
     console.error('Error initializing starmap:', err);
@@ -331,6 +352,9 @@ window.onload = async () => {
   }
 };
 
+/**
+ * Loads star data from a local file.
+ */
 async function loadStarData() {
   try {
     const resp = await fetch('complete_data_stars.json');
@@ -362,6 +386,9 @@ function getCurrentFilters() {
   };
 }
 
+/**
+ * Main filter application function.
+ */
 async function buildAndApplyFilters() {
   if (!cachedStars) return;
   const {
@@ -382,6 +409,7 @@ async function buildAndApplyFilters() {
   currentGlobeFilteredStars = globeFilteredStars;
   currentGlobeConnections = globeConnections;
 
+  // Update star positions
   currentGlobeFilteredStars.forEach(star => {
     star.spherePosition = projectStarGlobe(star);
   });
@@ -395,6 +423,7 @@ async function buildAndApplyFilters() {
   globeMap.updateMap(currentGlobeFilteredStars, currentGlobeConnections);
   globeMap.labelManager.refreshLabels(currentGlobeFilteredStars);
 
+  // Remove previous constellation objects
   removeConstellationObjectsFromGlobe();
   removeConstellationOverlayObjectsFromGlobe();
 
@@ -407,21 +436,24 @@ async function buildAndApplyFilters() {
     constellationLabelsGlobe.forEach(lbl => globeMap.scene.add(lbl));
   }
   if (showConstellationOverlay) {
-    // Add overlay if desired.
+    // You can add a custom overlay if needed.
   }
 
-  // If density mapping is enabled, update its overlay.
+  // For density mapping, update constellation attribution on cells based solely on the TXT data.
   if (enableDensityMapping) {
     if (!densityOverlay) {
       densityOverlay = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars);
       densityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.add(c.tcMesh);
+        // Remove density squares from the Globe map:
+        // globeMap.scene.add(c.globeMesh);
       });
       densityOverlay.adjacentLines.forEach(obj => {
         globeMap.scene.add(obj.line);
       });
     }
     updateDensityMapping(currentFilteredStars);
+    // Use the new attribution (which uses TXT centers) to assign constellation names.
     densityOverlay.assignConstellationsToCells().then(() => {
       densityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
       densityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
@@ -441,24 +473,12 @@ async function buildAndApplyFilters() {
     }
   }
 
-  // NEW: Check the density mode and hide stars/connections if high density mode is selected.
-  const densityModeSelect = document.getElementById('density-mode');
-  const mode = densityModeSelect ? densityModeSelect.value : 'low';
-  if (mode === 'high') {
-    trueCoordinatesMap.starGroup.visible = false;
-    if (trueCoordinatesMap.connectionGroup) trueCoordinatesMap.connectionGroup.visible = false;
-    globeMap.starGroup.visible = false;
-    if (globeMap.connectionGroup) globeMap.connectionGroup.visible = false;
-  } else {
-    trueCoordinatesMap.starGroup.visible = true;
-    if (trueCoordinatesMap.connectionGroup) trueCoordinatesMap.connectionGroup.visible = true;
-    globeMap.starGroup.visible = true;
-    if (globeMap.connectionGroup) globeMap.connectionGroup.visible = true;
-  }
-
   applyGlobeSurface(globeOpaqueSurface);
 }
 
+/**
+ * For debugging region clustering.
+ */
 function debugClusterData() {
   if (!densityOverlay) return;
   const regions = densityOverlay.classifyEmptyRegions();
@@ -489,6 +509,9 @@ function removeConstellationOverlayObjectsFromGlobe() {
   constellationOverlayGlobe = [];
 }
 
+/**
+ * Toggle opaque or transparent globe surface.
+ */
 function applyGlobeSurface(isOpaque) {
   if (globeSurfaceSphere) {
     globeMap.scene.remove(globeSurfaceSphere);
