@@ -10,6 +10,10 @@ import {
 import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate } from './densitySegmentation.js';
 import { loadConstellationCenters, getConstellationCenters, loadConstellationBoundaries, getConstellationBoundaries } from './constellationFilter.js';
 
+/**
+ * Instead of hard‑coding the mapping from constellation abbreviations to full names,
+ * we load the data from an external JSON file.
+ */
 let constellationFullNames = null;
 async function loadConstellationFullNames() {
   if (constellationFullNames) return constellationFullNames;
@@ -25,17 +29,26 @@ async function loadConstellationFullNames() {
   return constellationFullNames;
 }
 
+/**
+ * Helper: Convert a string to Title Case.
+ */
 function toTitleCase(str) {
   if (!str || typeof str !== "string") return str;
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
+/**
+ * Helper: Compute the spherical centroid of a set of vertices.
+ */
 function computeSphericalCentroid(vertices) {
   const sum = new THREE.Vector3(0, 0, 0);
   vertices.forEach(v => sum.add(v));
   return sum.normalize().multiplyScalar(100);
 }
 
+/**
+ * Helper: Test if a point lies inside a spherical polygon.
+ */
 function isPointInSphericalPolygon(point, vertices) {
   let angleSum = 0;
   for (let i = 0; i < vertices.length; i++) {
@@ -49,6 +62,9 @@ function isPointInSphericalPolygon(point, vertices) {
   return Math.abs(angleSum - 2 * Math.PI) < 0.1;
 }
 
+/**
+ * Helper: Subdivide geometry on the sphere.
+ */
 function subdivideGeometry(geometry, iterations) {
   let geo = geometry;
   for (let iter = 0; iter < iterations; iter++) {
@@ -100,6 +116,9 @@ function subdivideGeometry(geometry, iterations) {
   return geo;
 }
 
+/**
+ * Helper: Convert a sphere point (THREE.Vector3) to RA/DEC (in degrees).
+ */
 function vectorToRaDec(vector) {
   const R = 100;
   const dec = Math.asin(vector.y / R);
@@ -109,6 +128,9 @@ function vectorToRaDec(vector) {
   return { ra: raDeg, dec: dec * 180 / Math.PI };
 }
 
+/**
+ * Helper: Convert RA/DEC (radians) to a point on the sphere of radius R.
+ */
 function radToSphere(ra, dec, R) {
   const x = -R * Math.cos(dec) * Math.cos(ra);
   const y = R * Math.sin(dec);
@@ -116,6 +138,9 @@ function radToSphere(ra, dec, R) {
   return new THREE.Vector3(x, y, z);
 }
 
+/**
+ * Exported class that manages the density grid overlay.
+ */
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2) {
     this.maxDistance = maxDistance;
@@ -127,6 +152,9 @@ export class DensityGridOverlay {
     this.regionLabelsGroupGlobe = new THREE.Group();
   }
 
+  /**
+   * Creates the grid cells based on the provided stars.
+   */
   createGrid(stars) {
     const halfExt = Math.ceil(this.maxDistance / this.gridSize) * this.gridSize;
     this.cubesData = [];
@@ -146,6 +174,7 @@ export class DensityGridOverlay {
           const cubeTC = new THREE.Mesh(geometry, material);
           cubeTC.position.copy(posTC);
 
+          // Create corresponding square for Globe view:
           const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
           const material2 = material.clone();
           const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -178,6 +207,7 @@ export class DensityGridOverlay {
             active: false
           };
 
+          // Calculate RA/DEC from the grid cell (for logging)
           const cellRa = ((posTC.x + halfExt) / (2 * halfExt)) * 360;
           const cellDec = ((posTC.y + halfExt) / (2 * halfExt)) * 180 - 90;
           cell.ra = cellRa;
@@ -192,6 +222,9 @@ export class DensityGridOverlay {
     this.computeAdjacentLines();
   }
 
+  /**
+   * For each grid cell, compute distances to all stars.
+   */
   computeDistances(stars) {
     this.cubesData.forEach(cell => {
       const dArr = stars.map(star => {
@@ -208,6 +241,9 @@ export class DensityGridOverlay {
     });
   }
 
+  /**
+   * Computes lines connecting adjacent grid cells.
+   */
   computeAdjacentLines() {
     this.adjacentLines = [];
     const cellMap = new Map();
@@ -261,26 +297,22 @@ export class DensityGridOverlay {
     });
   }
 
+  /**
+   * Updates the grid cells’ visibility and appearance based on the stars.
+   */
   update(stars) {
     const densitySlider = document.getElementById('density-slider');
     const toleranceSlider = document.getElementById('tolerance-slider');
-    const densityModeSelect = document.getElementById('density-mode');
-    if (!densitySlider || !toleranceSlider || !densityModeSelect) return;
-    
+    if (!densitySlider || !toleranceSlider) return;
     const isolationVal = parseFloat(densitySlider.value) || 1;
     const toleranceVal = parseInt(toleranceSlider.value) || 0;
-    const mode = densityModeSelect.value; // "low" or "high"
-
     this.cubesData.forEach(cell => {
       let isoDist = Infinity;
       if (cell.distances.length > toleranceVal) {
         isoDist = cell.distances[toleranceVal];
       }
-      // In low-density mode, show if the nearest star is farther than isolationVal.
-      // In high-density mode, show if the nearest star is within isolationVal.
-      let showSquare = (mode === 'high') ? (isoDist <= isolationVal) : (isoDist >= isolationVal);
+      const showSquare = isoDist >= isolationVal;
       cell.active = showSquare;
-      
       let ratio = cell.tcPos.length() / this.maxDistance;
       if (ratio > 1) ratio = 1;
       const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
@@ -288,23 +320,9 @@ export class DensityGridOverlay {
       cell.tcMesh.material.opacity = alpha;
       cell.globeMesh.visible = showSquare;
       cell.globeMesh.material.opacity = alpha;
-
-      if (mode === 'high') {
-        // For high density (landmasses) use red hues.
-        let redFactor = 1 - (isoDist / isolationVal);
-        redFactor = THREE.MathUtils.clamp(redFactor, 0, 1);
-        cell.tcMesh.material.color.setRGB(1, 1 - redFactor, 1 - redFactor);
-        cell.globeMesh.material.color.setRGB(1, 1 - redFactor, 1 - redFactor);
-      } else {
-        // In low density mode, use the existing blue tint.
-        cell.tcMesh.material.color.set(0x0000ff);
-        cell.globeMesh.material.color.set(0x0000ff);
-      }
-
       const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
       cell.globeMesh.scale.set(scale, scale, 1);
     });
-    
     this.adjacentLines.forEach(obj => {
       const { line, cell1, cell2 } = obj;
       if (cell1.globeMesh.visible && cell2.globeMesh.visible) {
@@ -334,6 +352,10 @@ export class DensityGridOverlay {
     });
   }
 
+  /**
+   * Assigns constellations to grid cells using the nearest constellation boundary.
+   * This method loads the full names mapping from the external JSON.
+   */
   async assignConstellationsToCells() {
     await loadConstellationCenters();
     await loadConstellationBoundaries();
@@ -440,6 +462,9 @@ export class DensityGridOverlay {
     });
   }
 
+  /**
+   * Helper: Creates a region label mesh.
+   */
   createRegionLabel(text, position, mapType) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -484,6 +509,9 @@ export class DensityGridOverlay {
     return labelObj;
   }
 
+  /**
+   * Projects a point from TrueCoordinates to the Globe.
+   */
   projectToGlobe(position) {
     const dist = position.length();
     if (dist < 1e-6) return new THREE.Vector3(0, 0, 0);
@@ -497,12 +525,18 @@ export class DensityGridOverlay {
     );
   }
 
+  /**
+   * Computes the centroid of a set of cells.
+   */
   computeCentroid(cells) {
     let sum = new THREE.Vector3(0, 0, 0);
     cells.forEach(c => sum.add(c.tcPos));
     return sum.divideScalar(cells.length);
   }
 
+  /**
+   * Adds region labels to the provided scene.
+   */
   addRegionLabelsToScene(scene, mapType) {
     if (mapType === 'TrueCoordinates') {
       if (this.regionLabelsGroupTC.parent) scene.remove(this.regionLabelsGroupTC);
@@ -534,6 +568,9 @@ export class DensityGridOverlay {
     scene.add(mapType === 'TrueCoordinates' ? this.regionLabelsGroupTC : this.regionLabelsGroupGlobe);
   }
 
+  /**
+   * Updates cell colors based on region classification.
+   */
   updateRegionColors() {
     const regions = this.classifyEmptyRegions();
     regions.forEach(region => {
@@ -553,6 +590,9 @@ export class DensityGridOverlay {
     });
   }
 
+  /**
+   * Classifies grid cells into regions.
+   */
   classifyEmptyRegions() {
     this.cubesData.forEach((cell, index) => {
       cell.id = index;
@@ -673,6 +713,9 @@ export class DensityGridOverlay {
     return regions;
   }
 
+  /**
+   * Determines the majority constellation among a set of cells.
+   */
   getMajorityConstellation(cells) {
     const freq = {};
     cells.forEach(cell => {
