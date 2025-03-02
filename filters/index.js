@@ -7,12 +7,8 @@ import { applyOpacityFilter } from './opacityFilter.js';
 import { applyStarsShownFilter } from './starsShownFilter.js';
 import { computeConnectionPairs } from './connectionsFilter.js';
 import { applyStellarClassLogic, generateStellarClassFilters as scGenerate } from './stellarClassFilter.js';
-
-// For constellations
 import { loadConstellationBoundaries, loadConstellationCenters } from './constellationFilter.js';
-// Globe surface filter
 import { applyGlobeSurfaceFilter } from './globeSurfaceFilter.js';
-// NEW: Constellation overlay filter.
 import { createConstellationOverlayForGlobe } from './constellationOverlayFilter.js';
 
 let filterForm = null;
@@ -46,6 +42,7 @@ export async function setupFilterUI(allStars) {
 }
 
 function addConstellationsFieldset() {
+  // (Unchanged from original.)
   const fs = document.createElement('fieldset');
   const legend = document.createElement('legend');
   legend.classList.add('collapsible');
@@ -89,14 +86,13 @@ function addConstellationsFieldset() {
   namesDiv.appendChild(namesLbl);
   contentDiv.appendChild(namesDiv);
 
-  // NEW: Overlay checkbox.
   const overlayDiv = document.createElement('div');
   overlayDiv.classList.add('filter-item');
   const overlayChk = document.createElement('input');
   overlayChk.type = 'checkbox';
   overlayChk.id = 'show-constellation-overlay';
   overlayChk.name = 'show-constellation-overlay';
-  overlayChk.checked = false; // Set to false by default
+  overlayChk.checked = false;
   const overlayLbl = document.createElement('label');
   overlayLbl.htmlFor = 'show-constellation-overlay';
   overlayLbl.textContent = 'Show Constellation Overlays';
@@ -109,6 +105,7 @@ function addConstellationsFieldset() {
 }
 
 function addGlobeSurfaceFieldset() {
+  // (Unchanged from original.)
   const fs = document.createElement('fieldset');
   const legend = document.createElement('legend');
   legend.classList.add('collapsible');
@@ -129,7 +126,6 @@ function addGlobeSurfaceFieldset() {
   surfChk.type = 'checkbox';
   surfChk.id = 'globe-opaque-surface';
   surfChk.name = 'globe-opaque-surface';
-  // Opaque surface ON by default.
   surfChk.checked = true;
   const surfLbl = document.createElement('label');
   surfLbl.htmlFor = 'globe-opaque-surface';
@@ -155,7 +151,8 @@ export function applyFilters(allStars) {
         showConstellationOverlay: false,
         globeOpaqueSurface: false,
         enableConnections: false,
-        enableDensityMapping: false
+        lowDensityMapping: false,
+        highDensityMapping: false
       };
     }
   }
@@ -171,7 +168,13 @@ export function applyFilters(allStars) {
     showConstellationOverlay: (formData.get('show-constellation-overlay') !== null),
     globeOpaqueSurface: (formData.get('globe-opaque-surface') !== null),
     enableConnections: (formData.get('enable-connections') !== null),
-    enableDensityMapping: (formData.get('enable-density-mapping') !== null)
+    // NEW density mapping controls:
+    lowDensityMapping: (formData.get('enable-low-density-mapping') !== null),
+    highDensityMapping: (formData.get('enable-high-density-mapping') !== null),
+    lowDensity: parseFloat(formData.get('low-density')) || 7,
+    lowTolerance: parseInt(formData.get('low-tolerance')) || 0,
+    highDensity: parseFloat(formData.get('high-density')) || 1,
+    highTolerance: parseInt(formData.get('high-tolerance')) || 0
   };
 
   let filteredStars = applyStarsShownFilter(allStars, filters);
@@ -200,7 +203,12 @@ export function applyFilters(allStars) {
     showConstellationOverlay: filters.showConstellationOverlay,
     globeOpaqueSurface: filters.globeOpaqueSurface,
     enableConnections: filters.enableConnections,
-    enableDensityMapping: filters.enableDensityMapping
+    lowDensityMapping: filters.lowDensityMapping,
+    highDensityMapping: filters.highDensityMapping,
+    lowDensity: filters.lowDensity,
+    lowTolerance: filters.lowTolerance,
+    highDensity: filters.highDensity,
+    highTolerance: filters.highTolerance
   };
 }
 
