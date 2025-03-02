@@ -117,6 +117,28 @@ function radToSphere(ra, dec, R) {
   return new THREE.Vector3(x, y, z);
 }
 
+// Helper to compute nearest star for each cell based on distance
+// (Also stores the distances array as before)
+function computeCellDistances(cell, stars) {
+  const dArr = stars.map(star => {
+    let starPos = star.truePosition ? star.truePosition : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+    const dx = cell.tcPos.x - starPos.x;
+    const dy = cell.tcPos.y - starPos.y;
+    const dz = cell.tcPos.z - starPos.z;
+    return { distance: Math.sqrt(dx*dx + dy*dy + dz*dz), star };
+  });
+  dArr.sort((a, b) => a.distance - b.distance);
+  cell.distances = dArr.map(obj => obj.distance);
+  cell.nearestStar = dArr.length > 0 ? dArr[0].star : null;
+}
+
+function getStellarClassRank(star) {
+  if (!star || !star.Stellar_class) return 0;
+  const letter = star.Stellar_class.charAt(0).toUpperCase();
+  const rankMap = { 'O':7, 'B':6, 'A':5, 'F':4, 'G':3, 'K':2, 'M':1 };
+  return rankMap[letter] || 0;
+}
+
 export class DensityGridOverlay {
   constructor(maxDistance, gridSize = 2, mode = "low") {
     this.maxDistance = maxDistance;
@@ -190,24 +212,9 @@ export class DensityGridOverlay {
         }
       }
     }
-    this.computeDistances(stars);
+    // For each cell, compute distances and store nearest star.
+    this.cubesData.forEach(cell => computeCellDistances(cell, stars));
     this.computeAdjacentLines();
-  }
-
-  computeDistances(stars) {
-    this.cubesData.forEach(cell => {
-      const dArr = stars.map(star => {
-        let starPos = star.truePosition 
-                      ? star.truePosition 
-                      : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
-        const dx = cell.tcPos.x - starPos.x;
-        const dy = cell.tcPos.y - starPos.y;
-        const dz = cell.tcPos.z - starPos.z;
-        return Math.sqrt(dx * dx + dy * dy + dz * dz);
-      });
-      dArr.sort((a, b) => a - b);
-      cell.distances = dArr;
-    });
   }
 
   computeAdjacentLines() {
@@ -264,12 +271,11 @@ export class DensityGridOverlay {
   }
 
   update(stars) {
-    // Use different slider IDs based on mode:
     let isolationVal, toleranceVal;
     if (this.mode === "low") {
       isolationVal = parseFloat(document.getElementById('low-density-slider').value) || 7;
       toleranceVal = parseInt(document.getElementById('low-tolerance-slider').value) || 0;
-    } else { // "high"
+    } else { // high
       isolationVal = parseFloat(document.getElementById('high-density-slider').value) || 1;
       toleranceVal = parseInt(document.getElementById('high-tolerance-slider').value) || 0;
     }
@@ -278,12 +284,7 @@ export class DensityGridOverlay {
       if (cell.distances.length > toleranceVal) {
         isoDist = cell.distances[toleranceVal];
       }
-      let showSquare;
-      if (this.mode === "low") {
-        showSquare = isoDist >= isolationVal;
-      } else {
-        showSquare = isoDist < isolationVal;
-      }
+      let showSquare = (this.mode === "low") ? (isoDist >= isolationVal) : (isoDist < isolationVal);
       cell.active = showSquare;
       let ratio = cell.tcPos.length() / this.maxDistance;
       if (ratio > 1) ratio = 1;
@@ -324,100 +325,133 @@ export class DensityGridOverlay {
     });
   }
 
-  async assignConstellationsToCells() {
-    await loadConstellationCenters();
-    await loadConstellationBoundaries();
-    const centers = getConstellationCenters();
-    const boundaries = getConstellationBoundaries();
-    if (!boundaries.length) {
-      console.warn("No constellation boundaries available!");
-      return;
-    }
-    function radToSphere(ra, dec, R) {
-      const x = -R * Math.cos(dec) * Math.cos(ra);
-      const y = R * Math.sin(dec);
-      const z = -R * Math.cos(dec) * Math.sin(ra);
-      return new THREE.Vector3(x, y, z);
-    }
-    function minAngularDistanceToSegment(cellPos, p1, p2) {
-      const angleToP1 = cellPos.angleTo(p1);
-      const angleToP2 = cellPos.angleTo(p2);
-      const arcAngle = p1.angleTo(p2);
-      const perpAngle = Math.asin(Math.abs(cellPos.clone().normalize().dot(p1.clone().cross(p2).normalize())));
-      if (angleToP1 + angleToP2 - arcAngle < 1e-3) {
-        return THREE.Math.radToDeg(perpAngle);
-      } else {
-        return THREE.Math.radToDeg(Math.min(angleToP1, angleToP2));
-      }
-    }
-    function vectorToRaDec(cellPos) {
-      const R = 100;
-      const dec = Math.asin(cellPos.y / R);
-      let ra = Math.atan2(-cellPos.z, -cellPos.x);
-      let raDeg = ra * 180 / Math.PI;
-      if (raDeg < 0) raDeg += 360;
-      return { ra: raDeg, dec: dec * 180 / Math.PI };
-    }
-    const namesMapping = await loadConstellationFullNames();
-    
-    this.cubesData.forEach(cell => {
-      if (!cell.active) return;
-      const cellPos = cell.globeMesh.position.clone();
-      let nearestBoundary = null;
-      let minBoundaryDist = Infinity;
-      boundaries.forEach(boundary => {
-         const p1 = radToSphere(boundary.ra1, boundary.dec1, 100);
-         const p2 = radToSphere(boundary.ra2, boundary.dec2, 100);
-         const angDist = minAngularDistanceToSegment(cellPos, p1, p2);
-         if (angDist < minBoundaryDist) {
-           minBoundaryDist = angDist;
-           nearestBoundary = boundary;
-         }
-      });
-      if (!nearestBoundary) {
-        cell.constellation = "Unknown";
-        return;
-      }
-      const abbr1 = nearestBoundary.const1.toUpperCase();
-      const abbr2 = nearestBoundary.const2 ? nearestBoundary.const2.toUpperCase() : null;
-      const fullName1 = namesMapping[abbr1] || toTitleCase(abbr1);
-      const fullName2 = abbr2 ? (namesMapping[abbr2] || toTitleCase(abbr2)) : null;
-      
-      const bp1 = radToSphere(nearestBoundary.ra1, nearestBoundary.dec1, 100);
-      const bp2 = radToSphere(nearestBoundary.ra2, nearestBoundary.dec2, 100);
-      let normal = bp1.clone().cross(bp2).normalize();
-      const center1 = centers.find(c => {
-        const nameUp = c.name.toUpperCase();
-        return nameUp === abbr1 || nameUp === fullName1.toUpperCase();
-      });
-      let center1Pos = center1 ? radToSphere(center1.ra, center1.dec, 100) : null;
-      if (center1Pos && normal.dot(center1Pos) < 0) {
-        normal.negate();
-      }
-      const cellSide = normal.dot(cellPos);
-      if (cellSide >= 0) {
-        cell.constellation = toTitleCase(fullName1);
-      } else if (fullName2) {
-        cell.constellation = toTitleCase(fullName2);
-      } else {
-        const { ra: cellRA, dec: cellDec } = vectorToRaDec(cellPos);
-        let bestConstellation = "Unknown";
-        let minAngle = Infinity;
-        centers.forEach(center => {
-          const centerRAdeg = THREE.Math.radToDeg(center.ra);
-          const centerDecdeg = THREE.Math.radToDeg(center.dec);
-          const cosDelta = Math.sin(THREE.Math.degToRad(cellDec)) * Math.sin(THREE.Math.degToRad(centerDecdeg)) +
-                           Math.cos(THREE.Math.degToRad(cellDec)) * Math.cos(THREE.Math.degToRad(centerDecdeg)) *
-                           Math.cos(THREE.Math.degToRad(cellRA - centerRAdeg));
-          const dist = Math.acos(THREE.MathUtils.clamp(cosDelta, -1, 1));
-          if (dist < minAngle) {
-            minAngle = dist;
-            bestConstellation = toTitleCase(center.name);
+  // For high density mode, determine the cluster label from the best (biggest/brighest) star
+  getBestStarLabel(cells) {
+    let bestStar = null;
+    let bestRank = -Infinity;
+    cells.forEach(cell => {
+      if (cell.nearestStar) {
+        const rank = getStellarClassRank(cell.nearestStar);
+        if (rank > bestRank) {
+          bestRank = rank;
+          bestStar = cell.nearestStar;
+        } else if (rank === bestRank && bestStar) {
+          if (cell.nearestStar.Absolute_magnitude !== undefined && bestStar.Absolute_magnitude !== undefined) {
+            if (cell.nearestStar.Absolute_magnitude < bestStar.Absolute_magnitude) {
+              bestStar = cell.nearestStar;
+            }
           }
-        });
-        cell.constellation = bestConstellation;
+        }
       }
     });
+    return bestStar ? (bestStar.Common_name_of_the_star || bestStar.Common_name_of_the_star_system || "Unknown") : "Unknown";
+  }
+
+  async assignConstellationsToCells() {
+    // For low density mode, use the original boundary‐based assignment.
+    // For high density mode, we now want to assign each cell’s label based on its best star.
+    if (this.mode === "low") {
+      await loadConstellationCenters();
+      await loadConstellationBoundaries();
+      const centers = getConstellationCenters();
+      const boundaries = getConstellationBoundaries();
+      if (!boundaries.length) {
+        console.warn("No constellation boundaries available!");
+        return;
+      }
+      function radToSphere(ra, dec, R) {
+        const x = -R * Math.cos(dec) * Math.cos(ra);
+        const y = R * Math.sin(dec);
+        const z = -R * Math.cos(dec) * Math.sin(ra);
+        return new THREE.Vector3(x, y, z);
+      }
+      function minAngularDistanceToSegment(cellPos, p1, p2) {
+        const angleToP1 = cellPos.angleTo(p1);
+        const angleToP2 = cellPos.angleTo(p2);
+        const arcAngle = p1.angleTo(p2);
+        const perpAngle = Math.asin(Math.abs(cellPos.clone().normalize().dot(p1.clone().cross(p2).normalize())));
+        if (angleToP1 + angleToP2 - arcAngle < 1e-3) {
+          return THREE.Math.radToDeg(perpAngle);
+        } else {
+          return THREE.Math.radToDeg(Math.min(angleToP1, angleToP2));
+        }
+      }
+      function vectorToRaDec(cellPos) {
+        const R = 100;
+        const dec = Math.asin(cellPos.y / R);
+        let ra = Math.atan2(-cellPos.z, -cellPos.x);
+        let raDeg = ra * 180 / Math.PI;
+        if (raDeg < 0) raDeg += 360;
+        return { ra: raDeg, dec: dec * 180 / Math.PI };
+      }
+      const namesMapping = await loadConstellationFullNames();
+      
+      this.cubesData.forEach(cell => {
+        if (!cell.active) return;
+        const cellPos = cell.globeMesh.position.clone();
+        let nearestBoundary = null;
+        let minBoundaryDist = Infinity;
+        boundaries.forEach(boundary => {
+           const p1 = radToSphere(boundary.ra1, boundary.dec1, 100);
+           const p2 = radToSphere(boundary.ra2, boundary.dec2, 100);
+           const angDist = minAngularDistanceToSegment(cellPos, p1, p2);
+           if (angDist < minBoundaryDist) {
+             minBoundaryDist = angDist;
+             nearestBoundary = boundary;
+           }
+        });
+        if (!nearestBoundary) {
+          cell.constellation = "Unknown";
+          return;
+        }
+        const abbr1 = nearestBoundary.const1.toUpperCase();
+        const abbr2 = nearestBoundary.const2 ? nearestBoundary.const2.toUpperCase() : null;
+        const fullName1 = namesMapping[abbr1] || toTitleCase(abbr1);
+        const fullName2 = abbr2 ? (namesMapping[abbr2] || toTitleCase(abbr2)) : null;
+        
+        const bp1 = radToSphere(nearestBoundary.ra1, nearestBoundary.dec1, 100);
+        const bp2 = radToSphere(nearestBoundary.ra2, nearestBoundary.dec2, 100);
+        let normal = bp1.clone().cross(bp2).normalize();
+        const center1 = centers.find(c => {
+          const nameUp = c.name.toUpperCase();
+          return nameUp === abbr1 || nameUp === fullName1.toUpperCase();
+        });
+        let center1Pos = center1 ? radToSphere(center1.ra, center1.dec, 100) : null;
+        if (center1Pos && normal.dot(center1Pos) < 0) {
+          normal.negate();
+        }
+        const cellSide = normal.dot(cellPos);
+        if (cellSide >= 0) {
+          cell.constellation = toTitleCase(fullName1);
+        } else if (fullName2) {
+          cell.constellation = toTitleCase(fullName2);
+        } else {
+          const { ra: cellRA, dec: cellDec } = vectorToRaDec(cellPos);
+          let bestConstellation = "Unknown";
+          let minAngle = Infinity;
+          centers.forEach(center => {
+            const centerRAdeg = THREE.Math.radToDeg(center.ra);
+            const centerDecdeg = THREE.Math.radToDeg(center.dec);
+            const cosDelta = Math.sin(THREE.Math.degToRad(cellDec)) * Math.sin(THREE.Math.degToRad(centerDecdeg)) +
+                             Math.cos(THREE.Math.degToRad(cellDec)) * Math.cos(THREE.Math.degToRad(centerDecdeg)) *
+                             Math.cos(THREE.Math.degToRad(cellRA - centerRAdeg));
+            const dist = Math.acos(THREE.MathUtils.clamp(cosDelta, -1, 1));
+            if (dist < minAngle) {
+              minAngle = dist;
+              bestConstellation = toTitleCase(center.name);
+            }
+          });
+          cell.constellation = bestConstellation;
+        }
+      });
+    } else { // High density mode: assign using best star
+      // For each active cell, assign the label from its nearest star.
+      this.cubesData.forEach(cell => {
+        if (cell.active) {
+          cell.clusterLabel = cell.nearestStar ? (cell.nearestStar.Common_name_of_the_star || cell.nearestStar.Common_name_of_the_star_system || "Unknown") : "Unknown";
+        }
+      });
+    }
   }
 
   createRegionLabel(text, position, mapType) {
@@ -502,7 +536,7 @@ export class DensityGridOverlay {
     const regions = this.classifyEmptyRegions();
     regions.forEach(region => {
       if (region.type === 'Oceanus' || region.type === 'Mare' || region.type === 'Lacus' ||
-          region.type === 'Continens' || region.type === 'Peninsula' || region.type === 'insula') {
+          region.type === 'Continens' || region.type === 'Peninsula' || region.type === 'Insula') {
         let baseColor = (this.mode === "low") ? getBlueColor(region.constName) : getGreenColor(region.constName);
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color || baseColor);
@@ -519,115 +553,7 @@ export class DensityGridOverlay {
     });
   }
 
-  recursiveSegmentCluster(cells, V_max) {
-    const size = cells.length;
-    const majority = this.getMajorityConstellation(cells);
-    if (this.mode === "low") {
-      if (size < 0.1 * V_max) {
-        return [{
-          cells,
-          volume: size,
-          constName: majority,
-          type: "Lacus",
-          label: `Lacus ${majority}`,
-          labelScale: 0.8,
-          bestCell: computeInterconnectedCell(cells)
-        }];
-      }
-      const segResult = segmentOceanCandidate(cells);
-      if (!segResult.segmented) {
-        if (size < 0.5 * V_max) {
-          return [{
-            cells,
-            volume: size,
-            constName: majority,
-            type: "Mare",
-            label: `Mare ${majority}`,
-            labelScale: 0.9,
-            bestCell: computeInterconnectedCell(cells)
-          }];
-        } else {
-          return [{
-            cells,
-            volume: size,
-            constName: majority,
-            type: "Oceanus",
-            label: `Oceanus ${majority}`,
-            labelScale: 1.0,
-            bestCell: computeInterconnectedCell(cells)
-          }];
-        }
-      }
-      const regions = [];
-      segResult.cores.forEach(core => {
-        const sub = this.recursiveSegmentCluster(core, V_max);
-        sub.forEach(r => regions.push(r));
-      });
-      if (segResult.neck && segResult.neck.length > 0) {
-        const neckMajority = this.getMajorityConstellation(segResult.neck);
-        regions.push({
-          cells: segResult.neck,
-          volume: segResult.neck.length,
-          constName: neckMajority,
-          type: "Fretum",
-          label: `Fretum ${neckMajority}`,
-          labelScale: 0.7,
-          bestCell: computeInterconnectedCell(segResult.neck),
-          color: lightenColor(getBlueColor(neckMajority), 0.1)
-        });
-      }
-      return regions;
-    } else { // high density mode
-      if (size < 0.1 * V_max) {
-        return [{
-          cells,
-          volume: size,
-          constName: majority,
-          type: "insula",
-          label: `insula ${majority}`,
-          labelScale: 0.8,
-          bestCell: computeInterconnectedCell(cells)
-        }];
-      }
-      const segResult = segmentOceanCandidate(cells);
-      if (!segResult.segmented) {
-        return [{
-          cells,
-          volume: size,
-          constName: majority,
-          type: "Continens",
-          label: `Continens ${majority}`,
-          labelScale: 1.0,
-          bestCell: computeInterconnectedCell(cells)
-        }];
-      }
-      const regions = [];
-      segResult.cores.forEach(core => {
-        let sub = this.recursiveSegmentCluster(core, V_max);
-        // For high mode, force the core regions to be labeled as "Peninsula"
-        sub.forEach(r => {
-          r.type = "Peninsula";
-          r.label = `Peninsula ${r.constName}`;
-          regions.push(r);
-        });
-      });
-      if (segResult.neck && segResult.neck.length > 0) {
-        const neckMajority = this.getMajorityConstellation(segResult.neck);
-        regions.push({
-          cells: segResult.neck,
-          volume: segResult.neck.length,
-          constName: neckMajority,
-          type: "Isthmus",
-          label: `Isthmus ${neckMajority}`,
-          labelScale: 0.7,
-          bestCell: computeInterconnectedCell(segResult.neck),
-          color: lightenColor(getGreenColor(neckMajority), 0.1)
-        });
-      }
-      return regions;
-    }
-  }
-
+  // For high density mode, use getBestStarLabel instead of majority
   getMajorityConstellation(cells) {
     const freq = {};
     cells.forEach(cell => {
@@ -686,11 +612,126 @@ export class DensityGridOverlay {
     });
     const allRegions = [];
     clusters.forEach(c => {
-      const subRegions = this.recursiveSegmentCluster(c, V_max);
+      let subRegions;
+      if (this.mode === "low") {
+        const majority = this.getMajorityConstellation(c);
+        subRegions = this.recursiveSegmentCluster(c, V_max, majority);
+      } else {
+        const bestLabel = this.getBestStarLabel(c);
+        subRegions = this.recursiveSegmentCluster(c, V_max, bestLabel);
+      }
       subRegions.forEach(sr => allRegions.push(sr));
     });
     this.regionClusters = allRegions;
     return allRegions;
+  }
+
+  // Modified recursiveSegmentCluster now accepts a label parameter computed from majority (low) or best star (high)
+  recursiveSegmentCluster(cells, V_max, labelForCells) {
+    const size = cells.length;
+    if (this.mode === "low") {
+      if (size < 0.1 * V_max) {
+        return [{
+          cells,
+          volume: size,
+          constName: labelForCells,
+          type: "Lacus",
+          label: `Lacus ${labelForCells}`,
+          labelScale: 0.8,
+          bestCell: computeInterconnectedCell(cells)
+        }];
+      }
+      const segResult = segmentOceanCandidate(cells);
+      if (!segResult.segmented) {
+        if (size < 0.5 * V_max) {
+          return [{
+            cells,
+            volume: size,
+            constName: labelForCells,
+            type: "Mare",
+            label: `Mare ${labelForCells}`,
+            labelScale: 0.9,
+            bestCell: computeInterconnectedCell(cells)
+          }];
+        } else {
+          return [{
+            cells,
+            volume: size,
+            constName: labelForCells,
+            type: "Oceanus",
+            label: `Oceanus ${labelForCells}`,
+            labelScale: 1.0,
+            bestCell: computeInterconnectedCell(cells)
+          }];
+        }
+      }
+      const regions = [];
+      segResult.cores.forEach(core => {
+        const sub = this.recursiveSegmentCluster(core, V_max, this.getMajorityConstellation(core));
+        sub.forEach(r => regions.push(r));
+      });
+      if (segResult.neck && segResult.neck.length > 0) {
+        const neckLabel = this.getMajorityConstellation(segResult.neck);
+        regions.push({
+          cells: segResult.neck,
+          volume: segResult.neck.length,
+          constName: neckLabel,
+          type: "Fretum",
+          label: `Fretum ${neckLabel}`,
+          labelScale: 0.7,
+          bestCell: computeInterconnectedCell(segResult.neck),
+          color: lightenColor(getBlueColor(neckLabel), 0.1)
+        });
+      }
+      return regions;
+    } else { // high density mode
+      if (size < 0.1 * V_max) {
+        return [{
+          cells,
+          volume: size,
+          constName: labelForCells,
+          type: "Insula",
+          label: `Insula ${labelForCells}`,
+          labelScale: 0.8,
+          bestCell: computeInterconnectedCell(cells)
+        }];
+      }
+      const segResult = segmentOceanCandidate(cells);
+      if (!segResult.segmented) {
+        return [{
+          cells,
+          volume: size,
+          constName: labelForCells,
+          type: "Continens",
+          label: `Continens ${labelForCells}`,
+          labelScale: 1.0,
+          bestCell: computeInterconnectedCell(cells)
+        }];
+      }
+      const regions = [];
+      segResult.cores.forEach(core => {
+        let sub = this.recursiveSegmentCluster(core, V_max, this.getBestStarLabel(core));
+        sub.forEach(r => {
+          r.type = "Peninsula";
+          r.label = `Peninsula ${r.constName}`;
+          regions.push(r);
+        });
+      });
+      if (segResult.neck && segResult.neck.length > 0) {
+        const neckLabel = this.getBestStarLabel(segResult.neck);
+        regions.push({
+          cells: segResult.neck,
+          volume: segResult.neck.length,
+          constName: neckLabel,
+          type: "Isthmus",
+          label: `Isthmus ${neckLabel}`,
+          labelScale: 0.7,
+          bestCell: computeInterconnectedCell(segResult.neck),
+          color: lightenColor(getGreenColor(neckLabel), 0.1)
+        });
+      }
+      return regions;
+    }
   }
 
   projectToGlobe(position) {
