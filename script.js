@@ -55,20 +55,22 @@ function projectStarGlobe(star) {
 
 /**
  * New: Compute the 2D cylindrical (equirectangular) projection for a star.
- * RA is normalized into [-π, π] so that RA = 0 is centered.
+ * We now map:
+ *   x = ((ra + π) / (2π)) * canvasWidth,
+ *   y = ((dec + π/2) / π) * canvasHeight,
+ * so that DEC = +90° appears at the top.
  */
 function projectStarCylindrical(star, canvasWidth, canvasHeight) {
   let ra = star.RA_in_radian;
   if (ra > Math.PI) ra = ra - 2 * Math.PI;
   const dec = star.DEC_in_radian;
   const x = ((ra + Math.PI) / (2 * Math.PI)) * canvasWidth;
-  const y = ((Math.PI / 2 - dec) / Math.PI) * canvasHeight;
+  const y = ((dec + Math.PI / 2) / Math.PI) * canvasHeight;
   return new THREE.Vector3(x, y, 0);
 }
 
 /**
- * New: Create a Globe grid for the Globe map.
- * It draws meridians (vertical curves) and parallels (horizontal curves).
+ * Create a Globe grid for the Globe map.
  */
 function createGlobeGrid(R = 100, options = {}) {
   const gridGroup = new THREE.Group();
@@ -110,7 +112,7 @@ function createGlobeGrid(R = 100, options = {}) {
 }
 
 /**
- * New: Create a grid for the cylindrical map (for reference).
+ * Create a grid for the cylindrical map (for reference).
  */
 function createCylindricalGrid(width, height, options = {}) {
   const gridGroup = new THREE.Group();
@@ -284,8 +286,9 @@ class CylindricalMapManager {
 
     const width = this.canvas.clientWidth;
     const height = this.canvas.clientHeight;
-    // Set up an orthographic camera so that 2D coordinates match canvas pixels.
-    this.camera = new THREE.OrthographicCamera(0, width, 0, height, -1000, 1000);
+    // Set up an orthographic camera with (0,0) at the top-left.
+    // This ensures that a computed position (x,y) where y=0 is at the top.
+    this.camera = new THREE.OrthographicCamera(0, width, height, 0, -1000, 1000);
     this.camera.position.set(0, 0, 1);
     this.camera.lookAt(new THREE.Vector3(0, 0, 0));
     this.scene.add(this.camera);
@@ -364,8 +367,8 @@ class CylindricalMapManager {
     const height = this.canvas.clientHeight;
     this.camera.left = 0;
     this.camera.right = width;
-    this.camera.top = 0;
-    this.camera.bottom = height;
+    this.camera.top = height;
+    this.camera.bottom = 0;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
   }
