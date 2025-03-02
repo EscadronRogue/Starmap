@@ -20,6 +20,8 @@
   <!-- Main Container -->
   <div class="main-container">
     <!-- Sidebar for Filters (as an overlay) -->
+    <!-- Note: The outdated static fieldsets for "Constellations" and "Globe Surface" have been removed.
+         The dynamic, collapsible versions will be injected by filters/index.js. -->
     <aside class="sidebar">
       <h2>Filters</h2>
       <form id="filters-form">
@@ -125,14 +127,6 @@
             <div class="filter-item">
               <label>Ignore this many closest stars: <span id="tolerance-value">0</span></label>
               <input type="range" id="tolerance-slider" name="tolerance" min="0" max="10" value="0" disabled />
-            </div>
-            <!-- NEW: Density Mode selector -->
-            <div class="filter-item">
-              <label for="density-mode">Density Mode:</label>
-              <select id="density-mode" name="density-mode">
-                <option value="low" selected>Low Density (Empty Space)</option>
-                <option value="high">High Density (Landmasses)</option>
-              </select>
             </div>
           </div>
         </fieldset>
