@@ -256,7 +256,7 @@ function initStarInteractions(map) {
 }
 
 function updateSelectedStarHighlight() {
-  // (Optional highlight implementation)
+  // Optional: implement highlighting if desired.
 }
 
 window.onload = async () => {
@@ -271,7 +271,6 @@ window.onload = async () => {
     const form = document.getElementById('filters-form');
     if (form) {
       form.addEventListener('change', debouncedApplyFilters);
-      // (Add event listeners for the new density mapping sliders similarly)
     }
 
     maxDistanceFromCenter = Math.max(
@@ -387,7 +386,7 @@ async function buildAndApplyFilters() {
     constellationLabelsGlobe.forEach(lbl => globeMap.scene.add(lbl));
   }
   if (showConstellationOverlay) {
-    // (Optional overlay)
+    // Optional overlay handling.
   }
 
   // LOW DENSITY MAPPING
@@ -451,10 +450,6 @@ async function buildAndApplyFilters() {
   }
 
   applyGlobeSurface(globeOpaqueSurface);
-}
-
-function debugClusterData() {
-  // (Optional debugging)
 }
 
 function removeConstellationObjectsFromGlobe() {
