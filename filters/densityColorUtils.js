@@ -49,6 +49,17 @@ export function getIndividualBlueColor(seedStr) {
   return new THREE.Color(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
 }
 
+// NEW: For high density mapping, use a green‐based color instead of blue.
+export function getGreenColor(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  // Green hue around 120° (range 120–160)
+  const hue = 120 + (Math.abs(hash) % 41);
+  return new THREE.Color(`hsl(${hue}, 70%, 50%)`);
+}
+
 export function getDoubleSidedLabelMaterial(texture, opacity = 1.0) {
   return new THREE.ShaderMaterial({
     uniforms: {
