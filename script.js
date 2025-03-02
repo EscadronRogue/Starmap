@@ -287,11 +287,14 @@ class CylindricalMapManager {
     const width = this.canvas.clientWidth;
     const height = this.canvas.clientHeight;
     // Set up an orthographic camera with (0,0) at the top-left.
-    // This ensures that a computed position (x,y) where y=0 is at the top.
+    // This ensures that a computed position (x,y) with y=0 appears at the top.
     this.camera = new THREE.OrthographicCamera(0, width, height, 0, -1000, 1000);
     this.camera.position.set(0, 0, 1);
     this.camera.lookAt(new THREE.Vector3(0, 0, 0));
     this.scene.add(this.camera);
+
+    // NEW: Create a label manager for the cylindrical map.
+    this.labelManager = new LabelManager(this.mapType, this.scene);
 
     this.starGroup = new THREE.Group();
     this.scene.add(this.starGroup);
@@ -379,7 +382,8 @@ class CylindricalMapManager {
   }
 }
 
-// Optional: Initialize interactions for 3D maps (for the 2D cylindrical map, similar interaction logic can be added if needed)
+// Optional: Initialize interactions for a map.
+// For the cylindrical map, similar interaction logic can be added if needed.
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
@@ -457,7 +461,7 @@ window.onload = async () => {
 
     initStarInteractions(trueCoordinatesMap);
     initStarInteractions(globeMap);
-    // For the cylindrical map, interactions can be added if desired.
+    initStarInteractions(cylindricalMap); // Initialize interactions for the 2D map
 
     cachedStars.forEach(star => {
       star.spherePosition = projectStarGlobe(star);
@@ -556,6 +560,8 @@ async function buildAndApplyFilters() {
   globeMap.updateMap(currentGlobeFilteredStars, currentGlobeConnections);
   globeMap.labelManager.refreshLabels(currentGlobeFilteredStars);
   cylindricalMap.updateMap(currentFilteredStars, currentCylindricalConnections);
+  // NEW: Refresh labels on the 2D cylindrical map.
+  cylindricalMap.labelManager.refreshLabels(currentFilteredStars);
 
   removeConstellationObjectsFromGlobe();
   removeConstellationOverlayObjectsFromGlobe();
