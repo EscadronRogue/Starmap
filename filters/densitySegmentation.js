@@ -120,7 +120,7 @@ export function segmentOceanCandidate(cells) {
         neighborCount++;
       }
     }
-    if (neighborCount >= 2 && neighborCount <= 7) {
+    if (neighborCount >= 2 && neighborCount <= 26) {
       const remaining = cells.filter(cell => cell !== candidate);
       const components = computeConnectedComponents(remaining);
       if (components.length === 2) {
