@@ -54,8 +54,8 @@ function projectStarGlobe(star) {
 }
 
 /**
- * Compute the 2D cylindrical (equirectangular) projection for a star.
- * We map:
+ * New: Compute the 2D cylindrical (equirectangular) projection for a star.
+ * We now map:
  *   x = ((ra + π) / (2π)) * canvasWidth,
  *   y = ((dec + π/2) / π) * canvasHeight,
  * so that DEC = +90° appears at the top.
@@ -146,7 +146,7 @@ function createCylindricalGrid(width, height, options = {}) {
   return gridGroup;
 }
 
-// MapManager for 3D maps (TrueCoordinates & Globe)
+// Existing MapManager for 3D maps (True Coordinates & Globe)
 class MapManager {
   constructor({ canvasId, mapType }) {
     this.canvas = document.getElementById(canvasId);
@@ -271,7 +271,7 @@ class MapManager {
   }
 }
 
-// CylindricalMapManager for the 2D cylindrical (equirectangular) projection.
+// New: CylindricalMapManager for the 2D cylindrical (equirectangular) projection.
 class CylindricalMapManager {
   constructor({ canvasId, mapType }) {
     this.canvas = document.getElementById(canvasId);
@@ -286,13 +286,13 @@ class CylindricalMapManager {
 
     const width = this.canvas.clientWidth;
     const height = this.canvas.clientHeight;
-    // Orthographic camera with (0,0) at the top-left.
+    // Set up an orthographic camera with (0,0) at the top-left.
     this.camera = new THREE.OrthographicCamera(0, width, height, 0, -1000, 1000);
     this.camera.position.set(0, 0, 1);
     this.camera.lookAt(new THREE.Vector3(0, 0, 0));
     this.scene.add(this.camera);
 
-    // Create a label manager for Cylindrical map.
+    // Create a label manager for the cylindrical map.
     this.labelManager = new LabelManager(this.mapType, this.scene);
 
     this.starGroup = new THREE.Group();
@@ -345,31 +345,53 @@ class CylindricalMapManager {
     connectionObjs.forEach(pair => {
       const starA = pair.starA;
       const starB = pair.starB;
-      let posA = starA.cylindricalPosition || projectStarCylindrical(starA, cw, ch);
-      let posB = starB.cylindricalPosition || projectStarCylindrical(starB, cw, ch);
-      // Handle wrap-around if the RA difference is more than π.
-      let raA = starA.RA_in_radian;
-      let raB = starB.RA_in_radian;
-      if (raA > Math.PI) raA -= 2 * Math.PI;
-      if (raB > Math.PI) raB -= 2 * Math.PI;
-      if (Math.abs(raA - raB) > Math.PI) {
-        if (raA > raB) {
-          posB = posB.clone();
-          posB.x += cw;
+      const posA = starA.cylindricalPosition || projectStarCylindrical(starA, cw, ch);
+      const posB = starB.cylindricalPosition || projectStarCylindrical(starB, cw, ch);
+      const dx = posB.x - posA.x;
+      // If the connection crosses the horizontal wrap boundary, draw two segments.
+      if (Math.abs(dx) > cw / 2) {
+        let adjustedPosB = posB.clone();
+        if (dx > 0) {
+          adjustedPosB.x = posB.x - cw;
         } else {
-          posA = posA.clone();
-          posA.x += cw;
+          adjustedPosB.x = posB.x + cw;
         }
+        let geometry1 = new THREE.BufferGeometry().setFromPoints([posA, adjustedPosB]);
+        let material1 = new THREE.LineBasicMaterial({
+          color: new THREE.Color(starA.displayColor || '#ffffff'),
+          transparent: true,
+          opacity: 0.5,
+          linewidth: 1
+        });
+        const line1 = new THREE.Line(geometry1, material1);
+        this.connectionGroup.add(line1);
+        
+        let adjustedPosA = posA.clone();
+        if (dx > 0) {
+          adjustedPosA.x = posA.x + cw;
+        } else {
+          adjustedPosA.x = posA.x - cw;
+        }
+        let geometry2 = new THREE.BufferGeometry().setFromPoints([adjustedPosA, posB]);
+        let material2 = new THREE.LineBasicMaterial({
+          color: new THREE.Color(starA.displayColor || '#ffffff'),
+          transparent: true,
+          opacity: 0.5,
+          linewidth: 1
+        });
+        const line2 = new THREE.Line(geometry2, material2);
+        this.connectionGroup.add(line2);
+      } else {
+        let geometry = new THREE.BufferGeometry().setFromPoints([posA, posB]);
+        let material = new THREE.LineBasicMaterial({
+          color: new THREE.Color(starA.displayColor || '#ffffff'),
+          transparent: true,
+          opacity: 0.5,
+          linewidth: 1
+        });
+        const line = new THREE.Line(geometry, material);
+        this.connectionGroup.add(line);
       }
-      const geometry = new THREE.BufferGeometry().setFromPoints([posA, posB]);
-      const material = new THREE.LineBasicMaterial({
-        color: new THREE.Color(starA.displayColor || '#ffffff'),
-        transparent: true,
-        opacity: 0.5,
-        linewidth: 1
-      });
-      const line = new THREE.Line(geometry, material);
-      this.connectionGroup.add(line);
     });
   }
 
@@ -395,7 +417,8 @@ class CylindricalMapManager {
   }
 }
 
-// Interaction setup (used for 3D maps and now also for the cylindrical map)
+// Optional: Initialize interactions for a map.
+// For the cylindrical map, similar interaction logic is added.
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
@@ -473,7 +496,7 @@ window.onload = async () => {
 
     initStarInteractions(trueCoordinatesMap);
     initStarInteractions(globeMap);
-    initStarInteractions(cylindricalMap);
+    initStarInteractions(cylindricalMap); // Initialize interactions for the 2D map
 
     cachedStars.forEach(star => {
       star.spherePosition = projectStarGlobe(star);
@@ -483,7 +506,7 @@ window.onload = async () => {
     const globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
 
-    // Add a grid to the cylindrical map
+    // Optional: Add a grid to the cylindrical map
     const cylGrid = createCylindricalGrid(cylindricalMap.canvas.clientWidth, cylindricalMap.canvas.clientHeight, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     cylindricalMap.scene.add(cylGrid);
 
@@ -572,6 +595,7 @@ async function buildAndApplyFilters() {
   globeMap.updateMap(currentGlobeFilteredStars, currentGlobeConnections);
   globeMap.labelManager.refreshLabels(currentGlobeFilteredStars);
   cylindricalMap.updateMap(currentFilteredStars, currentCylindricalConnections);
+  // Refresh labels on the 2D cylindrical map.
   cylindricalMap.labelManager.refreshLabels(currentFilteredStars);
 
   removeConstellationObjectsFromGlobe();
