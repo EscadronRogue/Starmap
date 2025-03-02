@@ -5,9 +5,6 @@ import { getDensityCenterData } from './densityData.js';
 
 /**
  * Helper: Standard 2D ray-casting point-in-polygon test.
- * @param {Object} point - {x, y}
- * @param {Array} vs - Array of vertices [{x, y}, ...]
- * @returns {boolean} - true if the point is inside the polygon.
  */
 function pointInPolygon2D(point, vs) {
   let inside = false;
@@ -22,24 +19,20 @@ function pointInPolygon2D(point, vs) {
 }
 
 /**
- * Spherical point-in-polygon test.
- * For a given polygon (array of THREE.Vector3 on the sphere) and a test point,
- * compute the sum of angles between the test point and each adjacent pair of vertices.
- * If the total angle is nearly 2π, the point is considered inside.
+ * Spherical point-in-polygon test. Not used by the strait logic, just here for reference.
  */
-function isPointInSphericalPolygon(point, polygon) {
+export function isPointInSphericalPolygon(point, polygon) {
   let totalAngle = 0;
-  const n = polygon.length;
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < polygon.length; i++) {
     const v1 = polygon[i].clone().sub(point).normalize();
-    const v2 = polygon[(i + 1) % n].clone().sub(point).normalize();
+    const v2 = polygon[(i + 1) % polygon.length].clone().sub(point).normalize();
     totalAngle += Math.acos(THREE.MathUtils.clamp(v1.dot(v2), -1, 1));
   }
   return Math.abs(totalAngle - 2 * Math.PI) < 0.3;
 }
 
 /**
- * Subdivide geometry on the sphere (legacy function).
+ * Subdivide geometry on the sphere (legacy).
  */
 export function subdivideGeometry(geometry, iterations) {
   let geo = geometry;
@@ -93,7 +86,7 @@ export function subdivideGeometry(geometry, iterations) {
 }
 
 /**
- * Returns the RA/DEC from a sphere coordinate (in degrees).
+ * Minimal function to convert a sphere vector -> RA/DEC in deg.
  */
 export function vectorToRaDec(vector) {
   const R = 100;
@@ -105,46 +98,39 @@ export function vectorToRaDec(vector) {
 }
 
 /**
- * A small BFS to compute connected components among a set of cell objects.
- * We consider two cells connected if their ix,iy,iz differ by at most ±1.
+ * BFS to compute connected components among a set of cells, with adjacency
+ * defined by |ix1-ix2|<=1, etc.
  */
 function computeConnectedComponents(cells) {
   const visited = new Set();
   const components = [];
-  // for quick ID->cell lookups:
-  const cellMap = new Map();
-  cells.forEach(c => cellMap.set(c.id, c));
-
-  function neighbors(cell) {
-    const result = [];
+  const getNeighbors = (cell) => {
+    const results = [];
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dz = -1; dz <= 1; dz++) {
-          if (dx === 0 && dy === 0 && dz === 0) continue;
+          if (!dx && !dy && !dz) continue;
           const nx = cell.grid.ix + dx;
           const ny = cell.grid.iy + dy;
           const nz = cell.grid.iz + dz;
-          const neigh = cells.find(cc => cc.grid.ix === nx && cc.grid.iy === ny && cc.grid.iz === nz);
-          if (neigh) {
-            result.push(neigh);
-          }
+          const found = cells.find(c => c.grid.ix === nx && c.grid.iy === ny && c.grid.iz === nz);
+          if (found) results.push(found);
         }
       }
     }
-    return result;
-  }
+    return results;
+  };
 
   cells.forEach(cell => {
     if (visited.has(cell.id)) return;
-    const stack = [cell];
+    const stack = [ cell ];
     const comp = [];
     while (stack.length > 0) {
       const cur = stack.pop();
       if (visited.has(cur.id)) continue;
       visited.add(cur.id);
       comp.push(cur);
-      const nbrs = neighbors(cur);
-      nbrs.forEach(n => {
+      getNeighbors(cur).forEach(n => {
         if (!visited.has(n.id)) {
           stack.push(n);
         }
@@ -156,34 +142,62 @@ function computeConnectedComponents(cells) {
 }
 
 /**
- * Finds the single "best" choke point (or group) to segment a large cluster into two pieces.
- * Returns { segmented:false, cores:[cells] } if no neck is found.
- *
- * Now extended to handle multi-cube neck lumps:
- *  1) we gather all cells whose neighbor count ∈ [2..5]
- *  2) group them by adjacency => lumps
- *  3) for each lump, remove it -> if the remainder splits into exactly 2 big sub‑clusters
- *     whose smaller is ≥ 0.1 * bigger, we label that lump as 'neck' and we are done
+ * If removing a certain set of "candidate" cells splits the cluster into
+ * exactly 2 sub‑clusters of size ratio≥0.1, we call that set the "neck".
+ */
+function testNeckRemoval(cells, neckSet) {
+  if (neckSet.length === 0) return null;
+  if (neckSet.length >= cells.length) return null;
+  // remove them
+  const remainder = cells.filter(c => !neckSet.includes(c));
+  if (remainder.length === 0) return null;
+  const comps = computeConnectedComponents(remainder);
+  if (comps.length !== 2) return null;
+  const sA = comps[0].length;
+  const sB = comps[1].length;
+  const smaller = Math.min(sA, sB);
+  const bigger = Math.max(sA, sB);
+  if (bigger === 0) return null;
+  if (smaller >= 0.1 * bigger) {
+    // valid 2-part split
+    return {
+      coreA: comps[0],
+      coreB: comps[1]
+    };
+  }
+  return null;
+}
+
+/**
+ * Returns neighbor count for 'cell' among 'cluster'.
+ */
+function getNeighborCount(cell, cluster) {
+  let nCount = 0;
+  for (let i = 0; i < cluster.length; i++) {
+    const other = cluster[i];
+    if (other === cell) continue;
+    if (Math.abs(cell.grid.ix - other.grid.ix) <= 1 &&
+        Math.abs(cell.grid.iy - other.grid.iy) <= 1 &&
+        Math.abs(cell.grid.iz - other.grid.iz) <= 1) {
+      nCount++;
+    }
+  }
+  return nCount;
+}
+
+/**
+ * Gathers all "candidate" cells whose neighbor count is in [2..5].
+ * Then lumps them by adjacency. Then for each lump:
+ *   (a) if lumpsize > 10% of cluster, pick a subset (lowest neighbor counts).
+ *   (b) try removing that. If it splits cluster => success.
  */
 export function segmentOceanCandidate(cells) {
-  // Quick neighbor count for each cell
-  function getNeighborCount(cell, cluster) {
-    let count = 0;
-    for (let i = 0; i < cluster.length; i++) {
-      const other = cluster[i];
-      if (other === cell) continue;
-      if (
-        Math.abs(cell.grid.ix - other.grid.ix) <= 1 &&
-        Math.abs(cell.grid.iy - other.grid.iy) <= 1 &&
-        Math.abs(cell.grid.iz - other.grid.iz) <= 1
-      ) {
-        count++;
-      }
-    }
-    return count;
+  const clusterSize = cells.length;
+  if (clusterSize < 2) {
+    return { segmented: false, cores: [cells] };
   }
 
-  // 1) Collect "candidate" cells (2..5 neighbors)
+  // 1) gather single-cube candidates
   const candidateCells = [];
   cells.forEach(c => {
     const nCount = getNeighborCount(c, cells);
@@ -192,77 +206,75 @@ export function segmentOceanCandidate(cells) {
     }
   });
   if (candidateCells.length === 0) {
-    // no single-cube or multi-cube "neck" candidate
-    return { segmented: false, cores: [ cells ] };
+    return { segmented: false, cores: [cells] };
   }
 
-  // 2) group these candidate cells into BFS lumps
-  const visited = new Set();
+  // 2) BFS lumps among these candidateCells
   const lumps = [];
-  function getNeighborsInCandidates(cell) {
-    // adjacency among candidateCells themselves
+  const visited = new Set();
+
+  function getCandidateNeighbors(cell) {
     return candidateCells.filter(cc => {
-      if (cc === cell) return false;
-      return Math.abs(cc.grid.ix - cell.grid.ix) <= 1 &&
-             Math.abs(cc.grid.iy - cell.grid.iy) <= 1 &&
-             Math.abs(cc.grid.iz - cell.grid.iz) <= 1;
+      if (cc===cell) return false;
+      return (Math.abs(cc.grid.ix - cell.grid.ix)<=1 &&
+              Math.abs(cc.grid.iy - cell.grid.iy)<=1 &&
+              Math.abs(cc.grid.iz - cell.grid.iz)<=1);
     });
   }
 
   candidateCells.forEach(cand => {
     if (visited.has(cand.id)) return;
-    const stack = [ cand ];
+    const stack = [cand];
     const lump = [];
-    while (stack.length > 0) {
+    while (stack.length>0) {
       const top = stack.pop();
       if (visited.has(top.id)) continue;
       visited.add(top.id);
       lump.push(top);
-      // push neighbors
-      const localNbrs = getNeighborsInCandidates(top);
-      localNbrs.forEach(nb => {
-        if (!visited.has(nb.id)) {
-          stack.push(nb);
-        }
+      const nbrs = getCandidateNeighbors(top);
+      nbrs.forEach(n => {
+        if (!visited.has(n.id)) stack.push(n);
       });
     }
     lumps.push(lump);
   });
 
-  // 3) For each lump, remove them from 'cells' => see if the remainder splits into exactly 2
-  // big sub-clusters with ratio≥0.1
-  for (let i = 0; i < lumps.length; i++) {
+  // 3) For each lump, ensure lumpsize <= 10% cluster. If bigger => pick subset
+  // with minimal neighbor counts. Then test removal.
+  const maxNeckVol = Math.floor(0.1*clusterSize);
+  for (let i=0; i<lumps.length; i++) {
     const lump = lumps[i];
-    // Temporarily remove the entire lump
-    const remainder = cells.filter(c => !lump.includes(c));
-    if (remainder.length === 0) continue;
-
-    // compute connected components
-    const comps = computeConnectedComponents(remainder);
-    if (comps.length !== 2) {
-      // we want exactly 2 sub-clusters
-      continue;
+    let usedLump;
+    if (lump.length > maxNeckVol) {
+      // pick best subset
+      // sort lump by ascending neighbor count
+      const sorted = lump.slice().sort((a,b)=>{
+        const na = getNeighborCount(a, cells);
+        const nb = getNeighborCount(b, cells);
+        return na - nb;
+      });
+      usedLump = sorted.slice(0, maxNeckVol);
+    } else {
+      usedLump = lump;
     }
-    const sizeA = comps[0].length;
-    const sizeB = comps[1].length;
-    const smaller = Math.min(sizeA, sizeB);
-    const bigger = Math.max(sizeA, sizeB);
-    if (bigger > 0 && smaller >= 0.1 * bigger) {
+    // test removing usedLump
+    const testResult = testNeckRemoval(cells, usedLump);
+    if (testResult) {
       // success => we found a multi-cube neck
       return {
         segmented: true,
-        cores: [ comps[0], comps[1] ],
-        neck: lump
+        cores: [ testResult.coreA, testResult.coreB ],
+        neck: usedLump
       };
     }
   }
 
-  // If none of the lumps worked => no segmentation
+  // no lumps worked
   return { segmented: false, cores: [ cells ] };
 }
 
 /**
- * Returns the centroid of the set of cells, used for labeling.
+ * Returns the centroid of the set of cells (for labeling).
  */
 export function computeCentroid(cells) {
   let sum = new THREE.Vector3(0, 0, 0);
@@ -271,33 +283,31 @@ export function computeCentroid(cells) {
 }
 
 /**
- * Finds the single cell in "cells" that has the highest local connectivity (most neighbors).
+ * The "best cell" for labeling a region. 
  */
 export function computeInterconnectedCell(cells) {
-  let bestCell = cells[0];
-  let maxCount = 0;
+  let best = cells[0];
+  let bestCount = 0;
   cells.forEach(cell => {
-    let count = 0;
-    cells.forEach(other => {
-      if (cell === other) return;
-      if (
-        Math.abs(cell.grid.ix - other.grid.ix) <= 1 &&
-        Math.abs(cell.grid.iy - other.grid.iy) <= 1 &&
-        Math.abs(cell.grid.iz - other.grid.iz) <= 1
-      ) {
-        count++;
+    let cnt = 0;
+    cells.forEach(o => {
+      if (o===cell) return;
+      if (Math.abs(cell.grid.ix - o.grid.ix)<=1 &&
+          Math.abs(cell.grid.iy - o.grid.iy)<=1 &&
+          Math.abs(cell.grid.iz - o.grid.iz)<=1) {
+        cnt++;
       }
     });
-    if (count > maxCount) {
-      maxCount = count;
-      bestCell = cell;
+    if (cnt>bestCount) {
+      bestCount=cnt;
+      best=cell;
     }
   });
-  return bestCell;
+  return best;
 }
 
 /**
- * Returns an array of points on the great-circle arc between p1 and p2 on a sphere of radius R.
+ * Great circle path points.
  */
 export function getGreatCirclePoints(p1, p2, R, segments) {
   const points = [];
@@ -306,16 +316,16 @@ export function getGreatCirclePoints(p1, p2, R, segments) {
   const axis = new THREE.Vector3().crossVectors(start, end).normalize();
   const angle = start.angleTo(end);
   for (let i = 0; i <= segments; i++) {
-    const theta = (i / segments) * angle;
-    const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, theta);
-    const point = start.clone().applyQuaternion(quaternion);
+    const theta = (i / segments)*angle;
+    const q = new THREE.Quaternion().setFromAxisAngle(axis, theta);
+    const point = start.clone().applyQuaternion(q);
     points.push(point);
   }
   return points;
 }
 
 /**
- * Assigns distinct color to region. (Used in some expansions.)
+ * For coloring each region distinctly.
  */
 export function assignDistinctColorsToIndependent(regions) {
   regions.forEach(region => {
