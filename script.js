@@ -354,7 +354,9 @@ async function buildAndApplyFilters() {
     lowDensity,
     lowTolerance,
     highDensity: highIsolation,
-    highTolerance
+    highTolerance,
+    lowDensityLabeling,
+    highDensityLabeling
   } = applyFilters(cachedStars);
 
   currentFilteredStars = filteredStars;
@@ -401,11 +403,13 @@ async function buildAndApplyFilters() {
       });
     }
     updateDensityMapping(currentFilteredStars, lowDensityOverlay);
-    lowDensityOverlay.assignConstellationsToCells().then(() => {
-      lowDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
-      lowDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
-      console.log("=== DEBUG: Low Density cluster distribution ===");
-    });
+    if (lowDensityLabeling) {
+      lowDensityOverlay.assignConstellationsToCells().then(() => {
+        lowDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
+        lowDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
+        console.log("=== DEBUG: Low Density cluster distribution ===");
+      });
+    }
   } else {
     if (lowDensityOverlay) {
       lowDensityOverlay.cubesData.forEach(c => {
@@ -431,11 +435,13 @@ async function buildAndApplyFilters() {
       });
     }
     updateDensityMapping(currentFilteredStars, highDensityOverlay);
-    highDensityOverlay.assignConstellationsToCells().then(() => {
-      highDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
-      highDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
-      console.log("=== DEBUG: High Density cluster distribution ===");
-    });
+    if (highDensityLabeling) {
+      highDensityOverlay.assignConstellationsToCells().then(() => {
+        highDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
+        highDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
+        console.log("=== DEBUG: High Density cluster distribution ===");
+      });
+    }
   } else {
     if (highDensityOverlay) {
       highDensityOverlay.cubesData.forEach(c => {
