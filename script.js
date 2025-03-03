@@ -259,20 +259,29 @@ function updateSelectedStarHighlight() {
 }
 
 /**
- * UPDATED: Load star data from multiple files in the "data" folder.
- * Instead of loading a single "complete_data_stars.json", we load an array of files
- * (e.g. "data/Stars_0_20_LY.json", "data/Stars_20_25_LY.json", "data/Stars_35_40_LY.json")
- * and merge their contents.
+ * UPDATED: Load star data from all files in the "data" folder.
+ * It fetches a file list from "data/dataFiles.json" and then loads all files
+ * matching the pattern "Stars_<min>_<max>_LY.json" from that folder.
  */
 async function loadStarData() {
-  // List all star data files that follow the naming convention in the data folder
-  const starFiles = [
-    'data/Stars_0_20_LY.json',
-    'data/Stars_20_25_LY.json',
-    'data/Stars_35_40_LY.json'
-    // Add more files here as needed
-  ];
   try {
+    // Fetch the file list from data/dataFiles.json
+    const fileListResp = await fetch('data/dataFiles.json');
+    if (!fileListResp.ok) {
+      throw new Error(`Failed to fetch dataFiles.json: ${fileListResp.status}`);
+    }
+    const fileList = await fileListResp.json();
+
+    // Filter the file names that match the naming convention: Stars_<min>_<max>_LY.json
+    const starFiles = fileList
+      .filter(file => /^Stars_\d+_\d+_LY\.json$/.test(file))
+      .map(file => `data/${file}`);
+
+    if (starFiles.length === 0) {
+      throw new Error("No star data files found in the data folder matching the pattern.");
+    }
+
+    // Load all star data files concurrently
     const starArrays = await Promise.all(
       starFiles.map(async file => {
         const resp = await fetch(file);
