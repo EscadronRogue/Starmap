@@ -39,10 +39,6 @@ function radToSphere(ra, dec, R) {
   );
 }
 
-/**
- * Returns the true position of a star based on its distance.
- * Uses RA and DEC in radians if available; otherwise, converts from degrees.
- */
 function getStarTruePosition(star) {
   const R = star.Distance_from_the_Sun;
   let ra, dec;
@@ -58,10 +54,6 @@ function getStarTruePosition(star) {
   return radToSphere(ra, dec, R);
 }
 
-/**
- * Returns the star's position on the globe (projected to a sphere of radius 100).
- * Uses RA and DEC in radians if available; otherwise, converts from degrees.
- */
 function projectStarGlobe(star) {
   const R = 100;
   let ra, dec;
@@ -286,14 +278,7 @@ function updateSelectedStarHighlight() {
   // Optional: implement highlighting if desired.
 }
 
-/**
- * NEW STAR DATA LOADER:
- * We define an array of expected interval pairs.
- * For each interval, the loader attempts to fetch the corresponding file.
- * Files not found are skipped.
- */
 async function loadStarData() {
-  // Define the interval pairs (adjust as needed)
   const intervals = [
     [0, 20],
     [20, 25],
@@ -301,7 +286,6 @@ async function loadStarData() {
     [30, 35],
     [35, 40],
     [40, 45]
-    // ... add more intervals if you have additional files
   ];
   let allStars = [];
   for (let [min, max] of intervals) {
@@ -386,7 +370,7 @@ async function buildAndApplyFilters() {
     // Optional overlay handling.
   }
 
-  // LOW DENSITY MAPPING
+  // LOW DENSITY MAPPING – use the complete star set (cachedStars) for density mapping
   if (lowDensityMapping) {
     if (!lowDensityOverlay ||
         lowDensityOverlay.minDistance !== parseFloat(minDistance) ||
@@ -399,7 +383,7 @@ async function buildAndApplyFilters() {
           globeMap.scene.remove(obj.line);
         });
       }
-      lowDensityOverlay = initDensityOverlay(minDistance, maxDistance, currentFilteredStars, "low");
+      lowDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "low");
       lowDensityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.add(c.tcMesh);
       });
@@ -407,7 +391,7 @@ async function buildAndApplyFilters() {
         globeMap.scene.add(obj.line);
       });
     }
-    updateDensityMapping(currentFilteredStars, lowDensityOverlay);
+    updateDensityMapping(cachedStars, lowDensityOverlay);
     if (lowDensityLabeling) {
       lowDensityOverlay.assignConstellationsToCells().then(() => {
         lowDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
@@ -435,7 +419,7 @@ async function buildAndApplyFilters() {
     }
   }
 
-  // HIGH DENSITY MAPPING
+  // HIGH DENSITY MAPPING – also use cachedStars
   if (highDensityMapping) {
     if (!highDensityOverlay ||
         highDensityOverlay.minDistance !== parseFloat(minDistance) ||
@@ -448,7 +432,7 @@ async function buildAndApplyFilters() {
           globeMap.scene.remove(obj.line);
         });
       }
-      highDensityOverlay = initDensityOverlay(minDistance, maxDistance, currentFilteredStars, "high");
+      highDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "high");
       highDensityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.add(c.tcMesh);
       });
@@ -456,7 +440,7 @@ async function buildAndApplyFilters() {
         globeMap.scene.add(obj.line);
       });
     }
-    updateDensityMapping(currentFilteredStars, highDensityOverlay);
+    updateDensityMapping(cachedStars, highDensityOverlay);
     if (highDensityLabeling) {
       highDensityOverlay.assignConstellationsToCells().then(() => {
         highDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
@@ -541,7 +525,6 @@ window.onload = async () => {
       form.addEventListener('change', debouncedApplyFilters);
     }
 
-    // Compute overall maximum distance for initial setup (if needed)
     const trueCoordinates = cachedStars.map(s =>
       new THREE.Vector3(s.x_coordinate, s.y_coordinate, s.z_coordinate)
     );
