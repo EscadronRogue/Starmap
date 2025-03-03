@@ -259,16 +259,17 @@ function updateSelectedStarHighlight() {
 }
 
 /**
- * UPDATED: Load star data from multiple files.
+ * UPDATED: Load star data from multiple files in the "data" folder.
  * Instead of loading a single "complete_data_stars.json", we load an array of files
- * (e.g. "Stars_0_20_LY.json", "Stars_20_25_LY.json", "Stars_35_40_LY.json") and merge their contents.
+ * (e.g. "data/Stars_0_20_LY.json", "data/Stars_20_25_LY.json", "data/Stars_35_40_LY.json")
+ * and merge their contents.
  */
 async function loadStarData() {
-  // List all star data files that follow the naming convention
+  // List all star data files that follow the naming convention in the data folder
   const starFiles = [
-    'Stars_0_20_LY.json',
-    'Stars_20_25_LY.json',
-    'Stars_35_40_LY.json'
+    'data/Stars_0_20_LY.json',
+    'data/Stars_20_25_LY.json',
+    'data/Stars_35_40_LY.json'
     // Add more files here as needed
   ];
   try {
