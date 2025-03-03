@@ -1,8 +1,44 @@
 // filters/connectionsFilter.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-// Note: The original calculateDistance function in utils.js is no longer used here.
- 
+
+/**
+ * Helper: Returns a THREE.Vector3 for a star’s position.
+ *  - If star.truePosition is available, it is returned.
+ *  - Otherwise, if x_coordinate, y_coordinate, z_coordinate exist, they are used.
+ *  - Otherwise, if RA_in_degrees and DEC_in_degrees exist, position is computed using:
+ *      x = -Distance * cos(dec) * cos(ra)
+ *      y = Distance * sin(dec)
+ *      z = -Distance * cos(dec) * sin(ra)
+ * @param {Object} star - The star object.
+ * @returns {THREE.Vector3}
+ */
+function getPosition(star) {
+  if (star.truePosition) {
+    return star.truePosition;
+  } else if (
+    star.x_coordinate !== undefined &&
+    star.y_coordinate !== undefined &&
+    star.z_coordinate !== undefined
+  ) {
+    return new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+  } else if (
+    star.RA_in_degrees !== undefined &&
+    star.DEC_in_degrees !== undefined &&
+    star.Distance_from_the_Sun !== undefined
+  ) {
+    const ra = THREE.Math.degToRad(star.RA_in_degrees);
+    const dec = THREE.Math.degToRad(star.DEC_in_degrees);
+    const R = star.Distance_from_the_Sun;
+    return new THREE.Vector3(
+      -R * Math.cos(dec) * Math.cos(ra),
+       R * Math.sin(dec),
+      -R * Math.cos(dec) * Math.sin(ra)
+    );
+  }
+  return new THREE.Vector3(0, 0, 0);
+}
+
 /**
  * Computes connection pairs between stars that are within maxDistance.
  *
@@ -16,14 +52,8 @@ export function computeConnectionPairs(stars, maxDistance) {
     for (let j = i + 1; j < stars.length; j++) {
       const starA = stars[i];
       const starB = stars[j];
-      // Use the computed truePosition if available (which is set in script.js),
-      // otherwise fall back to the raw x,y,z values.
-      const posA = starA.truePosition
-        ? starA.truePosition
-        : new THREE.Vector3(starA.x_coordinate, starA.y_coordinate, starA.z_coordinate);
-      const posB = starB.truePosition
-        ? starB.truePosition
-        : new THREE.Vector3(starB.x_coordinate, starB.y_coordinate, starB.z_coordinate);
+      const posA = getPosition(starA);
+      const posB = getPosition(starB);
       const distance = posA.distanceTo(posB);
       if (distance > 0 && distance <= maxDistance) {
         pairs.push({ starA, starB, distance });
@@ -46,10 +76,8 @@ export function mergeConnectionLines(connectionObjs) {
   connectionObjs.forEach(pair => {
     const { starA, starB } = pair;
     
-    // For non‑Globe maps, use the computed truePosition if available,
-    // otherwise fallback to the raw x,y,z.
-    const posA = starA.truePosition ? starA.truePosition : new THREE.Vector3(starA.x_coordinate, starA.y_coordinate, starA.z_coordinate);
-    const posB = starB.truePosition ? starB.truePosition : new THREE.Vector3(starB.x_coordinate, starB.y_coordinate, starB.z_coordinate);
+    const posA = getPosition(starA);
+    const posB = getPosition(starB);
     
     positions.push(posA.x, posA.y, posA.z);
     positions.push(posB.x, posB.y, posB.z);
@@ -98,9 +126,9 @@ export function createConnectionLines(stars, pairs, mapType) {
       posA = new THREE.Vector3(starA.spherePosition.x, starA.spherePosition.y, starA.spherePosition.z);
       posB = new THREE.Vector3(starB.spherePosition.x, starB.spherePosition.y, starB.spherePosition.z);
     } else {
-      // Use the new truePosition if available
-      posA = starA.truePosition ? starA.truePosition.clone() : new THREE.Vector3(starA.x_coordinate, starA.y_coordinate, starA.z_coordinate);
-      posB = starB.truePosition ? starB.truePosition.clone() : new THREE.Vector3(starB.x_coordinate, starB.y_coordinate, starB.z_coordinate);
+      // Use the computed truePosition if available
+      posA = getPosition(starA).clone();
+      posB = getPosition(starB).clone();
     }
     
     const c1 = new THREE.Color(starA.displayColor || '#ffffff');
