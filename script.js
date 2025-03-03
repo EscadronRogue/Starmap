@@ -260,8 +260,8 @@ function updateSelectedStarHighlight() {
 
 /**
  * UPDATED: Load star data from all files in the "data" folder.
- * It fetches a file list from "data/dataFiles.json" and then loads all files
- * matching the pattern "Stars_<min>_<max>_LY.json" from that folder.
+ * This function fetches a list of file names from "data/dataFiles.json" and then loads all files
+ * matching the naming convention (e.g., files named using the pattern "Stars_<min>_<max>_LY.json").
  */
 async function loadStarData() {
   try {
@@ -272,7 +272,7 @@ async function loadStarData() {
     }
     const fileList = await fileListResp.json();
 
-    // Filter the file names that match the naming convention: Stars_<min>_<max>_LY.json
+    // Filter file names that match the naming convention
     const starFiles = fileList
       .filter(file => /^Stars_\d+_\d+_LY\.json$/.test(file))
       .map(file => `data/${file}`);
@@ -365,7 +365,6 @@ async function buildAndApplyFilters() {
 
   // LOW DENSITY MAPPING
   if (lowDensityMapping) {
-    // Reinitialize overlay if min/max distance have changed.
     if (!lowDensityOverlay ||
         lowDensityOverlay.minDistance !== parseFloat(minDistance) ||
         lowDensityOverlay.maxDistance !== parseFloat(maxDistance)) {
