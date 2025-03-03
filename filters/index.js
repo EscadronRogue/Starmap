@@ -206,8 +206,11 @@ export function applyFilters(allStars) {
   let pairs = [];
   let globePairs = [];
   if (filters.enableConnections) {
-    pairs = computeConnectionPairs(filteredStars, filters.connections);
-    globePairs = computeConnectionPairs(globeFiltered, filters.connections);
+    // Instead of using the distance-filtered stars (which only include stars within 20LY),
+    // we now use the complete star dataset (allStars) so that connection lines work
+    // for stars from all provided data files.
+    pairs = computeConnectionPairs(allStars, filters.connections);
+    globePairs = computeConnectionPairs(allStars.filter(s => s.Common_name_of_the_star !== 'Sol'), filters.connections);
   }
 
   applyGlobeSurfaceFilter(filters);
