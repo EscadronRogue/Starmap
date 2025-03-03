@@ -131,32 +131,19 @@ function computeCellDistances(cell, stars) {
   cell.nearestStar = dArr.length > 0 ? dArr[0].star : null;
 }
 
-function getStellarClassRank(star) {
-  if (!star || !star.Stellar_class) return 0;
-  const letter = star.Stellar_class.charAt(0).toUpperCase();
-  const rankMap = { 'O': 7, 'B': 6, 'A': 5, 'F': 4, 'G': 3, 'K': 2, 'M': 1 };
-  return rankMap[letter] || 0;
-}
-
-function getBestStarLabel(cells) {
-  let bestStar = null;
-  let bestRank = -Infinity;
-  cells.forEach(cell => {
-    if (cell.nearestStar) {
-      const rank = getStellarClassRank(cell.nearestStar);
-      if (rank > bestRank) {
-        bestRank = rank;
-        bestStar = cell.nearestStar;
-      } else if (rank === bestRank && bestStar) {
-        if (cell.nearestStar.Absolute_magnitude !== undefined && bestStar.Absolute_magnitude !== undefined) {
-          if (cell.nearestStar.Absolute_magnitude < bestStar.Absolute_magnitude) {
-            bestStar = cell.nearestStar;
-          }
-        }
-      }
-    }
-  });
-  return bestStar ? (bestStar.Common_name_of_the_star_system || bestStar.Common_name_of_the_star || "Unknown") : "Unknown";
+function getGreatCirclePoints(p1, p2, R, segments) {
+  const points = [];
+  const start = p1.clone().normalize().multiplyScalar(R);
+  const end = p2.clone().normalize().multiplyScalar(R);
+  const axis = new THREE.Vector3().crossVectors(start, end).normalize();
+  const angle = start.angleTo(end);
+  for (let i = 0; i <= segments; i++) {
+    const theta = (i / segments) * angle;
+    const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, theta);
+    const point = start.clone().applyQuaternion(quaternion);
+    points.push(point);
+  }
+  return points;
 }
 
 export class DensityGridOverlay {
@@ -240,7 +227,12 @@ export class DensityGridOverlay {
         }
       }
     }
-    this.cubesData.forEach(cell => computeCellDistances(cell, stars));
+    // Compute distances using extended star set: include stars between (minDistance - 5) and (maxDistance + 5)
+    const extendedStars = stars.filter(star => {
+      const d = star.Distance_from_the_Sun;
+      return d >= Math.max(0, this.minDistance - 5) && d <= this.maxDistance + 5;
+    });
+    this.cubesData.forEach(cell => computeCellDistances(cell, extendedStars));
     this.computeAdjacentLines();
   }
 
@@ -298,6 +290,15 @@ export class DensityGridOverlay {
   }
 
   update(stars) {
+    // Recompute cell distances using extended star set: include stars between (minDistance - 5) and (maxDistance + 5)
+    const extendedStars = stars.filter(star => {
+      const d = star.Distance_from_the_Sun;
+      return d >= Math.max(0, this.minDistance - 5) && d <= this.maxDistance + 5;
+    });
+    this.cubesData.forEach(cell => {
+      computeCellDistances(cell, extendedStars);
+    });
+
     let isolationVal, toleranceVal;
     if (this.mode === "low") {
       isolationVal = parseFloat(document.getElementById('low-density-slider').value) || 7;
@@ -352,6 +353,7 @@ export class DensityGridOverlay {
     });
   }
 
+  // ... (the rest of the methods remain unchanged)
   getBestStarLabel(cells) {
     let bestStar = null;
     let bestRank = -Infinity;
