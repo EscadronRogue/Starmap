@@ -202,15 +202,13 @@ export function applyFilters(allStars) {
   filteredStars = applyColorFilter(filteredStars, filters);
   filteredStars = applyOpacityFilter(filteredStars, filters);
 
+  // Only use stars that are shown for connection lines.
   const globeFiltered = filteredStars.filter(s => s.Common_name_of_the_star !== 'Sol');
   let pairs = [];
   let globePairs = [];
   if (filters.enableConnections) {
-    // Instead of using the distance-filtered stars (which only include stars within 20LY),
-    // we now use the complete star dataset (allStars) so that connection lines work
-    // for stars from all provided data files.
-    pairs = computeConnectionPairs(allStars, filters.connections);
-    globePairs = computeConnectionPairs(allStars.filter(s => s.Common_name_of_the_star !== 'Sol'), filters.connections);
+    pairs = computeConnectionPairs(filteredStars, filters.connections);
+    globePairs = computeConnectionPairs(globeFiltered, filters.connections);
   }
 
   applyGlobeSurfaceFilter(filters);
