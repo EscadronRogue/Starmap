@@ -384,7 +384,18 @@ async function buildAndApplyFilters() {
 
   // LOW DENSITY MAPPING
   if (lowDensityMapping) {
-    if (!lowDensityOverlay) {
+    // Reinitialize overlay if min/max distance have changed.
+    if (!lowDensityOverlay ||
+        lowDensityOverlay.minDistance !== parseFloat(minDistance) ||
+        lowDensityOverlay.maxDistance !== parseFloat(maxDistance)) {
+      if (lowDensityOverlay) {
+        lowDensityOverlay.cubesData.forEach(c => {
+          trueCoordinatesMap.scene.remove(c.tcMesh);
+        });
+        lowDensityOverlay.adjacentLines.forEach(obj => {
+          globeMap.scene.remove(obj.line);
+        });
+      }
       lowDensityOverlay = initDensityOverlay(minDistance, maxDistance, currentFilteredStars, "low");
       lowDensityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.add(c.tcMesh);
@@ -423,7 +434,17 @@ async function buildAndApplyFilters() {
 
   // HIGH DENSITY MAPPING
   if (highDensityMapping) {
-    if (!highDensityOverlay) {
+    if (!highDensityOverlay ||
+        highDensityOverlay.minDistance !== parseFloat(minDistance) ||
+        highDensityOverlay.maxDistance !== parseFloat(maxDistance)) {
+      if (highDensityOverlay) {
+        highDensityOverlay.cubesData.forEach(c => {
+          trueCoordinatesMap.scene.remove(c.tcMesh);
+        });
+        highDensityOverlay.adjacentLines.forEach(obj => {
+          globeMap.scene.remove(obj.line);
+        });
+      }
       highDensityOverlay = initDensityOverlay(minDistance, maxDistance, currentFilteredStars, "high");
       highDensityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.add(c.tcMesh);
