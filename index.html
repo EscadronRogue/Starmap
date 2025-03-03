@@ -247,23 +247,19 @@
       document.getElementById('high-tolerance-value').textContent = this.value;
     });
 
-    // Sync distance slider and number input for minimum distance, and trigger filter update
+    // Sync distance slider and number input for minimum distance
     document.getElementById('min-distance-slider').addEventListener('input', function() {
       document.getElementById('min-distance-number').value = this.value;
-      document.getElementById('filters-form').dispatchEvent(new Event('change'));
     });
     document.getElementById('min-distance-number').addEventListener('input', function() {
       document.getElementById('min-distance-slider').value = this.value;
-      document.getElementById('filters-form').dispatchEvent(new Event('change'));
     });
-    // Sync distance slider and number input for maximum distance, and trigger filter update
+    // Sync distance slider and number input for maximum distance
     document.getElementById('max-distance-slider').addEventListener('input', function() {
       document.getElementById('max-distance-number').value = this.value;
-      document.getElementById('filters-form').dispatchEvent(new Event('change'));
     });
     document.getElementById('max-distance-number').addEventListener('input', function() {
       document.getElementById('max-distance-slider').value = this.value;
-      document.getElementById('filters-form').dispatchEvent(new Event('change'));
     });
 
     // Sync low density slider and number input
