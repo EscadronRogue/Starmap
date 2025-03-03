@@ -8,7 +8,7 @@ import {
   createConstellationLabelsForGlobe
 } from './filters/constellationFilter.js';
 import { initDensityOverlay, updateDensityMapping } from './filters/densityFilter.js';
-import { globeSurfaceOpaque } from './filters/globeSurfaceFilter.js';
+import { applyGlobeSurfaceFilter } from './filters/globeSurfaceFilter.js';
 import { ThreeDControls } from './cameraControls.js';
 import { LabelManager } from './labelManager.js';
 import { showTooltip, hideTooltip } from './tooltips.js';
@@ -19,7 +19,6 @@ let currentConnections = [];
 let currentGlobeFilteredStars = [];
 let currentGlobeConnections = [];
 
-let maxDistanceFromCenter = 0;
 let selectedStarData = null;
 
 let trueCoordinatesMap;
@@ -273,11 +272,11 @@ window.onload = async () => {
       form.addEventListener('change', debouncedApplyFilters);
     }
 
-    maxDistanceFromCenter = Math.max(
-      ...cachedStars.map(s =>
-        Math.sqrt(s.x_coordinate**2 + s.y_coordinate**2 + s.z_coordinate**2)
-      )
+    // Compute overall maximum distance for initial setup (if needed)
+    const trueCoordinates = cachedStars.map(s =>
+      new THREE.Vector3(s.x_coordinate, s.y_coordinate, s.z_coordinate)
     );
+    const overallMaxDistance = Math.max(...trueCoordinates.map(v => v.length()));
 
     trueCoordinatesMap = new MapManager({ canvasId: 'map3D', mapType: 'TrueCoordinates' });
     globeMap = new MapManager({ canvasId: 'sphereMap', mapType: 'Globe' });
@@ -326,19 +325,9 @@ function debounce(func, wait) {
   };
 }
 
-function getCurrentFilters() {
-  const form = document.getElementById('filters-form');
-  if (!form) return { enableConnections: false, lowDensityMapping: false, highDensityMapping: false };
-  const formData = new FormData(form);
-  return {
-    enableConnections: (formData.get('enable-connections') !== null),
-    lowDensityMapping: (formData.get('enable-low-density-mapping') !== null),
-    highDensityMapping: (formData.get('enable-high-density-mapping') !== null)
-  };
-}
-
 async function buildAndApplyFilters() {
   if (!cachedStars) return;
+  const filters = applyFilters(cachedStars);
   const {
     filteredStars,
     connections,
@@ -356,8 +345,10 @@ async function buildAndApplyFilters() {
     highDensity: highIsolation,
     highTolerance,
     lowDensityLabeling,
-    highDensityLabeling
-  } = applyFilters(cachedStars);
+    highDensityLabeling,
+    minDistance,
+    maxDistance
+  } = filters;
 
   currentFilteredStars = filteredStars;
   currentConnections = connections;
@@ -394,7 +385,7 @@ async function buildAndApplyFilters() {
   // LOW DENSITY MAPPING
   if (lowDensityMapping) {
     if (!lowDensityOverlay) {
-      lowDensityOverlay = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars, "low");
+      lowDensityOverlay = initDensityOverlay(minDistance, maxDistance, currentFilteredStars, "low");
       lowDensityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.add(c.tcMesh);
       });
@@ -410,7 +401,6 @@ async function buildAndApplyFilters() {
         console.log("=== DEBUG: Low Density cluster distribution ===");
       });
     } else {
-      // Remove region labels if they exist
       if (lowDensityOverlay.regionLabelsGroupTC && lowDensityOverlay.regionLabelsGroupTC.parent) {
         lowDensityOverlay.regionLabelsGroupTC.parent.remove(lowDensityOverlay.regionLabelsGroupTC);
       }
@@ -434,7 +424,7 @@ async function buildAndApplyFilters() {
   // HIGH DENSITY MAPPING
   if (highDensityMapping) {
     if (!highDensityOverlay) {
-      highDensityOverlay = initDensityOverlay(maxDistanceFromCenter, currentFilteredStars, "high");
+      highDensityOverlay = initDensityOverlay(minDistance, maxDistance, currentFilteredStars, "high");
       highDensityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.add(c.tcMesh);
       });
@@ -450,7 +440,6 @@ async function buildAndApplyFilters() {
         console.log("=== DEBUG: High Density cluster distribution ===");
       });
     } else {
-      // Remove region labels if they exist
       if (highDensityOverlay.regionLabelsGroupTC && highDensityOverlay.regionLabelsGroupTC.parent) {
         highDensityOverlay.regionLabelsGroupTC.parent.remove(highDensityOverlay.regionLabelsGroupTC);
       }
