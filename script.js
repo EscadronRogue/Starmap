@@ -258,59 +258,30 @@ function updateSelectedStarHighlight() {
   // Optional: implement highlighting if desired.
 }
 
-window.onload = async () => {
-  const loader = document.getElementById('loader');
-  loader.classList.remove('hidden');
-  try {
-    cachedStars = await loadStarData();
-    if (!cachedStars.length) throw new Error('No star data available');
-    await setupFilterUI(cachedStars);
-
-    const debouncedApplyFilters = debounce(buildAndApplyFilters, 150);
-    const form = document.getElementById('filters-form');
-    if (form) {
-      form.addEventListener('change', debouncedApplyFilters);
-    }
-
-    // Compute overall maximum distance for initial setup (if needed)
-    const trueCoordinates = cachedStars.map(s =>
-      new THREE.Vector3(s.x_coordinate, s.y_coordinate, s.z_coordinate)
-    );
-    const overallMaxDistance = Math.max(...trueCoordinates.map(v => v.length()));
-
-    trueCoordinatesMap = new MapManager({ canvasId: 'map3D', mapType: 'TrueCoordinates' });
-    globeMap = new MapManager({ canvasId: 'sphereMap', mapType: 'Globe' });
-    window.trueCoordinatesMap = trueCoordinatesMap;
-    window.globeMap = globeMap;
-
-    initStarInteractions(trueCoordinatesMap);
-    initStarInteractions(globeMap);
-
-    cachedStars.forEach(star => {
-      star.spherePosition = projectStarGlobe(star);
-      star.truePosition = getStarTruePosition(star);
-    });
-
-    const globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
-    globeMap.scene.add(globeGrid);
-
-    buildAndApplyFilters();
-
-    loader.classList.add('hidden');
-  } catch (err) {
-    console.error('Error initializing starmap:', err);
-    alert('Initialization failed. Check console for details.');
-    loader.classList.add('hidden');
-  }
-};
-
+/**
+ * UPDATED: Load star data from multiple files.
+ * Instead of loading a single "complete_data_stars.json", we load an array of files
+ * (e.g. "Stars_0_20_LY.json", "Stars_20_25_LY.json", "Stars_35_40_LY.json") and merge their contents.
+ */
 async function loadStarData() {
+  // List all star data files that follow the naming convention
+  const starFiles = [
+    'Stars_0_20_LY.json',
+    'Stars_20_25_LY.json',
+    'Stars_35_40_LY.json'
+    // Add more files here as needed
+  ];
   try {
-    const resp = await fetch('complete_data_stars.json');
-    if (!resp.ok) throw new Error(`HTTP error: ${resp.status}`);
-    const arr = await resp.json();
-    console.log(`Loaded ${arr.length} stars.`);
-    return arr;
+    const starArrays = await Promise.all(
+      starFiles.map(async file => {
+        const resp = await fetch(file);
+        if (!resp.ok) throw new Error(`HTTP error: ${resp.status} loading ${file}`);
+        return await resp.json();
+      })
+    );
+    const allStars = starArrays.flat();
+    console.log(`Loaded ${allStars.length} stars from ${starFiles.length} files.`);
+    return allStars;
   } catch (err) {
     console.error('Error loading star data:', err);
     return [];
@@ -523,3 +494,49 @@ function applyGlobeSurface(isOpaque) {
 }
 
 export { MapManager };
+
+window.onload = async () => {
+  const loader = document.getElementById('loader');
+  loader.classList.remove('hidden');
+  try {
+    cachedStars = await loadStarData();
+    if (!cachedStars.length) throw new Error('No star data available');
+    await setupFilterUI(cachedStars);
+
+    const debouncedApplyFilters = debounce(buildAndApplyFilters, 150);
+    const form = document.getElementById('filters-form');
+    if (form) {
+      form.addEventListener('change', debouncedApplyFilters);
+    }
+
+    // Compute overall maximum distance for initial setup (if needed)
+    const trueCoordinates = cachedStars.map(s =>
+      new THREE.Vector3(s.x_coordinate, s.y_coordinate, s.z_coordinate)
+    );
+    const overallMaxDistance = Math.max(...trueCoordinates.map(v => v.length()));
+
+    trueCoordinatesMap = new MapManager({ canvasId: 'map3D', mapType: 'TrueCoordinates' });
+    globeMap = new MapManager({ canvasId: 'sphereMap', mapType: 'Globe' });
+    window.trueCoordinatesMap = trueCoordinatesMap;
+    window.globeMap = globeMap;
+
+    initStarInteractions(trueCoordinatesMap);
+    initStarInteractions(globeMap);
+
+    cachedStars.forEach(star => {
+      star.spherePosition = projectStarGlobe(star);
+      star.truePosition = getStarTruePosition(star);
+    });
+
+    const globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
+    globeMap.scene.add(globeGrid);
+
+    buildAndApplyFilters();
+
+    loader.classList.add('hidden');
+  } catch (err) {
+    console.error('Error initializing starmap:', err);
+    alert('Initialization failed. Check console for details.');
+    loader.classList.add('hidden');
+  }
+};
