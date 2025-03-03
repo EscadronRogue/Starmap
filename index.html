@@ -94,7 +94,24 @@
           </div>
         </fieldset>
 
-        <!-- Connections Filter -->
+        <!-- NEW: Distance Filter Fieldset -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Distance Filter (LY)</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <label for="min-distance-slider">Minimum Distance:</label>
+              <input type="range" id="min-distance-slider" min="0" max="100" value="0" />
+              <input type="number" id="min-distance-number" name="min-distance" min="0" max="100" value="0" />
+            </div>
+            <div class="filter-item">
+              <label for="max-distance-slider">Maximum Distance:</label>
+              <input type="range" id="max-distance-slider" min="0" max="100" value="20" />
+              <input type="number" id="max-distance-number" name="max-distance" min="0" max="100" value="20" />
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Connections Filter (disabled by default) -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Connections (LY)</legend>
           <div class="filter-content">
@@ -104,8 +121,7 @@
             </div>
             <div class="filter-item">
               <input type="range" id="connection-slider" name="connections" min="1" max="50" value="7" disabled />
-              <input type="number" id="connection-number" min="1" max="50" value="7" disabled />
-              Light Years
+              <span id="connection-value">7</span> Light Years
             </div>
           </div>
         </fieldset>
@@ -119,15 +135,14 @@
               <label for="enable-low-density-mapping">Enable Low Density Mapping</label>
             </div>
             <div class="filter-item">
-              <label>Isolation Distance (LY):</label>
+              <label>Isolation Distance (LY): <span id="low-density-value">7</span> LY</label>
               <input type="range" id="low-density-slider" name="low-density" min="1" max="20" value="7" disabled />
-              <input type="number" id="low-density-number" min="1" max="20" value="7" disabled />
             </div>
             <div class="filter-item">
-              <label>Ignore this many closest stars:</label>
+              <label>Ignore this many closest stars: <span id="low-tolerance-value">0</span></label>
               <input type="range" id="low-tolerance-slider" name="low-tolerance" min="0" max="10" value="0" disabled />
-              <input type="number" id="low-tolerance-number" min="0" max="10" value="0" disabled />
             </div>
+            <!-- NEW: Low Density Cluster Labeling & Segmentation toggle -->
             <div class="filter-item">
               <input type="checkbox" id="enable-low-density-labeling" name="enable-low-density-labeling" />
               <label for="enable-low-density-labeling">Enable Low Density Cluster Labeling &amp; Segmentation</label>
@@ -144,15 +159,14 @@
               <label for="enable-high-density-mapping">Enable High Density Mapping</label>
             </div>
             <div class="filter-item">
-              <label>Clustering Distance (LY):</label>
+              <label>Clustering Distance (LY): <span id="high-density-value">1</span> LY</label>
               <input type="range" id="high-density-slider" name="high-density" min="1" max="20" value="1" disabled />
-              <input type="number" id="high-density-number" min="1" max="20" value="1" disabled />
             </div>
             <div class="filter-item">
-              <label>Ignore this many closest stars:</label>
+              <label>Ignore this many closest stars: <span id="high-tolerance-value">0</span></label>
               <input type="range" id="high-tolerance-slider" name="high-tolerance" min="0" max="10" value="0" disabled />
-              <input type="number" id="high-tolerance-number" min="0" max="10" value="0" disabled />
             </div>
+            <!-- NEW: High Density Cluster Labeling & Segmentation toggle -->
             <div class="filter-item">
               <input type="checkbox" id="enable-high-density-labeling" name="enable-high-density-labeling" />
               <label for="enable-high-density-labeling">Enable High Density Cluster Labeling &amp; Segmentation</label>
@@ -202,76 +216,50 @@
       document.querySelector('.sidebar').classList.toggle('open');
     });
 
-    // Enable/disable connection slider and number input based on checkbox state
+    // Enable/disable connection slider based on checkbox state
     document.getElementById('enable-connections').addEventListener('change', function() {
       document.getElementById('connection-slider').disabled = !this.checked;
-      document.getElementById('connection-number').disabled = !this.checked;
     });
 
-    // Enable/disable low density mapping sliders and number inputs
+    // Enable/disable low density mapping sliders
     document.getElementById('enable-low-density-mapping').addEventListener('change', function() {
       document.getElementById('low-density-slider').disabled = !this.checked;
-      document.getElementById('low-density-number').disabled = !this.checked;
       document.getElementById('low-tolerance-slider').disabled = !this.checked;
-      document.getElementById('low-tolerance-number').disabled = !this.checked;
     });
 
-    // Enable/disable high density mapping sliders and number inputs
+    // Enable/disable high density mapping sliders
     document.getElementById('enable-high-density-mapping').addEventListener('change', function() {
       document.getElementById('high-density-slider').disabled = !this.checked;
-      document.getElementById('high-density-number').disabled = !this.checked;
       document.getElementById('high-tolerance-slider').disabled = !this.checked;
-      document.getElementById('high-tolerance-number').disabled = !this.checked;
     });
 
-    // Synchronize connection slider and number input
-    const connectionSlider = document.getElementById('connection-slider');
-    const connectionNumber = document.getElementById('connection-number');
-    connectionSlider.addEventListener('input', function() {
-      connectionNumber.value = this.value;
+    // Update displayed slider values for existing sliders
+    document.getElementById('low-density-slider').addEventListener('input', function() {
+      document.getElementById('low-density-value').textContent = this.value;
     });
-    connectionNumber.addEventListener('change', function() {
-      connectionSlider.value = this.value;
+    document.getElementById('low-tolerance-slider').addEventListener('input', function() {
+      document.getElementById('low-tolerance-value').textContent = this.value;
     });
-
-    // Synchronize low density slider and number input
-    const lowDensitySlider = document.getElementById('low-density-slider');
-    const lowDensityNumber = document.getElementById('low-density-number');
-    lowDensitySlider.addEventListener('input', function() {
-      lowDensityNumber.value = this.value;
+    document.getElementById('high-density-slider').addEventListener('input', function() {
+      document.getElementById('high-density-value').textContent = this.value;
     });
-    lowDensityNumber.addEventListener('change', function() {
-      lowDensitySlider.value = this.value;
+    document.getElementById('high-tolerance-slider').addEventListener('input', function() {
+      document.getElementById('high-tolerance-value').textContent = this.value;
     });
 
-    // Synchronize low tolerance slider and number input
-    const lowToleranceSlider = document.getElementById('low-tolerance-slider');
-    const lowToleranceNumber = document.getElementById('low-tolerance-number');
-    lowToleranceSlider.addEventListener('input', function() {
-      lowToleranceNumber.value = this.value;
+    // NEW: Sync distance slider and number input for minimum distance
+    document.getElementById('min-distance-slider').addEventListener('input', function() {
+      document.getElementById('min-distance-number').value = this.value;
     });
-    lowToleranceNumber.addEventListener('change', function() {
-      lowToleranceSlider.value = this.value;
+    document.getElementById('min-distance-number').addEventListener('input', function() {
+      document.getElementById('min-distance-slider').value = this.value;
     });
-
-    // Synchronize high density slider and number input
-    const highDensitySlider = document.getElementById('high-density-slider');
-    const highDensityNumber = document.getElementById('high-density-number');
-    highDensitySlider.addEventListener('input', function() {
-      highDensityNumber.value = this.value;
+    // NEW: Sync distance slider and number input for maximum distance
+    document.getElementById('max-distance-slider').addEventListener('input', function() {
+      document.getElementById('max-distance-number').value = this.value;
     });
-    highDensityNumber.addEventListener('change', function() {
-      highDensitySlider.value = this.value;
-    });
-
-    // Synchronize high tolerance slider and number input
-    const highToleranceSlider = document.getElementById('high-tolerance-slider');
-    const highToleranceNumber = document.getElementById('high-tolerance-number');
-    highToleranceSlider.addEventListener('input', function() {
-      highToleranceNumber.value = this.value;
-    });
-    highToleranceNumber.addEventListener('change', function() {
-      highToleranceSlider.value = this.value;
+    document.getElementById('max-distance-number').addEventListener('input', function() {
+      document.getElementById('max-distance-slider').value = this.value;
     });
 
     // Fullscreen button listeners
