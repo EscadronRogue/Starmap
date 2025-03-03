@@ -39,14 +39,42 @@ function radToSphere(ra, dec, R) {
   );
 }
 
+/**
+ * Returns the true position of a star based on its distance.
+ * Uses RA and DEC in radians if available; otherwise, converts from degrees.
+ */
 function getStarTruePosition(star) {
   const R = star.Distance_from_the_Sun;
-  return radToSphere(star.RA_in_radian, star.DEC_in_radian, R);
+  let ra, dec;
+  if (star.RA_in_radian !== undefined && star.DEC_in_radian !== undefined) {
+    ra = star.RA_in_radian;
+    dec = star.DEC_in_radian;
+  } else if (star.RA_in_degrees !== undefined && star.DEC_in_degrees !== undefined) {
+    ra = THREE.Math.degToRad(star.RA_in_degrees);
+    dec = THREE.Math.degToRad(star.DEC_in_degrees);
+  } else {
+    ra = 0; dec = 0;
+  }
+  return radToSphere(ra, dec, R);
 }
 
+/**
+ * Returns the star's position on the globe (projected to a sphere of radius 100).
+ * Uses RA and DEC in radians if available; otherwise, converts from degrees.
+ */
 function projectStarGlobe(star) {
   const R = 100;
-  return radToSphere(star.RA_in_radian, star.DEC_in_radian, R);
+  let ra, dec;
+  if (star.RA_in_radian !== undefined && star.DEC_in_radian !== undefined) {
+    ra = star.RA_in_radian;
+    dec = star.DEC_in_radian;
+  } else if (star.RA_in_degrees !== undefined && star.DEC_in_degrees !== undefined) {
+    ra = THREE.Math.degToRad(star.RA_in_degrees);
+    dec = THREE.Math.degToRad(star.DEC_in_degrees);
+  } else {
+    ra = 0; dec = 0;
+  }
+  return radToSphere(ra, dec, R);
 }
 
 function createGlobeGrid(R = 100, options = {}) {
@@ -260,13 +288,12 @@ function updateSelectedStarHighlight() {
 
 /**
  * NEW STAR DATA LOADER:
- * Instead of using a manifest file, we define an array of expected intervals directly.
- * For each interval, we attempt to load the corresponding file.
- * Files that are not found are simply skipped.
+ * We define an array of expected interval pairs.
+ * For each interval, the loader attempts to fetch the corresponding file.
+ * Files not found are skipped.
  */
 async function loadStarData() {
-  // Define the interval pairs you expect.
-  // Adjust or add intervals as needed.
+  // Define the interval pairs (adjust as needed)
   const intervals = [
     [0, 20],
     [20, 25],
@@ -274,7 +301,7 @@ async function loadStarData() {
     [30, 35],
     [35, 40],
     [40, 45]
-    // ... add more intervals if you have more files
+    // ... add more intervals if you have additional files
   ];
   let allStars = [];
   for (let [min, max] of intervals) {
