@@ -94,6 +94,23 @@
           </div>
         </fieldset>
 
+        <!-- NEW: Distance Filter Fieldset -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Distance Filter (LY)</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <label for="min-distance-slider">Minimum Distance:</label>
+              <input type="range" id="min-distance-slider" min="0" max="100" value="0" />
+              <input type="number" id="min-distance-number" name="min-distance" min="0" max="100" value="0" />
+            </div>
+            <div class="filter-item">
+              <label for="max-distance-slider">Maximum Distance:</label>
+              <input type="range" id="max-distance-slider" min="0" max="100" value="20" />
+              <input type="number" id="max-distance-number" name="max-distance" min="0" max="100" value="20" />
+            </div>
+          </div>
+        </fieldset>
+
         <!-- Connections Filter (disabled by default) -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Connections (LY)</legend>
@@ -216,7 +233,7 @@
       document.getElementById('high-tolerance-slider').disabled = !this.checked;
     });
 
-    // Update displayed slider values
+    // Update displayed slider values for existing sliders
     document.getElementById('low-density-slider').addEventListener('input', function() {
       document.getElementById('low-density-value').textContent = this.value;
     });
@@ -228,6 +245,21 @@
     });
     document.getElementById('high-tolerance-slider').addEventListener('input', function() {
       document.getElementById('high-tolerance-value').textContent = this.value;
+    });
+
+    // NEW: Sync distance slider and number input for minimum distance
+    document.getElementById('min-distance-slider').addEventListener('input', function() {
+      document.getElementById('min-distance-number').value = this.value;
+    });
+    document.getElementById('min-distance-number').addEventListener('input', function() {
+      document.getElementById('min-distance-slider').value = this.value;
+    });
+    // NEW: Sync distance slider and number input for maximum distance
+    document.getElementById('max-distance-slider').addEventListener('input', function() {
+      document.getElementById('max-distance-number').value = this.value;
+    });
+    document.getElementById('max-distance-number').addEventListener('input', function() {
+      document.getElementById('max-distance-slider').value = this.value;
     });
 
     // Fullscreen button listeners
