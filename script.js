@@ -409,6 +409,14 @@ async function buildAndApplyFilters() {
         lowDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
         console.log("=== DEBUG: Low Density cluster distribution ===");
       });
+    } else {
+      // Remove region labels if they exist
+      if (lowDensityOverlay.regionLabelsGroupTC && lowDensityOverlay.regionLabelsGroupTC.parent) {
+        lowDensityOverlay.regionLabelsGroupTC.parent.remove(lowDensityOverlay.regionLabelsGroupTC);
+      }
+      if (lowDensityOverlay.regionLabelsGroupGlobe && lowDensityOverlay.regionLabelsGroupGlobe.parent) {
+        lowDensityOverlay.regionLabelsGroupGlobe.parent.remove(lowDensityOverlay.regionLabelsGroupGlobe);
+      }
     }
   } else {
     if (lowDensityOverlay) {
@@ -441,6 +449,14 @@ async function buildAndApplyFilters() {
         highDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
         console.log("=== DEBUG: High Density cluster distribution ===");
       });
+    } else {
+      // Remove region labels if they exist
+      if (highDensityOverlay.regionLabelsGroupTC && highDensityOverlay.regionLabelsGroupTC.parent) {
+        highDensityOverlay.regionLabelsGroupTC.parent.remove(highDensityOverlay.regionLabelsGroupTC);
+      }
+      if (highDensityOverlay.regionLabelsGroupGlobe && highDensityOverlay.regionLabelsGroupGlobe.parent) {
+        highDensityOverlay.regionLabelsGroupGlobe.parent.remove(highDensityOverlay.regionLabelsGroupGlobe);
+      }
     }
   } else {
     if (highDensityOverlay) {
