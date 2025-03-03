@@ -1,8 +1,8 @@
 // filters/connectionsFilter.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { calculateDistance } from '../utils.js';
-
+// Note: The original calculateDistance function in utils.js is no longer used here.
+ 
 /**
  * Computes connection pairs between stars that are within maxDistance.
  *
@@ -16,7 +16,15 @@ export function computeConnectionPairs(stars, maxDistance) {
     for (let j = i + 1; j < stars.length; j++) {
       const starA = stars[i];
       const starB = stars[j];
-      const distance = calculateDistance(starA, starB);
+      // Use the computed truePosition if available (which is set in script.js),
+      // otherwise fall back to the raw x,y,z values.
+      const posA = starA.truePosition
+        ? starA.truePosition
+        : new THREE.Vector3(starA.x_coordinate, starA.y_coordinate, starA.z_coordinate);
+      const posB = starB.truePosition
+        ? starB.truePosition
+        : new THREE.Vector3(starB.x_coordinate, starB.y_coordinate, starB.z_coordinate);
+      const distance = posA.distanceTo(posB);
       if (distance > 0 && distance <= maxDistance) {
         pairs.push({ starA, starB, distance });
       }
