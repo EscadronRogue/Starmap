@@ -155,7 +155,13 @@ export function applyFilters(allStars) {
         globeOpaqueSurface: false,
         enableConnections: false,
         lowDensityMapping: false,
-        highDensityMapping: false
+        highDensityMapping: false,
+        lowDensity: 7,
+        lowTolerance: 0,
+        highDensity: 1,
+        highTolerance: 0,
+        lowDensityLabeling: false,
+        highDensityLabeling: false
       };
     }
   }
@@ -177,7 +183,10 @@ export function applyFilters(allStars) {
     lowDensity: parseFloat(formData.get('low-density')) || 7,
     lowTolerance: parseInt(formData.get('low-tolerance')) || 0,
     highDensity: parseFloat(formData.get('high-density')) || 1,
-    highTolerance: parseInt(formData.get('high-tolerance')) || 0
+    highTolerance: parseInt(formData.get('high-tolerance')) || 0,
+    // NEW: Cluster labeling & segmentation toggles (off by default)
+    lowDensityLabeling: (formData.get('enable-low-density-labeling') !== null),
+    highDensityLabeling: (formData.get('enable-high-density-labeling') !== null)
   };
 
   let filteredStars = applyStarsShownFilter(allStars, filters);
@@ -211,7 +220,9 @@ export function applyFilters(allStars) {
     lowDensity: filters.lowDensity,
     lowTolerance: filters.lowTolerance,
     highDensity: filters.highDensity,
-    highTolerance: filters.highTolerance
+    highTolerance: filters.highTolerance,
+    lowDensityLabeling: filters.lowDensityLabeling,
+    highDensityLabeling: filters.highDensityLabeling
   };
 }
 
