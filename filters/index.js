@@ -15,6 +15,9 @@ import { applyGlobeSurfaceFilter } from './globeSurfaceFilter.js';
 // NEW: Constellation overlay filter.
 import { createConstellationOverlayForGlobe } from './constellationOverlayFilter.js';
 
+// NEW: Import the distance filter.
+import { applyDistanceFilter } from './distanceFilter.js';
+
 let filterForm = null;
 
 export async function setupFilterUI(allStars) {
@@ -161,7 +164,9 @@ export function applyFilters(allStars) {
         highDensity: 1,
         highTolerance: 0,
         lowDensityLabeling: false,
-        highDensityLabeling: false
+        highDensityLabeling: false,
+        minDistance: 0,
+        maxDistance: 20
       };
     }
   }
@@ -177,19 +182,21 @@ export function applyFilters(allStars) {
     showConstellationOverlay: (formData.get('show-constellation-overlay') !== null),
     globeOpaqueSurface: (formData.get('globe-opaque-surface') !== null),
     enableConnections: (formData.get('enable-connections') !== null),
-    // NEW density mapping controls:
     lowDensityMapping: (formData.get('enable-low-density-mapping') !== null),
     highDensityMapping: (formData.get('enable-high-density-mapping') !== null),
     lowDensity: parseFloat(formData.get('low-density')) || 7,
     lowTolerance: parseInt(formData.get('low-tolerance')) || 0,
     highDensity: parseFloat(formData.get('high-density')) || 1,
     highTolerance: parseInt(formData.get('high-tolerance')) || 0,
-    // NEW: Cluster labeling & segmentation toggles (off by default)
     lowDensityLabeling: (formData.get('enable-low-density-labeling') !== null),
-    highDensityLabeling: (formData.get('enable-high-density-labeling') !== null)
+    highDensityLabeling: (formData.get('enable-high-density-labeling') !== null),
+    minDistance: formData.get('min-distance'),
+    maxDistance: formData.get('max-distance')
   };
 
-  let filteredStars = applyStarsShownFilter(allStars, filters);
+  // NEW: Apply the distance filter first.
+  let filteredStars = applyDistanceFilter(allStars, filters);
+  filteredStars = applyStarsShownFilter(filteredStars, filters);
   filteredStars = applyStellarClassLogic(filteredStars, filterForm);
   filteredStars = applySizeFilter(filteredStars, filters);
   filteredStars = applyColorFilter(filteredStars, filters);
@@ -222,7 +229,9 @@ export function applyFilters(allStars) {
     highDensity: filters.highDensity,
     highTolerance: filters.highTolerance,
     lowDensityLabeling: filters.lowDensityLabeling,
-    highDensityLabeling: filters.highDensityLabeling
+    highDensityLabeling: filters.highDensityLabeling,
+    minDistance: filters.minDistance,
+    maxDistance: filters.maxDistance
   };
 }
 
