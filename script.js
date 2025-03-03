@@ -259,43 +259,39 @@ function updateSelectedStarHighlight() {
 }
 
 /**
- * UPDATED: Load star data from all files in the "data" folder.
- * This function fetches a list of file names from "data/dataFiles.json" and then loads all files
- * matching the naming convention (e.g., files named using the pattern "Stars_<min>_<max>_LY.json").
+ * NEW STAR DATA LOADER:
+ * Instead of using a manifest file, we define an array of expected intervals directly.
+ * For each interval, we attempt to load the corresponding file.
+ * Files that are not found are simply skipped.
  */
 async function loadStarData() {
-  try {
-    // Fetch the file list from data/dataFiles.json
-    const fileListResp = await fetch('data/dataFiles.json');
-    if (!fileListResp.ok) {
-      throw new Error(`Failed to fetch dataFiles.json: ${fileListResp.status}`);
+  // Define the interval pairs you expect.
+  // Adjust or add intervals as needed.
+  const intervals = [
+    [0, 20],
+    [20, 25],
+    [25, 30],
+    [30, 35],
+    [35, 40],
+    [40, 45]
+    // ... add more intervals if you have more files
+  ];
+  let allStars = [];
+  for (let [min, max] of intervals) {
+    const url = `data/Stars_${min}_${max}_LY.json`;
+    try {
+      const resp = await fetch(url);
+      if (resp.ok) {
+        const stars = await resp.json();
+        allStars.push(...stars);
+      } else {
+        console.warn(`File not found (skipping): ${url}`);
+      }
+    } catch (e) {
+      console.warn(`Error loading ${url}:`, e);
     }
-    const fileList = await fileListResp.json();
-
-    // Filter file names that match the naming convention
-    const starFiles = fileList
-      .filter(file => /^Stars_\d+_\d+_LY\.json$/.test(file))
-      .map(file => `data/${file}`);
-
-    if (starFiles.length === 0) {
-      throw new Error("No star data files found in the data folder matching the pattern.");
-    }
-
-    // Load all star data files concurrently
-    const starArrays = await Promise.all(
-      starFiles.map(async file => {
-        const resp = await fetch(file);
-        if (!resp.ok) throw new Error(`HTTP error: ${resp.status} loading ${file}`);
-        return await resp.json();
-      })
-    );
-    const allStars = starArrays.flat();
-    console.log(`Loaded ${allStars.length} stars from ${starFiles.length} files.`);
-    return allStars;
-  } catch (err) {
-    console.error('Error loading star data:', err);
-    return [];
   }
+  return allStars;
 }
 
 function debounce(func, wait) {
