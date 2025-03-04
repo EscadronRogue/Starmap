@@ -212,10 +212,10 @@ export class DensityGridOverlay {
         }
       }
     }
-    // Compute distances using extended star set: include stars between (minDistance - 5) and (maxDistance + 5)
+    // Compute distances using extended star set: include stars between (minDistance - 10) and (maxDistance + 10)
     const extendedStars = stars.filter(star => {
       const d = star.Distance_from_the_Sun;
-      return d >= Math.max(0, this.minDistance - 5) && d <= this.maxDistance + 5;
+      return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
     });
     this.cubesData.forEach(cell => computeCellDistances(cell, extendedStars));
     this.computeAdjacentLines();
@@ -275,10 +275,10 @@ export class DensityGridOverlay {
   }
 
   update(stars) {
-    // Recompute cell distances using extended star set: include stars between (minDistance - 5) and (maxDistance + 5)
+    // Recompute cell distances using extended star set: include stars between (minDistance - 10) and (maxDistance + 10)
     const extendedStars = stars.filter(star => {
       const d = star.Distance_from_the_Sun;
-      return d >= Math.max(0, this.minDistance - 5) && d <= this.maxDistance + 5;
+      return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
     });
     this.cubesData.forEach(cell => {
       computeCellDistances(cell, extendedStars);
