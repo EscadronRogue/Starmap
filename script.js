@@ -39,8 +39,13 @@ function radToSphere(ra, dec, R) {
   );
 }
 
+/**
+ * Computes the true 3D position of the star using its RA/DEC and its distance.
+ * Now supports both the legacy property 'Distance_from_the_Sun' and the new property 'distance'.
+ */
 function getStarTruePosition(star) {
-  const R = star.Distance_from_the_Sun;
+  // Use the new 'distance' property if available, otherwise fall back to legacy 'Distance_from_the_Sun'
+  const R = star.distance !== undefined ? star.distance : star.Distance_from_the_Sun;
   let ra, dec;
   if (star.RA_in_radian !== undefined && star.DEC_in_radian !== undefined) {
     ra = star.RA_in_radian;
@@ -69,240 +74,24 @@ function projectStarGlobe(star) {
   return radToSphere(ra, dec, R);
 }
 
-function createGlobeGrid(R = 100, options = {}) {
-  const gridGroup = new THREE.Group();
-  const gridColor = options.color || 0x444444;
-  const lineOpacity = options.opacity !== undefined ? options.opacity : 0.2;
-  const lineWidth = options.lineWidth || 1;
-  const material = new THREE.LineBasicMaterial({
-    color: gridColor,
-    transparent: true,
-    opacity: lineOpacity,
-    linewidth: lineWidth
-  });
-  for (let raDeg = 0; raDeg < 360; raDeg += 30) {
-    const ra = THREE.Math.degToRad(raDeg);
-    const points = [];
-    for (let decDeg = -80; decDeg <= 80; decDeg += 2) {
-      const dec = THREE.Math.degToRad(decDeg);
-      points.push(radToSphere(ra, dec, R));
-    }
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, material);
-    gridGroup.add(line);
-  }
-  for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
-    const dec = THREE.Math.degToRad(decDeg);
-    const points = [];
-    const segments = 64;
-    for (let i = 0; i <= segments; i++) {
-      const ra = (i / segments) * 2 * Math.PI;
-      points.push(radToSphere(ra, dec, R));
-    }
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, material);
-    gridGroup.add(line);
-  }
-  return gridGroup;
-}
-
-class MapManager {
-  constructor({ canvasId, mapType }) {
-    this.canvas = document.getElementById(canvasId);
-    this.mapType = mapType;
-    this.scene = new THREE.Scene();
-    this.renderer = new THREE.WebGLRenderer({
-      canvas: this.canvas,
-      antialias: true
-    });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
-
-    this.camera = new THREE.PerspectiveCamera(
-      75,
-      this.canvas.clientWidth / this.canvas.clientHeight,
-      0.1,
-      10000
-    );
-    if (mapType === 'TrueCoordinates') {
-      this.camera.position.set(0, 0, 70);
-    } else {
-      this.camera.position.set(0, 0, 200);
-    }
-    this.scene.add(this.camera);
-
-    const amb = new THREE.AmbientLight(0xffffff, 0.5);
-    this.scene.add(amb);
-    const pt = new THREE.PointLight(0xffffff, 1);
-    this.scene.add(pt);
-
-    this.controls = new ThreeDControls(this.camera, this.renderer.domElement);
-    this.labelManager = new LabelManager(mapType, this.scene);
-    this.starGroup = new THREE.Group();
-    this.scene.add(this.starGroup);
-
-    window.addEventListener('resize', () => this.onResize(), false);
-    this.animate();
-  }
-
-  addStars(stars) {
-    while (this.starGroup.children.length > 0) {
-      const child = this.starGroup.children[0];
-      this.starGroup.remove(child);
-      child.geometry.dispose();
-      child.material.dispose();
-    }
-    stars.forEach(star => {
-      const size = star.displaySize || 1;
-      const sphereGeometry = new THREE.SphereGeometry(size * 0.2, 12, 12);
-      const material = new THREE.MeshBasicMaterial({
-        color: star.displayColor || '#ffffff',
-        transparent: true,
-        opacity: 1.0
-      });
-      const starMesh = new THREE.Mesh(sphereGeometry, material);
-      let pos;
-      if (this.mapType === 'TrueCoordinates') {
-        pos = star.truePosition
-          ? star.truePosition.clone()
-          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
-      } else {
-        pos = star.spherePosition || new THREE.Vector3(0, 0, 0);
-      }
-      starMesh.position.copy(pos);
-      this.starGroup.add(starMesh);
-    });
-    this.starObjects = stars;
-  }
-
-  updateConnections(stars, connectionObjs) {
-    if (this.connectionGroup) {
-      this.scene.remove(this.connectionGroup);
-      this.connectionGroup = null;
-    }
-    if (!connectionObjs || connectionObjs.length === 0) return;
-
-    this.connectionGroup = new THREE.Group();
-    if (this.mapType === 'Globe') {
-      const linesArray = createConnectionLines(stars, connectionObjs, 'Globe');
-      linesArray.forEach(line => this.connectionGroup.add(line));
-    } else {
-      const merged = mergeConnectionLines(connectionObjs);
-      this.connectionGroup.add(merged);
-    }
-    this.scene.add(this.connectionGroup);
-  }
-
-  updateMap(stars, connectionObjs) {
-    this.addStars(stars);
-    this.updateConnections(stars, connectionObjs);
-  }
-
-  onResize() {
-    const w = this.canvas.clientWidth;
-    const h = this.canvas.clientHeight;
-    this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(w, h);
-  }
-
-  animate() {
-    requestAnimationFrame(() => this.animate());
-    if (this.mapType === 'Globe' && window.constellationOverlayGlobe) {
-      window.constellationOverlayGlobe.forEach(mesh => {
-        if (this.camera.position.length() > 100) {
-          mesh.material.depthTest = false;
-          mesh.renderOrder = 2;
-        } else {
-          mesh.material.depthTest = true;
-          mesh.renderOrder = 0;
-        }
-      });
-    }
-    if (this.mapType === 'Globe') {
-      this.scene.traverse(child => {
-        if (child.material && child.material.uniforms && child.material.uniforms.cameraPos) {
-          child.material.uniforms.cameraPos.value.copy(this.camera.position);
-        }
-      });
-    }
-    this.renderer.render(this.scene, this.camera);
-  }
-}
-
-function initStarInteractions(map) {
-  const raycaster = new THREE.Raycaster();
-  const mouse = new THREE.Vector2();
-  map.canvas.addEventListener('mousemove', (event) => {
-    if (selectedStarData) return;
-    const rect = map.canvas.getBoundingClientRect();
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    raycaster.setFromCamera(mouse, map.camera);
-    const intersects = raycaster.intersectObjects(map.starGroup.children, true);
-    if (intersects.length > 0) {
-      const index = map.starGroup.children.indexOf(intersects[0].object);
-      if (index >= 0 && map.starObjects[index]) {
-        showTooltip(event.clientX, event.clientY, map.starObjects[index]);
-      }
-    } else {
-      hideTooltip();
-    }
-  });
-  map.canvas.addEventListener('click', (event) => {
-    const rect = map.canvas.getBoundingClientRect();
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    raycaster.setFromCamera(mouse, map.camera);
-    const intersects = raycaster.intersectObjects(map.starGroup.children, true);
-    let clickedStar = null;
-    if (intersects.length > 0) {
-      const index = map.starGroup.children.indexOf(intersects[0].object);
-      if (index >= 0) {
-        clickedStar = map.starObjects[index];
-      }
-    }
-    if (clickedStar) {
-      selectedStarData = clickedStar;
-      showTooltip(event.clientX, event.clientY, clickedStar);
-      updateSelectedStarHighlight();
-    } else {
-      selectedStarData = null;
-      updateSelectedStarHighlight();
-      hideTooltip();
-    }
-  });
-}
-
-function updateSelectedStarHighlight() {
-  // Optional: implement highlighting if desired.
-}
-
+/**
+ * Updated loadStarData now fetches the single "Stars.json" file.
+ */
 async function loadStarData() {
-  const intervals = [
-    [0, 20],
-    [20, 25],
-    [25, 30],
-    [30, 35],
-    [35, 40],
-    [40, 45]
-  ];
-  let allStars = [];
-  for (let [min, max] of intervals) {
-    const url = `data/Stars_${min}_${max}_LY.json`;
-    try {
-      const resp = await fetch(url);
-      if (resp.ok) {
-        const stars = await resp.json();
-        allStars.push(...stars);
-      } else {
-        console.warn(`File not found (skipping): ${url}`);
-      }
-    } catch (e) {
-      console.warn(`Error loading ${url}:`, e);
+  const url = `data/Stars.json`;
+  try {
+    const resp = await fetch(url);
+    if (resp.ok) {
+      const stars = await resp.json();
+      return stars;
+    } else {
+      console.warn(`File not found: ${url}`);
+      return [];
     }
+  } catch (e) {
+    console.warn(`Error loading ${url}:`, e);
+    return [];
   }
-  return allStars;
 }
 
 function debounce(func, wait) {
@@ -509,9 +298,179 @@ function applyGlobeSurface(isOpaque) {
   }
 }
 
-export { MapManager };
+class MapManager {
+  constructor({ canvasId, mapType }) {
+    this.canvas = document.getElementById(canvasId);
+    this.mapType = mapType;
+    this.scene = new THREE.Scene();
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: this.canvas,
+      antialias: true
+    });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
 
-window.onload = async () => {
+    this.camera = new THREE.PerspectiveCamera(
+      75,
+      this.canvas.clientWidth / this.canvas.clientHeight,
+      0.1,
+      10000
+    );
+    if (mapType === 'TrueCoordinates') {
+      this.camera.position.set(0, 0, 70);
+    } else {
+      this.camera.position.set(0, 0, 200);
+    }
+    this.scene.add(this.camera);
+
+    const amb = new THREE.AmbientLight(0xffffff, 0.5);
+    this.scene.add(amb);
+    const pt = new THREE.PointLight(0xffffff, 1);
+    this.scene.add(pt);
+
+    this.controls = new ThreeDControls(this.camera, this.renderer.domElement);
+    this.labelManager = new LabelManager(mapType, this.scene);
+    this.starGroup = new THREE.Group();
+    this.scene.add(this.starGroup);
+
+    window.addEventListener('resize', () => this.onResize(), false);
+    this.animate();
+  }
+
+  addStars(stars) {
+    while (this.starGroup.children.length > 0) {
+      const child = this.starGroup.children[0];
+      this.starGroup.remove(child);
+      child.geometry.dispose();
+      child.material.dispose();
+    }
+    stars.forEach(star => {
+      const size = star.displaySize || 1;
+      const sphereGeometry = new THREE.SphereGeometry(size * 0.2, 12, 12);
+      const material = new THREE.MeshBasicMaterial({
+        color: star.displayColor || '#ffffff',
+        transparent: true,
+        opacity: 1.0
+      });
+      const starMesh = new THREE.Mesh(sphereGeometry, material);
+      let pos;
+      if (this.mapType === 'TrueCoordinates') {
+        pos = star.truePosition
+          ? star.truePosition.clone()
+          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+      } else {
+        pos = star.spherePosition || new THREE.Vector3(0, 0, 0);
+      }
+      starMesh.position.copy(pos);
+      this.starGroup.add(starMesh);
+    });
+    this.starObjects = stars;
+  }
+
+  updateConnections(stars, connectionObjs) {
+    if (this.connectionGroup) {
+      this.scene.remove(this.connectionGroup);
+      this.connectionGroup = null;
+    }
+    if (!connectionObjs || connectionObjs.length === 0) return;
+
+    this.connectionGroup = new THREE.Group();
+    if (this.mapType === 'Globe') {
+      const linesArray = createConnectionLines(stars, connectionObjs, 'Globe');
+      linesArray.forEach(line => this.connectionGroup.add(line));
+    } else {
+      const merged = mergeConnectionLines(connectionObjs);
+      this.connectionGroup.add(merged);
+    }
+    this.scene.add(this.connectionGroup);
+  }
+
+  updateMap(stars, connectionObjs) {
+    this.addStars(stars);
+    this.updateConnections(stars, connectionObjs);
+  }
+
+  onResize() {
+    const w = this.canvas.clientWidth;
+    const h = this.canvas.clientHeight;
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(w, h);
+  }
+
+  animate() {
+    requestAnimationFrame(() => this.animate());
+    if (this.mapType === 'Globe' && window.constellationOverlayGlobe) {
+      window.constellationOverlayGlobe.forEach(mesh => {
+        if (this.camera.position.length() > 100) {
+          mesh.material.depthTest = false;
+          mesh.renderOrder = 2;
+        } else {
+          mesh.material.depthTest = true;
+          mesh.renderOrder = 0;
+        }
+      });
+    }
+    if (this.mapType === 'Globe') {
+      this.scene.traverse(child => {
+        if (child.material && child.material.uniforms && child.material.uniforms.cameraPos) {
+          child.material.uniforms.cameraPos.value.copy(this.camera.position);
+        }
+      });
+    }
+    this.renderer.render(this.scene, this.camera);
+  }
+}
+
+function initStarInteractions(map) {
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  map.canvas.addEventListener('mousemove', (event) => {
+    if (selectedStarData) return;
+    const rect = map.canvas.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, map.camera);
+    const intersects = raycaster.intersectObjects(map.starGroup.children, true);
+    if (intersects.length > 0) {
+      const index = map.starGroup.children.indexOf(intersects[0].object);
+      if (index >= 0 && map.starObjects[index]) {
+        showTooltip(event.clientX, event.clientY, map.starObjects[index]);
+      }
+    } else {
+      hideTooltip();
+    }
+  });
+  map.canvas.addEventListener('click', (event) => {
+    const rect = map.canvas.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, map.camera);
+    const intersects = raycaster.intersectObjects(map.starGroup.children, true);
+    let clickedStar = null;
+    if (intersects.length > 0) {
+      const index = map.starGroup.children.indexOf(intersects[0].object);
+      if (index >= 0) {
+        clickedStar = map.starObjects[index];
+      }
+    }
+    if (clickedStar) {
+      selectedStarData = clickedStar;
+      showTooltip(event.clientX, event.clientY, clickedStar);
+      updateSelectedStarHighlight();
+    } else {
+      selectedStarData = null;
+      updateSelectedStarHighlight();
+      hideTooltip();
+    }
+  });
+}
+
+function updateSelectedStarHighlight() {
+  // Optional: implement highlighting if desired.
+}
+
+async function main() {
   const loader = document.getElementById('loader');
   loader.classList.remove('hidden');
   try {
@@ -554,4 +513,6 @@ window.onload = async () => {
     alert('Initialization failed. Check console for details.');
     loader.classList.add('hidden');
   }
-};
+}
+
+window.onload = main;
