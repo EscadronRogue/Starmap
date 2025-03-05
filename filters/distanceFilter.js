@@ -1,8 +1,10 @@
 // /filters/distanceFilter.js
 
 /**
- * Filters stars based on their Distance_from_the_Sun.
- * Only stars with Distance_from_the_Sun between minDistance and maxDistance (in light years) are kept.
+ * Filters stars based on their distance.
+ * Only stars with a valid distance (from the Sun) between minDistance and maxDistance (in light years) are kept.
+ * 
+ * It supports both the legacy property 'Distance_from_the_Sun' and the new property 'distance'.
  *
  * @param {Array} stars - Array of star objects.
  * @param {Object} filters - The filters object that should include minDistance and maxDistance.
@@ -17,7 +19,9 @@ export function applyDistanceFilter(stars, filters) {
     ? parseFloat(filters.maxDistance)
     : 20;
   return stars.filter(star => {
-    if (star.Distance_from_the_Sun === undefined) return false;
-    return star.Distance_from_the_Sun >= minDist && star.Distance_from_the_Sun <= maxDist;
+    // Use the new 'distance' property if available, otherwise fall back to legacy 'Distance_from_the_Sun'
+    const distance = star.distance !== undefined ? star.distance : star.Distance_from_the_Sun;
+    if (distance === undefined) return false;
+    return distance >= minDist && distance <= maxDist;
   });
 }
