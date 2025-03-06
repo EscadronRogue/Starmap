@@ -18,7 +18,6 @@ let currentGlobeFilteredStars = [];
 let currentGlobeConnections = [];
 
 let selectedStarData = null;
-// Global variables for star highlight meshes
 let selectedHighlightTrue = null;
 let selectedHighlightGlobe = null;
 
@@ -32,9 +31,7 @@ let globeSurfaceSphere = null;
 let lowDensityOverlay = null;
 let highDensityOverlay = null;
 
-/**
- * Converts spherical coordinates (RA, DEC) to a THREE.Vector3 on a sphere of radius R.
- */
+/* Utility functions for star positions */
 function radToSphere(ra, dec, R) {
   return new THREE.Vector3(
     -R * Math.cos(dec) * Math.cos(ra),
@@ -43,10 +40,6 @@ function radToSphere(ra, dec, R) {
   );
 }
 
-/**
- * Computes the true 3D position of a star using its RA/DEC and its distance.
- * It supports both the new "distance" property and the legacy "Distance_from_the_Sun" property.
- */
 function getStarTruePosition(star) {
   const R = star.distance !== undefined ? star.distance : star.Distance_from_the_Sun;
   let ra, dec;
@@ -57,15 +50,12 @@ function getStarTruePosition(star) {
     ra = THREE.Math.degToRad(star.RA_in_degrees);
     dec = THREE.Math.degToRad(star.DEC_in_degrees);
   } else {
-    ra = 0; 
+    ra = 0;
     dec = 0;
   }
   return radToSphere(ra, dec, R);
 }
 
-/**
- * Projects a star onto the Globe.
- */
 function projectStarGlobe(star) {
   const R = 100;
   let ra, dec;
@@ -76,58 +66,13 @@ function projectStarGlobe(star) {
     ra = THREE.Math.degToRad(star.RA_in_degrees);
     dec = THREE.Math.degToRad(star.DEC_in_degrees);
   } else {
-    ra = 0; 
+    ra = 0;
     dec = 0;
   }
   return radToSphere(ra, dec, R);
 }
 
-/**
- * Creates a grid for the Globe map.
- * This function builds a set of lines (using great-circle points) representing RA/DEC grid lines.
- */
-function createGlobeGrid(R = 100, options = {}) {
-  const gridGroup = new THREE.Group();
-  const gridColor = options.color || 0x444444;
-  const lineOpacity = options.opacity !== undefined ? options.opacity : 0.2;
-  const lineWidth = options.lineWidth || 1;
-  const material = new THREE.LineBasicMaterial({
-    color: gridColor,
-    transparent: true,
-    opacity: lineOpacity,
-    linewidth: lineWidth
-  });
-  // Draw meridians (constant RA)
-  for (let raDeg = 0; raDeg < 360; raDeg += 30) {
-    const ra = THREE.Math.degToRad(raDeg);
-    const points = [];
-    for (let decDeg = -80; decDeg <= 80; decDeg += 2) {
-      const dec = THREE.Math.degToRad(decDeg);
-      points.push(radToSphere(ra, dec, R));
-    }
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, material);
-    gridGroup.add(line);
-  }
-  // Draw parallels (constant DEC)
-  for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
-    const dec = THREE.Math.degToRad(decDeg);
-    const points = [];
-    const segments = 64;
-    for (let i = 0; i <= segments; i++) {
-      const ra = (i / segments) * 2 * Math.PI;
-      points.push(radToSphere(ra, dec, R));
-    }
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, material);
-    gridGroup.add(line);
-  }
-  return gridGroup;
-}
-
-/**
- * Loads star data by reading every JSON file listed in data/manifest.json.
- */
+/* Example helper: loadStarData reads the manifest and returns a flattened star array */
 async function loadStarData() {
   const manifestUrl = 'data/manifest.json';
   try {
@@ -162,105 +107,7 @@ function debounce(func, wait) {
   };
 }
 
-async function buildAndApplyFilters() {
-  if (!cachedStars) return;
-  const filters = applyFilters(cachedStars);
-  const {
-    filteredStars,
-    connections,
-    globeFilteredStars,
-    globeConnections,
-    showConstellationBoundaries,
-    showConstellationNames,
-    showConstellationOverlay,
-    globeOpaqueSurface,
-    enableConnections,
-    lowDensityMapping,
-    highDensityMapping,
-    lowDensity,
-    lowTolerance,
-    highDensity: highIsolation,
-    highTolerance,
-    lowDensityLabeling,
-    highDensityLabeling,
-    minDistance,
-    maxDistance
-  } = filters;
-
-  currentFilteredStars = filteredStars;
-  currentConnections = connections;
-  currentGlobeFilteredStars = globeFilteredStars;
-  currentGlobeConnections = globeConnections;
-
-  currentGlobeFilteredStars.forEach(star => {
-    star.spherePosition = projectStarGlobe(star);
-  });
-  currentFilteredStars.forEach(star => {
-    star.truePosition = getStarTruePosition(star);
-  });
-
-  trueCoordinatesMap.updateMap(currentFilteredStars, currentConnections);
-  trueCoordinatesMap.labelManager.refreshLabels(currentFilteredStars);
-  globeMap.updateMap(currentGlobeFilteredStars, currentGlobeConnections);
-  globeMap.labelManager.refreshLabels(currentGlobeFilteredStars);
-
-  removeConstellationObjectsFromGlobe();
-  removeConstellationOverlayObjectsFromGlobe();
-
-  if (showConstellationBoundaries) {
-    constellationLinesGlobe = createConstellationBoundariesForGlobe();
-    constellationLinesGlobe.forEach(ln => globeMap.scene.add(ln));
-  }
-  if (showConstellationNames) {
-    constellationLabelsGlobe = createConstellationLabelsForGlobe();
-    constellationLabelsGlobe.forEach(lbl => globeMap.scene.add(lbl));
-  }
-  if (showConstellationOverlay) {
-    // Optional overlay handling.
-  }
-
-  // (Low and High density mapping code omitted for brevity; use your existing code)
-  applyGlobeSurface(globeOpaqueSurface);
-}
-
-function removeConstellationObjectsFromGlobe() {
-  if (constellationLinesGlobe && constellationLinesGlobe.length > 0) {
-    constellationLinesGlobe.forEach(l => globeMap.scene.remove(l));
-  }
-  constellationLinesGlobe = [];
-  if (constellationLabelsGlobe && constellationLabelsGlobe.length > 0) {
-    constellationLabelsGlobe.forEach(lbl => globeMap.scene.remove(lbl));
-  }
-  constellationLabelsGlobe = [];
-}
-
-function removeConstellationOverlayObjectsFromGlobe() {
-  if (constellationOverlayGlobe && constellationOverlayGlobe.length > 0) {
-    constellationOverlayGlobe.forEach(mesh => globeMap.scene.remove(mesh));
-  }
-  constellationOverlayGlobe = [];
-}
-
-function applyGlobeSurface(isOpaque) {
-  if (globeSurfaceSphere) {
-    globeMap.scene.remove(globeSurfaceSphere);
-    globeSurfaceSphere = null;
-  }
-  if (isOpaque) {
-    const geom = new THREE.SphereGeometry(99, 32, 32);
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0x000000,
-      side: THREE.FrontSide,
-      depthWrite: true,
-      depthTest: true,
-      transparent: false
-    });
-    globeSurfaceSphere = new THREE.Mesh(geom, mat);
-    globeSurfaceSphere.renderOrder = 0;
-    globeMap.scene.add(globeSurfaceSphere);
-  }
-}
-
+/* MapManager class controls a Three.js scene and handles resizing */
 class MapManager {
   constructor({ canvasId, mapType }) {
     this.canvas = document.getElementById(canvasId);
@@ -273,17 +120,16 @@ class MapManager {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
 
+    // Default aspect ratio for 1000px height
     this.camera = new THREE.PerspectiveCamera(
       75,
-      this.canvas.clientWidth / this.canvas.clientHeight,
+      window.innerWidth / 1000,
       0.1,
       10000
     );
-    if (mapType === 'TrueCoordinates') {
-      this.camera.position.set(0, 0, 70);
-    } else {
-      this.camera.position.set(0, 0, 200);
-    }
+    this.camera.position.set(mapType === 'TrueCoordinates' ? 0 : 0,
+                              0,
+                              mapType === 'TrueCoordinates' ? 70 : 200);
     this.scene.add(this.camera);
 
     const amb = new THREE.AmbientLight(0xffffff, 0.5);
@@ -315,14 +161,9 @@ class MapManager {
         opacity: 1.0
       });
       const starMesh = new THREE.Mesh(sphereGeometry, material);
-      let pos;
-      if (this.mapType === 'TrueCoordinates') {
-        pos = star.truePosition
-          ? star.truePosition.clone()
-          : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
-      } else {
-        pos = star.spherePosition || new THREE.Vector3(0, 0, 0);
-      }
+      let pos = this.mapType === 'TrueCoordinates'
+        ? (star.truePosition ? star.truePosition.clone() : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate))
+        : (star.spherePosition || new THREE.Vector3(0, 0, 0));
       starMesh.position.copy(pos);
       this.starGroup.add(starMesh);
     });
@@ -352,15 +193,11 @@ class MapManager {
     this.updateConnections(stars, connectionObjs);
   }
 
-  // onResize: if (available height >= 1000) use 1000, otherwise use available height.
   onResize() {
     const headerHeight = document.querySelector('header').offsetHeight;
-    const containerWidth = this.canvas.parentElement.clientWidth;
-    let desiredHeight = 1000; // original canvas height
+    const containerWidth = window.innerWidth;
     const availableHeight = window.innerHeight - headerHeight;
-    if (availableHeight < 1000) {
-      desiredHeight = availableHeight;
-    }
+    const desiredHeight = availableHeight >= 1000 ? 1000 : availableHeight;
     this.camera.aspect = containerWidth / desiredHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(containerWidth, desiredHeight);
@@ -422,7 +259,6 @@ function initStarInteractions(map) {
         return;
       }
     }
-    
     const rect = map.canvas.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -479,6 +315,104 @@ function updateSelectedStarHighlight() {
   }
 }
 
+async function buildAndApplyFilters() {
+  if (!cachedStars) return;
+  const filters = applyFilters(cachedStars);
+  const {
+    filteredStars,
+    connections,
+    globeFilteredStars,
+    globeConnections,
+    showConstellationBoundaries,
+    showConstellationNames,
+    showConstellationOverlay,
+    globeOpaqueSurface,
+    enableConnections,
+    lowDensityMapping,
+    highDensityMapping,
+    lowDensity,
+    lowTolerance,
+    highDensity: highIsolation,
+    highTolerance,
+    lowDensityLabeling,
+    highDensityLabeling,
+    minDistance,
+    maxDistance
+  } = filters;
+
+  currentFilteredStars = filteredStars;
+  currentConnections = connections;
+  currentGlobeFilteredStars = globeFilteredStars;
+  currentGlobeConnections = globeConnections;
+
+  currentGlobeFilteredStars.forEach(star => {
+    star.spherePosition = projectStarGlobe(star);
+  });
+  currentFilteredStars.forEach(star => {
+    star.truePosition = getStarTruePosition(star);
+  });
+
+  trueCoordinatesMap.updateMap(currentFilteredStars, currentConnections);
+  trueCoordinatesMap.labelManager.refreshLabels(currentFilteredStars);
+  globeMap.updateMap(currentGlobeFilteredStars, currentGlobeConnections);
+  globeMap.labelManager.refreshLabels(currentGlobeFilteredStars);
+
+  removeConstellationObjectsFromGlobe();
+  removeConstellationOverlayObjectsFromGlobe();
+
+  if (showConstellationBoundaries) {
+    constellationLinesGlobe = createConstellationBoundariesForGlobe();
+    constellationLinesGlobe.forEach(ln => globeMap.scene.add(ln));
+  }
+  if (showConstellationNames) {
+    constellationLabelsGlobe = createConstellationLabelsForGlobe();
+    constellationLabelsGlobe.forEach(lbl => globeMap.scene.add(lbl));
+  }
+  if (showConstellationOverlay) {
+    // Optional overlay handling.
+  }
+
+  applyGlobeSurface(globeOpaqueSurface);
+}
+
+function removeConstellationObjectsFromGlobe() {
+  if (constellationLinesGlobe && constellationLinesGlobe.length > 0) {
+    constellationLinesGlobe.forEach(l => globeMap.scene.remove(l));
+  }
+  constellationLinesGlobe = [];
+  if (constellationLabelsGlobe && constellationLabelsGlobe.length > 0) {
+    constellationLabelsGlobe.forEach(lbl => globeMap.scene.remove(lbl));
+  }
+  constellationLabelsGlobe = [];
+}
+
+function removeConstellationOverlayObjectsFromGlobe() {
+  if (constellationOverlayGlobe && constellationOverlayGlobe.length > 0) {
+    constellationOverlayGlobe.forEach(mesh => globeMap.scene.remove(mesh));
+  }
+  constellationOverlayGlobe = [];
+}
+
+function applyGlobeSurface(isOpaque) {
+  if (globeSurfaceSphere) {
+    globeMap.scene.remove(globeSurfaceSphere);
+    globeSurfaceSphere = null;
+  }
+  if (isOpaque) {
+    const geom = new THREE.SphereGeometry(99, 32, 32);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      side: THREE.FrontSide,
+      depthWrite: true,
+      depthTest: true,
+      transparent: false
+    });
+    globeSurfaceSphere = new THREE.Mesh(geom, mat);
+    globeSurfaceSphere.renderOrder = 0;
+    globeMap.scene.add(globeSurfaceSphere);
+  }
+}
+
 async function main() {
   const loader = document.getElementById('loader');
   loader.classList.remove('hidden');
@@ -514,6 +448,16 @@ async function main() {
       trueCoordinatesMap.onResize();
       globeMap.onResize();
     }, 150));
+
+    // Poll for window height changes (to catch console open/close)
+    let lastWindowHeight = window.innerHeight;
+    setInterval(() => {
+      if (window.innerHeight !== lastWindowHeight) {
+        lastWindowHeight = window.innerHeight;
+        trueCoordinatesMap.onResize();
+        globeMap.onResize();
+      }
+    }, 200);
 
     buildAndApplyFilters();
 
