@@ -10,6 +10,7 @@ import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate 
 import { loadConstellationCenters, getConstellationCenters, loadConstellationBoundaries, getConstellationBoundaries } from './constellationFilter.js';
 
 let constellationFullNames = null;
+
 async function loadConstellationFullNames() {
   if (constellationFullNames) return constellationFullNames;
   try {
@@ -141,7 +142,7 @@ export class DensityGridOverlay {
     this.regionLabelsGroupGlobe = new THREE.Group();
     
     if (this.mode === "high") {
-      // These parameters are updated from the UI
+      // These parameters will be updated via UI
       this.starThreshold = 10;
       this.maxDepth = 6;
     }
@@ -149,7 +150,6 @@ export class DensityGridOverlay {
 
   createGrid(stars) {
     if (this.mode === "low") {
-      // Use the existing grid‐based method.
       const halfExt = Math.ceil(this.maxDistance / this.gridSize) * this.gridSize;
       this.cubesData = [];
       for (let x = -halfExt; x <= halfExt; x += this.gridSize) {
@@ -207,11 +207,10 @@ export class DensityGridOverlay {
       this.cubesData.forEach(cell => computeCellDistances(cell, extendedStars));
       this.computeAdjacentLines();
     } else if (this.mode === "high") {
-      // Build an octree over the cube [-maxDistance, maxDistance]^3.
+      // Octree approach
       const half = this.maxDistance;
       this.rootMin = new THREE.Vector3(-half, -half, -half);
       this.rootMax = new THREE.Vector3(half, half, half);
-      // Use distance fallback: use s.distance if available.
       const starPts = stars.filter(s => {
         const d = (s.distance !== undefined) ? s.distance : s.Distance_from_the_Sun;
         return d <= this.maxDistance + 10;
@@ -257,7 +256,8 @@ export class DensityGridOverlay {
           node: leaf,
           tcMesh: mesh,
           globeMesh: meshClone,
-          active: true
+          active: true,
+          tcPos: center
         });
       });
     }
@@ -320,7 +320,6 @@ export class DensityGridOverlay {
 
   update(stars) {
     if (this.mode === "low") {
-      // Low-density update (unchanged)
       const extendedStars = stars.filter(star => {
         const d = star.Distance_from_the_Sun;
         return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
@@ -374,8 +373,7 @@ export class DensityGridOverlay {
         }
       });
     } else if (this.mode === "high") {
-      // Rebuild the octree overlay so that slider changes take effect.
-      // Remove old cubes from scene if any.
+      // Rebuild the octree overlay so slider changes take effect.
       this.cubesData.forEach(cell => {
         if (cell.tcMesh.parent) cell.tcMesh.parent.remove(cell.tcMesh);
         if (cell.globeMesh.parent) cell.globeMesh.parent.remove(cell.globeMesh);
@@ -450,14 +448,6 @@ export class DensityGridOverlay {
       }
     };
     collectLeaves(this.octreeRoot);
-  }
-
-  collectLeafNodes(node) {
-    if (node.isLeaf) {
-      this.leafNodes.push(node);
-    } else if (node.children) {
-      node.children.forEach(child => this.collectLeafNodes(child));
-    }
   }
 
   getBestStarLabel(cells) {
