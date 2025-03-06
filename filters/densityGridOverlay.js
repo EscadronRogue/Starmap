@@ -135,13 +135,13 @@ export class DensityGridOverlay {
   /**
    * @param {number} minDistance - Minimum distance (LY) to include grid cells.
    * @param {number} maxDistance - Maximum distance (LY) to include grid cells.
-   * @param {number} gridSize - Size of each grid cell.
+   * @param {number} gridSize - Size (in LY) of each grid cell.
    * @param {string} mode - "low" or "high".
    */
   constructor(minDistance, maxDistance, gridSize = 2, mode = "low") {
     this.minDistance = parseFloat(minDistance);
     this.maxDistance = parseFloat(maxDistance);
-    this.gridSize = gridSize;
+    this.gridSize = gridSize;  // new param
     this.mode = mode; // "low" or "high"
     this.cubesData = [];
     this.adjacentLines = [];
@@ -156,7 +156,11 @@ export class DensityGridOverlay {
     for (let x = -halfExt; x <= halfExt; x += this.gridSize) {
       for (let y = -halfExt; y <= halfExt; y += this.gridSize) {
         for (let z = -halfExt; z <= halfExt; z += this.gridSize) {
-          const posTC = new THREE.Vector3(x + this.gridSize / 2, y + this.gridSize / 2, z + this.gridSize / 2);
+          const posTC = new THREE.Vector3(
+            x + this.gridSize / 2,
+            y + this.gridSize / 2,
+            z + this.gridSize / 2
+          );
           const distFromCenter = posTC.length();
           // Only include grid cells whose center is between minDistance and maxDistance.
           if (distFromCenter < this.minDistance || distFromCenter > this.maxDistance) continue;
@@ -297,7 +301,9 @@ export class DensityGridOverlay {
       if (cell.distances.length > toleranceVal) {
         isoDist = cell.distances[toleranceVal];
       }
-      let showSquare = (this.mode === "low") ? (isoDist >= isolationVal) : (isoDist < isolationVal);
+      let showSquare = (this.mode === "low")
+        ? (isoDist >= isolationVal)
+        : (isoDist < isolationVal);
       cell.active = showSquare;
       let ratio = cell.tcPos.length() / this.maxDistance;
       if (ratio > 1) ratio = 1;
@@ -603,7 +609,7 @@ export class DensityGridOverlay {
               const nx = current.grid.ix + dx;
               const ny = current.grid.iy + dy;
               const nz = current.grid.iz + dz;
-              const neighbor = activeCells.find(c => c.grid.ix === nx && c.grid.iy === ny && c.grid.iz === nz);
+              const neighbor = activeCells.find(c => c.grid.ix === nx && c.grid.iy === ny && c.grid.iz === dz);
               if (neighbor && !visited.has(neighbor.id)) {
                 stack.push(neighbor);
               }
