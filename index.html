@@ -149,16 +149,16 @@
               <input type="checkbox" id="enable-low-density-labeling" name="enable-low-density-labeling" />
               <label for="enable-low-density-labeling">Enable Low Density Cluster Labeling &amp; Segmentation</label>
             </div>
-            <!-- NEW: Low Density Grid-Size Slider -->
+            <!-- Adjusted: Low Density Grid-Size Slider (0.01..10, step=0.01) -->
             <div class="filter-item">
               <label for="low-density-grid-slider">Grid Subdivision:</label>
               <input 
                 type="range" 
                 id="low-density-grid-slider" 
                 name="low-density-grid-size" 
-                min="1" 
-                max="4" 
-                step="0.1" 
+                min="0.01" 
+                max="10" 
+                step="0.01" 
                 value="2" 
                 disabled
               />
@@ -166,9 +166,9 @@
                 type="number" 
                 id="low-density-grid-number" 
                 name="low-density-grid-size" 
-                min="1" 
-                max="4" 
-                step="0.1" 
+                min="0.01" 
+                max="10" 
+                step="0.01" 
                 value="2" 
                 disabled
               />
@@ -185,30 +185,60 @@
               <label for="enable-high-density-mapping">Enable High Density Mapping</label>
             </div>
             <div class="filter-item">
-              <label for="high-density-slider">Clustering Distance (LY):</label>
-              <input type="range" id="high-density-slider" name="high-density" min="1" max="20" value="1" disabled />
-              <input type="number" id="high-density-number" name="high-density" min="1" max="20" value="1" disabled />
+              <!-- "X" distance slider (0.01..10, step=0.01). Default = 1 -->
+              <label for="high-density-slider">Distance X (LY):</label>
+              <input 
+                type="range" 
+                id="high-density-slider" 
+                name="high-density" 
+                min="0.01" 
+                max="10" 
+                step="0.01" 
+                value="1" 
+                disabled
+              />
+              <input 
+                type="number" 
+                id="high-density-number" 
+                name="high-density" 
+                min="0.01" 
+                max="10" 
+                step="0.01" 
+                value="1" 
+                disabled
+              />
               <span id="high-density-value">1</span> LY
             </div>
+            <!-- New: "Y" star-count slider; default = 1. No tolerance slider. -->
             <div class="filter-item">
-              <label>Ignore this many closest stars: <span id="high-tolerance-value">0</span></label>
-              <input type="range" id="high-tolerance-slider" name="high-tolerance" min="0" max="10" value="0" disabled />
+              <label for="high-density-count-slider">Minimum Stars Y:</label>
+              <input 
+                type="range" 
+                id="high-density-count-slider" 
+                name="high-density-count" 
+                min="1" 
+                max="200" 
+                step="1" 
+                value="1" 
+                disabled
+              />
+              <span id="high-density-count-value">1</span>
             </div>
             <!-- High Density Cluster Labeling & Segmentation toggle -->
             <div class="filter-item">
               <input type="checkbox" id="enable-high-density-labeling" name="enable-high-density-labeling" />
               <label for="enable-high-density-labeling">Enable High Density Cluster Labeling &amp; Segmentation</label>
             </div>
-            <!-- NEW: High Density Grid-Size Slider -->
+            <!-- Adjusted: High Density Grid-Size Slider (0.01..10, step=0.01) -->
             <div class="filter-item">
               <label for="high-density-grid-slider">Grid Subdivision:</label>
               <input 
                 type="range" 
                 id="high-density-grid-slider" 
                 name="high-density-grid-size" 
-                min="1" 
-                max="4" 
-                step="0.1" 
+                min="0.01" 
+                max="10" 
+                step="0.01" 
                 value="2" 
                 disabled
               />
@@ -216,9 +246,9 @@
                 type="number" 
                 id="high-density-grid-number" 
                 name="high-density-grid-size" 
-                min="1" 
-                max="4" 
-                step="0.1" 
+                min="0.01" 
+                max="10" 
+                step="0.01" 
                 value="2" 
                 disabled
               />
@@ -288,17 +318,14 @@
       const highEnabled = this.checked;
       document.getElementById('high-density-slider').disabled = !highEnabled;
       document.getElementById('high-density-number').disabled = !highEnabled;
-      document.getElementById('high-tolerance-slider').disabled = !highEnabled;
+      document.getElementById('high-density-count-slider').disabled = !highEnabled;
       document.getElementById('high-density-grid-slider').disabled = !highEnabled;
       document.getElementById('high-density-grid-number').disabled = !highEnabled;
     });
 
-    // Update displayed slider values for tolerance sliders
+    // Update displayed slider values for tolerance sliders (low only)
     document.getElementById('low-tolerance-slider').addEventListener('input', function() {
       document.getElementById('low-tolerance-value').textContent = this.value;
-    });
-    document.getElementById('high-tolerance-slider').addEventListener('input', function() {
-      document.getElementById('high-tolerance-value').textContent = this.value;
     });
 
     // Sync distance slider and number input for minimum distance
@@ -326,7 +353,7 @@
       document.getElementById('low-density-value').textContent = this.value;
     });
 
-    // Sync high density slider and number input
+    // Sync high density slider and number input (distance X)
     document.getElementById('high-density-slider').addEventListener('input', function() {
       document.getElementById('high-density-number').value = this.value;
       document.getElementById('high-density-value').textContent = this.value;
@@ -334,6 +361,11 @@
     document.getElementById('high-density-number').addEventListener('input', function() {
       document.getElementById('high-density-slider').value = this.value;
       document.getElementById('high-density-value').textContent = this.value;
+    });
+
+    // Sync high density "count" slider
+    document.getElementById('high-density-count-slider').addEventListener('input', function() {
+      document.getElementById('high-density-count-value').textContent = this.value;
     });
 
     // Sync low density grid slider and number input
