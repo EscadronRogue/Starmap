@@ -270,6 +270,7 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
   border-radius: 8px;
   padding: 10px;
   box-shadow: 0 0 15px rgba(255, 111, 97, 0.5);
+  height: 50vh; /* Updated to be responsive */
 }
 
 .map-container h2 {
@@ -282,7 +283,7 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
 
 .map-container canvas {
   width: 100%;
-  height: 1000px;
+  height: 100%;  /* Updated to fill container */
   background-color: #0d0d0d;
   display: block;
   border-radius: 4px;
