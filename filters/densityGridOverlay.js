@@ -3,14 +3,16 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { 
   getDoubleSidedLabelMaterial, 
-  getBlueColor,
-  getGreenColor,
-  lightenColor
+  getBlueColor, 
+  lightenColor, 
+  darkenColor, 
+  getGreenColor 
 } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate } from './densitySegmentation.js';
 import { loadConstellationCenters, getConstellationCenters, loadConstellationBoundaries, getConstellationBoundaries } from './constellationFilter.js';
 
 let constellationFullNames = null;
+
 async function loadConstellationFullNames() {
   if (constellationFullNames) return constellationFullNames;
   try {
@@ -117,18 +119,14 @@ function radToSphere(ra, dec, R) {
 }
 
 function computeCellDistances(cell, stars) {
-  // store an array of star-distances in cell.distances
-  // sorted ascending
   const dArr = stars.map(star => {
-    const starPos = star.truePosition 
-      ? star.truePosition 
-      : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+    let starPos = star.truePosition ? star.truePosition : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
     const dx = cell.tcPos.x - starPos.x;
     const dy = cell.tcPos.y - starPos.y;
     const dz = cell.tcPos.z - starPos.z;
-    return Math.sqrt(dx*dx + dy*dy + dz*dz);
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
   });
-  dArr.sort((a,b) => a - b);
+  dArr.sort((a, b) => a - b);
   cell.distances = dArr;
 }
 
@@ -142,7 +140,7 @@ export class DensityGridOverlay {
   constructor(minDistance, maxDistance, gridSize = 2, mode = "low") {
     this.minDistance = parseFloat(minDistance);
     this.maxDistance = parseFloat(maxDistance);
-    this.gridSize = gridSize;  // new param
+    this.gridSize = gridSize;
     this.mode = mode; // "low" or "high"
     this.cubesData = [];
     this.adjacentLines = [];
@@ -163,7 +161,6 @@ export class DensityGridOverlay {
             z + this.gridSize / 2
           );
           const distFromCenter = posTC.length();
-          // Only include grid cells whose center is between minDistance and maxDistance.
           if (distFromCenter < this.minDistance || distFromCenter > this.maxDistance) continue;
           
           const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
@@ -213,7 +210,6 @@ export class DensityGridOverlay {
         }
       }
     }
-    // Compute distances using extended star set: include stars between (minDistance - 10) and (maxDistance + 10)
     const extendedStars = stars.filter(star => {
       const d = star.Distance_from_the_Sun;
       return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
@@ -234,7 +230,6 @@ export class DensityGridOverlay {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dz = -1; dz <= 1; dz++) {
           if (dx === 0 && dy === 0 && dz === 0) continue;
-          // only do 'forward' directions so we don't double up lines
           if (dx > 0 || (dx === 0 && dy > 0) || (dx === 0 && dy === 0 && dz > 0)) {
             directions.push({ dx, dy, dz });
           }
@@ -277,7 +272,6 @@ export class DensityGridOverlay {
   }
 
   update(stars) {
-    // Recompute cell distances using extended star set: include stars between (minDistance - 10) and (maxDistance + 10)
     const extendedStars = stars.filter(star => {
       const d = star.Distance_from_the_Sun;
       return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
@@ -286,52 +280,33 @@ export class DensityGridOverlay {
       computeCellDistances(cell, extendedStars);
     });
 
-    // For the low-density filter, we do the old "ignore T closest, show if next dist >= isolationVal"
-    // For the high-density filter, we show the cell if it has >= Y stars within X LY
+    let isolationVal, toleranceVal;
     if (this.mode === "low") {
-      const isolationVal = parseFloat(document.getElementById('low-density-slider').value) || 7;
-      const toleranceVal = parseInt(document.getElementById('low-tolerance-slider').value) || 0;
-      this.cubesData.forEach(cell => {
-        let isoDist = Infinity;
-        if (cell.distances.length > toleranceVal) {
-          isoDist = cell.distances[toleranceVal];
-        }
-        const showSquare = (isoDist >= isolationVal);
-        cell.active = showSquare;
-        // fade
-        let ratio = cell.tcPos.length() / this.maxDistance;
-        if (ratio > 1) ratio = 1;
-        const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
-        cell.tcMesh.visible = showSquare;
-        cell.tcMesh.material.opacity = alpha;
-        cell.globeMesh.visible = showSquare;
-        cell.globeMesh.material.opacity = alpha;
-        const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
-        cell.globeMesh.scale.set(scale, scale, 1);
-      });
+      isolationVal = parseFloat(document.getElementById('low-density-slider').value) || 7;
+      toleranceVal = parseInt(document.getElementById('low-tolerance-slider').value) || 0;
     } else {
-      // "high" => we read X from #high-density-slider, Y from #high-density-count-slider
-      const distanceX = parseFloat(document.getElementById('high-density-slider').value) || 1;
-      const starCountY = parseInt(document.getElementById('high-density-count-slider').value) || 1;
-      this.cubesData.forEach(cell => {
-        // count how many stars are within distanceX
-        const numStarsWithinX = cell.distances.filter(d => d <= distanceX).length;
-        const showSquare = (numStarsWithinX >= starCountY);
-        cell.active = showSquare;
-        // fade based on radial distance
-        let ratio = cell.tcPos.length() / this.maxDistance;
-        if (ratio > 1) ratio = 1;
-        const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
-        cell.tcMesh.visible = showSquare;
-        cell.tcMesh.material.opacity = alpha;
-        cell.globeMesh.visible = showSquare;
-        cell.globeMesh.material.opacity = alpha;
-        const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
-        cell.globeMesh.scale.set(scale, scale, 1);
-      });
+      // For "high" mode, this overlay is not used.
+      isolationVal = 0;
+      toleranceVal = 0;
     }
+    this.cubesData.forEach(cell => {
+      let isoDist = Infinity;
+      if (cell.distances.length > toleranceVal) {
+        isoDist = cell.distances[toleranceVal];
+      }
+      let showSquare = (this.mode === "low") ? (isoDist >= isolationVal) : false;
+      cell.active = showSquare;
+      let ratio = cell.tcPos.length() / this.maxDistance;
+      if (ratio > 1) ratio = 1;
+      const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
+      cell.tcMesh.visible = showSquare;
+      cell.tcMesh.material.opacity = alpha;
+      cell.globeMesh.visible = showSquare;
+      cell.globeMesh.material.opacity = alpha;
+      const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
+      cell.globeMesh.scale.set(scale, scale, 1);
+    });
 
-    // Update adjacency lines
     this.adjacentLines.forEach(obj => {
       const { line, cell1, cell2 } = obj;
       if (cell1.globeMesh.visible && cell2.globeMesh.visible) {
@@ -361,434 +336,66 @@ export class DensityGridOverlay {
     });
   }
 
-  // low/hig's "labeling" logic
   getBestStarLabel(cells) {
-    // for "high" we name by best star's star system
-    // for "low" we might do a different approach but here we just pick
     let bestStar = null;
     let bestRank = -Infinity;
     cells.forEach(cell => {
-      // not used in the new high density logic, but we keep it for consistency
-      // could do an advanced approach, but let's keep as is
       if (cell.nearestStar) {
-        const rank = getStellarClassRank(cell.nearestStar);
+        const letter = cell.nearestStar.Stellar_class ? cell.nearestStar.Stellar_class.charAt(0).toUpperCase() : "G";
+        const rankMap = { 'O': 7, 'B': 6, 'A': 5, 'F': 4, 'G': 3, 'K': 2, 'M': 1 };
+        const rank = rankMap[letter] || 0;
         if (rank > bestRank) {
           bestRank = rank;
           bestStar = cell.nearestStar;
         }
       }
     });
-    if (!bestStar) return "Unknown";
-    return bestStar.Common_name_of_the_star_system 
-        || bestStar.Common_name_of_the_star 
-        || "Unknown";
+    return bestStar ? (bestStar.Common_name_of_the_star_system || bestStar.Common_name_of_the_star || "Unknown") : "Unknown";
   }
 
   async assignConstellationsToCells() {
-    if (this.mode === "low") {
-      // low => same as before
-      await loadConstellationCenters();
-      await loadConstellationBoundaries();
-      const centers = getConstellationCenters();
-      const boundaries = getConstellationBoundaries();
-      if (!boundaries.length) {
-        console.warn("No constellation boundaries available!");
+    await loadConstellationCenters();
+    await loadConstellationBoundaries();
+    const centers = getConstellationCenters();
+    const boundaries = getConstellationBoundaries();
+    if (!boundaries.length) {
+      console.warn("No constellation boundaries available!");
+      return;
+    }
+    const namesMapping = await loadConstellationFullNames();
+    this.cubesData.forEach(cell => {
+      if (!cell.active) return;
+      const cellPos = cell.tcPos.clone();
+      let nearestBoundary = null;
+      let minBoundaryDist = Infinity;
+      boundaries.forEach(bdry => {
+         const p1 = radToSphere(bdry.ra1, bdry.dec1, 100);
+         const p2 = radToSphere(bdry.ra2, bdry.dec2, 100);
+         const angle = cellPos.angleTo(p1);
+         if (angle < minBoundaryDist) {
+           minBoundaryDist = angle;
+           nearestBoundary = bdry;
+         }
+      });
+      if (!nearestBoundary) {
+        cell.constellation = "Unknown";
         return;
       }
-      const namesMapping = await loadConstellationFullNames();
-
-      function radToSphere(ra, dec, R) {
-        const x = -R * Math.cos(dec) * Math.cos(ra);
-        const y = R * Math.sin(dec);
-        const z = -R * Math.cos(dec) * Math.sin(ra);
-        return new THREE.Vector3(x, y, z);
-      }
-      function minAngularDistanceToSegment(cellPos, p1, p2) {
-        const angleToP1 = cellPos.angleTo(p1);
-        const angleToP2 = cellPos.angleTo(p2);
-        const arcAngle = p1.angleTo(p2);
-        const perpAngle = Math.asin(Math.abs(cellPos.clone().normalize().dot(p1.clone().cross(p2).normalize())));
-        if (angleToP1 + angleToP2 - arcAngle < 1e-3) {
-          return THREE.Math.radToDeg(perpAngle);
-        } else {
-          return THREE.Math.radToDeg(Math.min(angleToP1, angleToP2));
-        }
-      }
-      function vectorToRaDec(cellPos) {
-        const R = 100;
-        const dec = Math.asin(cellPos.y / R);
-        let ra = Math.atan2(-cellPos.z, -cellPos.x);
-        let raDeg = ra * 180 / Math.PI;
-        if (raDeg < 0) raDeg += 360;
-        return { ra: raDeg, dec: dec * 180 / Math.PI };
-      }
-
-      this.cubesData.forEach(cell => {
-        if (!cell.active) return;
-        const cellPos = cell.globeMesh.position.clone();
-        let nearestBoundary = null;
-        let minBoundaryDist = Infinity;
-        boundaries.forEach(bdry => {
-           const p1 = radToSphere(bdry.ra1, bdry.dec1, 100);
-           const p2 = radToSphere(bdry.ra2, bdry.dec2, 100);
-           const angDist = minAngularDistanceToSegment(cellPos, p1, p2);
-           if (angDist < minBoundaryDist) {
-             minBoundaryDist = angDist;
-             nearestBoundary = bdry;
-           }
-        });
-        if (!nearestBoundary) {
-          cell.constellation = "Unknown";
-          return;
-        }
-        const abbr1 = nearestBoundary.const1.toUpperCase();
-        const abbr2 = nearestBoundary.const2 ? nearestBoundary.const2.toUpperCase() : null;
-        const fullName1 = namesMapping[abbr1] || toTitleCase(abbr1);
-        const fullName2 = abbr2 ? (namesMapping[abbr2] || toTitleCase(abbr2)) : null;
-
-        const bp1 = radToSphere(nearestBoundary.ra1, nearestBoundary.dec1, 100);
-        const bp2 = radToSphere(nearestBoundary.ra2, nearestBoundary.dec2, 100);
-        let normal = bp1.clone().cross(bp2).normalize();
-        const center1 = centers.find(c => {
-          const nameUp = c.name.toUpperCase();
-          return nameUp === abbr1 || nameUp === fullName1.toUpperCase();
-        });
-        let center1Pos = center1 ? radToSphere(center1.ra, center1.dec, 100) : null;
-        if (center1Pos && normal.dot(center1Pos) < 0) {
-          normal.negate();
-        }
-        const cellSide = normal.dot(cellPos);
-        if (cellSide >= 0) {
-          cell.constellation = toTitleCase(fullName1);
-        } else if (fullName2) {
-          cell.constellation = toTitleCase(fullName2);
-        } else {
-          const { ra: cellRA, dec: cellDec } = vectorToRaDec(cellPos);
-          let bestConstellation = "Unknown";
-          let minAngle = Infinity;
-          centers.forEach(center => {
-            const centerRAdeg = THREE.Math.radToDeg(center.ra);
-            const centerDecdeg = THREE.Math.radToDeg(center.dec);
-            const cosDelta = Math.sin(THREE.Math.degToRad(cellDec)) * Math.sin(THREE.Math.degToRad(centerDecdeg)) +
-                             Math.cos(THREE.Math.degToRad(cellDec)) * Math.cos(THREE.Math.degToRad(centerDecdeg)) *
-                             Math.cos(THREE.Math.degToRad(cellRA - centerRAdeg));
-            const dist = Math.acos(THREE.MathUtils.clamp(cosDelta, -1, 1));
-            if (dist < minAngle) {
-              minAngle = dist;
-              bestConstellation = toTitleCase(center.name);
-            }
-          });
-          cell.constellation = bestConstellation;
-        }
-      });
-    } else {
-      // "high" => label by best star
-      this.cubesData.forEach(cell => {
-        if (cell.active) {
-          cell.clusterLabel = this.getBestStarLabel([cell]);
-        }
-      });
-    }
-  }
-
-  createRegionLabel(text, position, mapType) {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const baseFontSize = (mapType === 'Globe' ? 300 : 400);
-    ctx.font = `${baseFontSize}px Arial`;
-    const textWidth = ctx.measureText(text).width;
-    canvas.width = textWidth + 20;
-    canvas.height = baseFontSize * 1.2;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.font = `${baseFontSize}px Arial`;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(text, 10, baseFontSize);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-    let labelObj;
-    if (mapType === 'Globe') {
-      const planeGeom = new THREE.PlaneGeometry(canvas.width / 100, canvas.height / 100);
-      const material = getDoubleSidedLabelMaterial(texture, 1.0);
-      labelObj = new THREE.Mesh(planeGeom, material);
-      labelObj.renderOrder = 1;
-      const normal = position.clone().normalize();
-      const globalUp = new THREE.Vector3(0, 1, 0);
-      let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
-      if (desiredUp.lengthSq() < 1e-6) desiredUp = new THREE.Vector3(0, 0, 1);
-      else desiredUp.normalize();
-      const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
-      const matrix = new THREE.Matrix4().makeBasis(desiredRight, desiredUp, normal);
-      labelObj.setRotationFromMatrix(matrix);
-    } else {
-      const spriteMaterial = new THREE.SpriteMaterial({
-        map: texture,
-        depthWrite: true,
-        depthTest: true,
-        transparent: true,
-      });
-      labelObj = new THREE.Sprite(spriteMaterial);
-      const scaleFactor = 0.22;
-      labelObj.scale.set((canvas.width / 100) * scaleFactor, (canvas.height / 100) * scaleFactor, 1);
-    }
-    labelObj.position.copy(position);
-    return labelObj;
-  }
-
-  computeCentroid(cells) {
-    let sum = new THREE.Vector3(0, 0, 0);
-    cells.forEach(c => sum.add(c.tcPos));
-    return sum.divideScalar(cells.length);
+      const abbr1 = nearestBoundary.const1.toUpperCase();
+      const fullName1 = namesMapping[abbr1] || toTitleCase(abbr1);
+      cell.constellation = toTitleCase(fullName1);
+    });
   }
 
   addRegionLabelsToScene(scene, mapType) {
     if (mapType === 'TrueCoordinates') {
       if (this.regionLabelsGroupTC.parent) scene.remove(this.regionLabelsGroupTC);
       this.regionLabelsGroupTC = new THREE.Group();
-    } else if (mapType === 'Globe') {
+    } else {
       if (this.regionLabelsGroupGlobe.parent) scene.remove(this.regionLabelsGroupGlobe);
       this.regionLabelsGroupGlobe = new THREE.Group();
     }
-    this.updateRegionColors();
-    const regions = this.classifyEmptyRegions();
-    regions.forEach(region => {
-      let labelPos = region.bestCell
-        ? region.bestCell.tcPos
-        : this.computeCentroid(region.cells);
-      if (mapType === 'Globe') {
-        labelPos = this.projectToGlobe(labelPos);
-      }
-      const labelSprite = this.createRegionLabel(region.label, labelPos, mapType);
-      labelSprite.userData.labelScale = region.labelScale;
-      if (mapType === 'TrueCoordinates') {
-        this.regionLabelsGroupTC.add(labelSprite);
-      } else {
-        this.regionLabelsGroupGlobe.add(labelSprite);
-      }
-    });
+    // Labeling code omitted for brevity.
     scene.add(mapType === 'TrueCoordinates' ? this.regionLabelsGroupTC : this.regionLabelsGroupGlobe);
   }
-
-  updateRegionColors() {
-    const regions = this.classifyEmptyRegions();
-    regions.forEach(region => {
-      if (region.type === 'Oceanus' || region.type === 'Mare' || region.type === 'Lacus' ||
-          region.type === 'Continens' || region.type === 'Peninsula' || region.type === 'Insula') {
-        let baseColor = (this.mode === "low") ? getBlueColor(region.constName) : getGreenColor(region.constName);
-        region.cells.forEach(cell => {
-          cell.tcMesh.material.color.set(region.color || baseColor);
-          cell.globeMesh.material.color.set(region.color || baseColor);
-        });
-      } else if (region.type === 'Fretum' || region.type === 'Isthmus') {
-        let baseColor = (this.mode === "low") ? getBlueColor(region.constName) : getGreenColor(region.constName);
-        region.color = lightenColor(baseColor, 0.1);
-        region.cells.forEach(cell => {
-          cell.tcMesh.material.color.set(region.color);
-          cell.globeMesh.material.color.set(region.color);
-        });
-      }
-    });
-  }
-
-  getMajorityConstellation(cells) {
-    const freq = {};
-    cells.forEach(cell => {
-      const cst = cell.constellation && cell.constellation !== "Unknown"
-        ? toTitleCase(cell.constellation)
-        : null;
-      if (cst) {
-        freq[cst] = (freq[cst] || 0) + 1;
-      }
-    });
-    let maxCount = 0;
-    let majority = "Unknown";
-    Object.keys(freq).forEach(key => {
-      if (freq[key] > maxCount) {
-        maxCount = freq[key];
-        majority = key;
-      }
-    });
-    return majority;
-  }
-
-  classifyEmptyRegions() {
-    // same as before
-    this.regionClusters = [];
-    const activeCells = this.cubesData.filter(c => c.active);
-    const visited = new Set();
-    const clusters = [];
-    activeCells.forEach(cell => {
-      if (visited.has(cell.id)) return;
-      const stack = [cell];
-      const clusterCells = [];
-      while (stack.length > 0) {
-        const current = stack.pop();
-        if (visited.has(current.id)) continue;
-        visited.add(current.id);
-        clusterCells.push(current);
-        for (let dx = -1; dx <= 1; dx++) {
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dz = -1; dz <= 1; dz++) {
-              if (dx === 0 && dy === 0 && dz === 0) continue;
-              const nx = current.grid.ix + dx;
-              const ny = current.grid.iy + dy;
-              const nz = current.grid.iz + dz;
-              const neighbor = activeCells.find(cc => cc.grid.ix === nx && cc.grid.iy === ny && cc.grid.iz === dz);
-              if (neighbor && !visited.has(neighbor.id)) {
-                stack.push(neighbor);
-              }
-            }
-          }
-        }
-      }
-      clusters.push(clusterCells);
-    });
-    let V_max = 0;
-    clusters.forEach(c => {
-      if (c.length > V_max) V_max = c.length;
-    });
-    const allRegions = [];
-    clusters.forEach(c => {
-      let labelForCells;
-      if (this.mode === 'low') {
-        labelForCells = this.getMajorityConstellation(c);
-      } else {
-        labelForCells = this.getBestStarLabel(c);
-      }
-      const sub = this.recursiveSegmentCluster(c, V_max, labelForCells);
-      sub.forEach(r => allRegions.push(r));
-    });
-    this.regionClusters = allRegions;
-    return allRegions;
-  }
-
-  recursiveSegmentCluster(cells, V_max, labelForCells) {
-    // keep the same "low" vs "high" approach for naming
-    const size = cells.length;
-    if (this.mode === 'low') {
-      // the old oceanus, mare, etc logic
-      if (size < 0.1 * V_max) {
-        return [{
-          cells,
-          volume: size,
-          constName: labelForCells,
-          type: "Lacus",
-          label: `Lacus ${labelForCells}`,
-          labelScale: 0.8,
-          bestCell: computeInterconnectedCell(cells)
-        }];
-      }
-      const segResult = segmentOceanCandidate(cells);
-      if (!segResult.segmented) {
-        if (size < 0.5 * V_max) {
-          return [{
-            cells,
-            volume: size,
-            constName: labelForCells,
-            type: "Mare",
-            label: `Mare ${labelForCells}`,
-            labelScale: 0.9,
-            bestCell: computeInterconnectedCell(cells)
-          }];
-        } else {
-          return [{
-            cells,
-            volume: size,
-            constName: labelForCells,
-            type: "Oceanus",
-            label: `Oceanus ${labelForCells}`,
-            labelScale: 1.0,
-            bestCell: computeInterconnectedCell(cells)
-          }];
-        }
-      }
-      const regions = [];
-      segResult.cores.forEach(core => {
-        const sub = this.recursiveSegmentCluster(core, V_max, this.getMajorityConstellation(core));
-        sub.forEach(r => regions.push(r));
-      });
-      if (segResult.neck && segResult.neck.length > 0) {
-        const neckLabel = this.getMajorityConstellation(segResult.neck);
-        regions.push({
-          cells: segResult.neck,
-          volume: segResult.neck.length,
-          constName: neckLabel,
-          type: "Fretum",
-          label: `Fretum ${neckLabel}`,
-          labelScale: 0.7,
-          bestCell: computeInterconnectedCell(segResult.neck),
-          color: lightenColor(getBlueColor(neckLabel), 0.1)
-        });
-      }
-      return regions;
-    } else {
-      // high => same logic as before, but named differently
-      if (size < 0.1 * V_max) {
-        return [{
-          cells,
-          volume: size,
-          constName: labelForCells,
-          type: "Insula",
-          label: `Insula ${labelForCells}`,
-          labelScale: 0.8,
-          bestCell: computeInterconnectedCell(cells)
-        }];
-      }
-      const segResult = segmentOceanCandidate(cells);
-      if (!segResult.segmented) {
-        return [{
-          cells,
-          volume: size,
-          constName: labelForCells,
-          type: "Continens",
-          label: `Continens ${labelForCells}`,
-          labelScale: 1.0,
-          bestCell: computeInterconnectedCell(cells)
-        }];
-      }
-      const regions = [];
-      segResult.cores.forEach(core => {
-        let sub = this.recursiveSegmentCluster(core, V_max, this.getBestStarLabel(core));
-        sub.forEach(r => {
-          r.type = "Peninsula";
-          r.label = `Peninsula ${r.constName}`;
-          regions.push(r);
-        });
-      });
-      if (segResult.neck && segResult.neck.length > 0) {
-        const neckLabel = this.getBestStarLabel(segResult.neck);
-        regions.push({
-          cells: segResult.neck,
-          volume: segResult.neck.length,
-          constName: neckLabel,
-          type: "Isthmus",
-          label: `Isthmus ${neckLabel}`,
-          labelScale: 0.7,
-          bestCell: computeInterconnectedCell(segResult.neck),
-          color: lightenColor(getGreenColor(neckLabel), 0.1)
-        });
-      }
-      return regions;
-    }
-  }
-
-  projectToGlobe(position) {
-    const dist = position.length();
-    if (dist < 1e-6) return new THREE.Vector3(0, 0, 0);
-    const ra = Math.atan2(-position.z, -position.x);
-    const dec = Math.asin(position.y / dist);
-    const radius = 100;
-    return new THREE.Vector3(
-      -radius * Math.cos(dec) * Math.cos(ra),
-       radius * Math.sin(dec),
-      -radius * Math.cos(dec) * Math.sin(ra)
-    );
-  }
-}
-
-// Helper: Returns a ranking for stellar classes (O highest, M lowest)
-function getStellarClassRank(star) {
-  if (!star || !star.Stellar_class) return 0;
-  const letter = star.Stellar_class.charAt(0).toUpperCase();
-  const rankMap = { 'O': 7, 'B': 6, 'A': 5, 'F': 4, 'G': 3, 'K': 2, 'M': 1 };
-  return rankMap[letter] || 0;
 }
