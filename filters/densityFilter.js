@@ -1,12 +1,12 @@
 // /filters/densityFilter.js
 
 import { DensityGridOverlay } from './densityGridOverlay.js';
-import { HighDensityTreeOverlay } from './densityTreeOverlay.js'; // new
+import { HighDensityTreeOverlay } from './densityTreeOverlay.js';
 
 /**
- * Initializes the density overlay.
- *   - If mode="low", do old DensityGridOverlay
- *   - If mode="high", do new HighDensityTreeOverlay
+ * Initializes the overlay.
+ * - If mode="low", use the old grid approach.
+ * - If mode="high", use the new octree approach.
  */
 export function initDensityOverlay(minDistance, maxDistance, starArray, mode = "low", gridSize = 2) {
   if (mode === "low") {
@@ -14,14 +14,14 @@ export function initDensityOverlay(minDistance, maxDistance, starArray, mode = "
     grid.createGrid(starArray);
     return grid;
   } else {
-    // new approach for high
-    const tree = new HighDensityTreeOverlay(minDistance, maxDistance, starArray);
-    tree.createGrid(); // build the 3D meshes from leaves
-    return tree;
+    const octree = new HighDensityTreeOverlay(minDistance, maxDistance, starArray);
+    octree.createGrid();
+    return octree;
   }
 }
 
-export function updateDensityMapping(starArray, gridOverlay) {
-  if (!gridOverlay) return;
-  gridOverlay.update(starArray);
+/** The update logic calls the overlay's `update()` method. */
+export function updateDensityMapping(starArray, overlay) {
+  if (!overlay) return;
+  overlay.update(starArray);
 }
