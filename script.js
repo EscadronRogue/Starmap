@@ -184,9 +184,7 @@ async function buildAndApplyFilters() {
     highDensityMapping,
     lowDensity,
     lowTolerance,
-    highDensity: highIsolation,
-    highTolerance,
-    lowDensityLabeling,
+    // no need for highTolerance anymore
     highDensityLabeling,
     minDistance,
     maxDistance
@@ -224,15 +222,13 @@ async function buildAndApplyFilters() {
     // Optional overlay handling.
   }
 
-  // LOW DENSITY MAPPING – use the complete star set (cachedStars) for density mapping
+  // LOW DENSITY MAPPING
   if (lowDensityMapping) {
-    // We also read the "low-density-grid-size" from the form data
-    // We invert it so that a lower slider => bigger cells => larger gridSize
-    // For example, default slider=2 => gridSize=2 => matches current code
-    // If slider=1 => gridSize=4 => bigger cells, if slider=4 => gridSize=1 => smaller cells
+    // We also read the "low-density-grid-size"
     const form = document.getElementById('filters-form');
     const lowGridSliderValue = parseFloat(new FormData(form).get('low-density-grid-size') || '2');
-    const lowGridSize = 4 / lowGridSliderValue;  // invert relationship
+    // Invert so that smaller slider => bigger cells
+    const lowGridSize = 4 / lowGridSliderValue;
 
     if (
       !lowDensityOverlay ||
@@ -257,11 +253,11 @@ async function buildAndApplyFilters() {
       });
     }
     updateDensityMapping(cachedStars, lowDensityOverlay);
-    if (lowDensityLabeling) {
+    const lowDensityLabelingCheckbox = form.querySelector('#enable-low-density-labeling');
+    if (lowDensityLabelingCheckbox && lowDensityLabelingCheckbox.checked) {
       lowDensityOverlay.assignConstellationsToCells().then(() => {
         lowDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
         lowDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
-        console.log("=== DEBUG: Low Density cluster distribution ===");
       });
     } else {
       if (lowDensityOverlay.regionLabelsGroupTC && lowDensityOverlay.regionLabelsGroupTC.parent) {
@@ -284,12 +280,13 @@ async function buildAndApplyFilters() {
     }
   }
 
-  // HIGH DENSITY MAPPING – also use cachedStars
-  if (highDensityMapping) {
-    // Similarly read the "high-density-grid-size"
-    const form = document.getElementById('filters-form');
+  // HIGH DENSITY MAPPING
+  const form = document.getElementById('filters-form');
+  const highEnabled = form.querySelector('#enable-high-density-mapping')?.checked;
+  if (highEnabled) {
+    // Grid size
     const highGridSliderValue = parseFloat(new FormData(form).get('high-density-grid-size') || '2');
-    const highGridSize = 4 / highGridSliderValue;  // invert relationship
+    const highGridSize = 4 / highGridSliderValue;
 
     if (
       !highDensityOverlay ||
@@ -314,17 +311,17 @@ async function buildAndApplyFilters() {
       });
     }
     updateDensityMapping(cachedStars, highDensityOverlay);
-    if (highDensityLabeling) {
+    const highDensityLabelingCheckbox = form.querySelector('#enable-high-density-labeling');
+    if (highDensityLabelingCheckbox && highDensityLabelingCheckbox.checked) {
       highDensityOverlay.assignConstellationsToCells().then(() => {
         highDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
         highDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
-        console.log("=== DEBUG: High Density cluster distribution ===");
       });
     } else {
-      if (highDensityOverlay.regionLabelsGroupTC && highDensityOverlay.regionLabelsGroupTC.parent) {
+      if (highDensityOverlay?.regionLabelsGroupTC?.parent) {
         highDensityOverlay.regionLabelsGroupTC.parent.remove(highDensityOverlay.regionLabelsGroupTC);
       }
-      if (highDensityOverlay.regionLabelsGroupGlobe && highDensityOverlay.regionLabelsGroupGlobe.parent) {
+      if (highDensityOverlay?.regionLabelsGroupGlobe?.parent) {
         highDensityOverlay.regionLabelsGroupGlobe.parent.remove(highDensityOverlay.regionLabelsGroupGlobe);
       }
     }
