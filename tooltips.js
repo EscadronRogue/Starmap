@@ -12,6 +12,9 @@ export function showTooltip(x, y, star) {
         return;
     }
     
+    // Ensure the tooltip can receive pointer events.
+    tooltip.style.pointerEvents = 'auto';
+    
     // Attach a click event listener (if not already attached) so that clicks inside
     // the tooltip do not propagate further.
     if (!tooltip.hasAttribute('data-stop-propagation')) {
@@ -55,5 +58,7 @@ export function hideTooltip() {
     if (tooltip) {
        tooltip.classList.remove('visible');
        tooltip.classList.add('hidden');
+       // Disable pointer events when hidden so that underlying canvas events work.
+       tooltip.style.pointerEvents = 'none';
     }
 }
