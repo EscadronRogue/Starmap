@@ -123,21 +123,33 @@ function createGlobeGrid(R = 100, options = {}) {
 }
 
 /**
- * Loads star data from the single "Stars.json" file.
+ * Loads star data by reading every JSON file listed in data/manifest.json.
  */
 async function loadStarData() {
-  const url = `data/Stars.json`;
+  const manifestUrl = 'data/manifest.json';
   try {
-    const resp = await fetch(url);
-    if (resp.ok) {
-      const stars = await resp.json();
-      return stars;
-    } else {
-      console.warn(`File not found: ${url}`);
+    const manifestResp = await fetch(manifestUrl);
+    if (!manifestResp.ok) {
+      console.warn(`Manifest file not found: ${manifestUrl}`);
       return [];
     }
+    const fileNames = await manifestResp.json(); // e.g., ["Stars1.json", "Stars2.json", ...]
+    // Load each file in parallel
+    const dataPromises = fileNames.map(name =>
+      fetch(`data/${name}`).then(resp => {
+        if (!resp.ok) {
+          console.warn(`File not found: data/${name}`);
+          return [];
+        }
+        return resp.json();
+      })
+    );
+    const filesData = await Promise.all(dataPromises);
+    // Flatten all arrays into one array
+    const combinedData = filesData.flat();
+    return combinedData;
   } catch (e) {
-    console.warn(`Error loading ${url}:`, e);
+    console.warn("Error loading star data:", e);
     return [];
   }
 }
