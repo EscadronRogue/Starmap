@@ -1,5 +1,3 @@
-// script.js
-
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { applyFilters, setupFilterUI } from './filters/index.js';
 import { createConnectionLines, mergeConnectionLines } from './filters/connectionsFilter.js';
@@ -417,7 +415,10 @@ class MapManager {
     this.starGroup = new THREE.Group();
     this.scene.add(this.starGroup);
 
-    window.addEventListener('resize', () => this.onResize(), false);
+    // Remove the per-instance resize listener.
+    // Instead we will use a global debounced resize listener.
+    // window.addEventListener('resize', () => this.onResize(), false);
+
     this.animate();
   }
 
@@ -474,9 +475,11 @@ class MapManager {
     this.updateConnections(stars, connectionObjs);
   }
 
+  // UPDATED onResize: now using the parent element’s dimensions.
   onResize() {
-    const w = this.canvas.clientWidth;
-    const h = this.canvas.clientHeight;
+    const parent = this.canvas.parentElement;
+    const w = parent.clientWidth;
+    const h = parent.clientHeight;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
@@ -628,6 +631,12 @@ async function main() {
 
     const globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
+
+    // ADD GLOBAL DEBOUNCED RESIZE LISTENER
+    window.addEventListener('resize', debounce(() => {
+      trueCoordinatesMap.onResize();
+      globeMap.onResize();
+    }, 150));
 
     buildAndApplyFilters();
 
