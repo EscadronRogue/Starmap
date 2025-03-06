@@ -1,27 +1,33 @@
 // /filters/densityFilter.js
 
 import { DensityGridOverlay } from './densityGridOverlay.js';
+import { HighDensityTreeOverlay } from './densityTreeOverlay.js'; // NEW
 
 /**
- * Initializes the density overlay grid.
- * @param {number} minDistance - Minimum distance to consider for density mapping.
- * @param {number} maxDistance - Maximum distance to consider for density mapping.
- * @param {Array} starArray - Array of star objects.
- * @param {string} mode - "low" or "high" (default "low").
- * @param {number} [gridSize=2] - The size of each grid cell. (New slider-based value)
- * @returns {DensityGridOverlay} - The initialized grid overlay.
+ * Initializes the density overlay grid (low-density) or tree (high-density).
+ * @param {number} minDistance - Minimum distance to consider
+ * @param {number} maxDistance - Maximum distance to consider
+ * @param {Array} starArray
+ * @param {string} mode - "low" or "high"
+ * @param {number} [gridSize=2]
  */
 export function initDensityOverlay(minDistance, maxDistance, starArray, mode = "low", gridSize = 2) {
-  // We now pass gridSize into the constructor instead of always using 2
-  const grid = new DensityGridOverlay(minDistance, maxDistance, gridSize, mode);
-  grid.createGrid(starArray);
-  return grid;
+  if (mode === "low") {
+    // Original grid approach
+    const grid = new DensityGridOverlay(minDistance, maxDistance, gridSize, mode);
+    grid.createGrid(starArray);
+    return grid;
+  } else {
+    // "high" => new tree approach
+    const tree = new HighDensityTreeOverlay(minDistance, maxDistance, starArray);
+    // we keep the same naming pattern, so let's call createGrid() just to be consistent
+    tree.createGrid();
+    return tree;
+  }
 }
 
 /**
- * Updates the density mapping based on the provided star array using the given overlay.
- * @param {Array} starArray - Array of star objects.
- * @param {DensityGridOverlay} gridOverlay - The density overlay instance to update.
+ * Calls the overlay's update method.
  */
 export function updateDensityMapping(starArray, gridOverlay) {
   if (!gridOverlay) return;
