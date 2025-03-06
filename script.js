@@ -45,6 +45,7 @@ function radToSphere(ra, dec, R) {
 
 /**
  * Computes the true 3D position of a star using its RA/DEC and its distance.
+ * It supports both the new "distance" property and the legacy "Distance_from_the_Sun" property.
  */
 function getStarTruePosition(star) {
   const R = star.distance !== undefined ? star.distance : star.Distance_from_the_Sun;
@@ -83,6 +84,7 @@ function projectStarGlobe(star) {
 
 /**
  * Creates a grid for the Globe map.
+ * This function builds a set of lines (using great-circle points) representing RA/DEC grid lines.
  */
 function createGlobeGrid(R = 100, options = {}) {
   const gridGroup = new THREE.Group();
@@ -95,6 +97,7 @@ function createGlobeGrid(R = 100, options = {}) {
     opacity: lineOpacity,
     linewidth: lineWidth
   });
+  // Draw meridians (constant RA)
   for (let raDeg = 0; raDeg < 360; raDeg += 30) {
     const ra = THREE.Math.degToRad(raDeg);
     const points = [];
@@ -106,6 +109,7 @@ function createGlobeGrid(R = 100, options = {}) {
     const line = new THREE.Line(geometry, material);
     gridGroup.add(line);
   }
+  // Draw parallels (constant DEC)
   for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
     const dec = THREE.Math.degToRad(decDeg);
     const points = [];
@@ -122,7 +126,7 @@ function createGlobeGrid(R = 100, options = {}) {
 }
 
 /**
- * Loads star data from the manifest.
+ * Loads star data by reading every JSON file listed in data/manifest.json.
  */
 async function loadStarData() {
   const manifestUrl = 'data/manifest.json';
@@ -132,7 +136,8 @@ async function loadStarData() {
       console.warn(`Manifest file not found: ${manifestUrl}`);
       return [];
     }
-    const fileNames = await manifestResp.json();
+    const fileNames = await manifestResp.json(); // e.g., ["Stars1.json", "Stars2.json", ...]
+    // Load each file in parallel
     const dataPromises = fileNames.map(name =>
       fetch(`data/${name}`).then(resp => {
         if (!resp.ok) {
@@ -143,7 +148,9 @@ async function loadStarData() {
       })
     );
     const filesData = await Promise.all(dataPromises);
-    return filesData.flat();
+    // Flatten all arrays into one array
+    const combinedData = filesData.flat();
+    return combinedData;
   } catch (e) {
     console.warn("Error loading star data:", e);
     return [];
@@ -213,6 +220,123 @@ async function buildAndApplyFilters() {
   }
   if (showConstellationOverlay) {
     // Optional overlay handling.
+  }
+
+  // LOW DENSITY MAPPING – use the complete star set (cachedStars) for density mapping
+  if (lowDensityMapping) {
+    // We also read the "low-density-grid-size" from the form data
+    // We invert it so that a lower slider => bigger cells => larger gridSize
+    // For example, default slider=2 => gridSize=2 => matches current code
+    // If slider=1 => gridSize=4 => bigger cells, if slider=4 => gridSize=1 => smaller cells
+    const form = document.getElementById('filters-form');
+    const lowGridSliderValue = parseFloat(new FormData(form).get('low-density-grid-size') || '2');
+    const lowGridSize = 4 / lowGridSliderValue;  // invert relationship
+
+    if (
+      !lowDensityOverlay ||
+      lowDensityOverlay.minDistance !== parseFloat(minDistance) ||
+      lowDensityOverlay.maxDistance !== parseFloat(maxDistance) ||
+      lowDensityOverlay.gridSize !== lowGridSize
+    ) {
+      if (lowDensityOverlay) {
+        lowDensityOverlay.cubesData.forEach(c => {
+          trueCoordinatesMap.scene.remove(c.tcMesh);
+        });
+        lowDensityOverlay.adjacentLines.forEach(obj => {
+          globeMap.scene.remove(obj.line);
+        });
+      }
+      lowDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "low", lowGridSize);
+      lowDensityOverlay.cubesData.forEach(c => {
+        trueCoordinatesMap.scene.add(c.tcMesh);
+      });
+      lowDensityOverlay.adjacentLines.forEach(obj => {
+        globeMap.scene.add(obj.line);
+      });
+    }
+    updateDensityMapping(cachedStars, lowDensityOverlay);
+    if (lowDensityLabeling) {
+      lowDensityOverlay.assignConstellationsToCells().then(() => {
+        lowDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
+        lowDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
+        console.log("=== DEBUG: Low Density cluster distribution ===");
+      });
+    } else {
+      if (lowDensityOverlay.regionLabelsGroupTC && lowDensityOverlay.regionLabelsGroupTC.parent) {
+        lowDensityOverlay.regionLabelsGroupTC.parent.remove(lowDensityOverlay.regionLabelsGroupTC);
+      }
+      if (lowDensityOverlay.regionLabelsGroupGlobe && lowDensityOverlay.regionLabelsGroupGlobe.parent) {
+        lowDensityOverlay.regionLabelsGroupGlobe.parent.remove(lowDensityOverlay.regionLabelsGroupGlobe);
+      }
+    }
+  } else {
+    if (lowDensityOverlay) {
+      lowDensityOverlay.cubesData.forEach(c => {
+        trueCoordinatesMap.scene.remove(c.tcMesh);
+        globeMap.scene.remove(c.globeMesh);
+      });
+      lowDensityOverlay.adjacentLines.forEach(obj => {
+        globeMap.scene.remove(obj.line);
+      });
+      lowDensityOverlay = null;
+    }
+  }
+
+  // HIGH DENSITY MAPPING – also use cachedStars
+  if (highDensityMapping) {
+    // Similarly read the "high-density-grid-size"
+    const form = document.getElementById('filters-form');
+    const highGridSliderValue = parseFloat(new FormData(form).get('high-density-grid-size') || '2');
+    const highGridSize = 4 / highGridSliderValue;  // invert relationship
+
+    if (
+      !highDensityOverlay ||
+      highDensityOverlay.minDistance !== parseFloat(minDistance) ||
+      highDensityOverlay.maxDistance !== parseFloat(maxDistance) ||
+      highDensityOverlay.gridSize !== highGridSize
+    ) {
+      if (highDensityOverlay) {
+        highDensityOverlay.cubesData.forEach(c => {
+          trueCoordinatesMap.scene.remove(c.tcMesh);
+        });
+        highDensityOverlay.adjacentLines.forEach(obj => {
+          globeMap.scene.remove(obj.line);
+        });
+      }
+      highDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "high", highGridSize);
+      highDensityOverlay.cubesData.forEach(c => {
+        trueCoordinatesMap.scene.add(c.tcMesh);
+      });
+      highDensityOverlay.adjacentLines.forEach(obj => {
+        globeMap.scene.add(obj.line);
+      });
+    }
+    updateDensityMapping(cachedStars, highDensityOverlay);
+    if (highDensityLabeling) {
+      highDensityOverlay.assignConstellationsToCells().then(() => {
+        highDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
+        highDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
+        console.log("=== DEBUG: High Density cluster distribution ===");
+      });
+    } else {
+      if (highDensityOverlay.regionLabelsGroupTC && highDensityOverlay.regionLabelsGroupTC.parent) {
+        highDensityOverlay.regionLabelsGroupTC.parent.remove(highDensityOverlay.regionLabelsGroupTC);
+      }
+      if (highDensityOverlay.regionLabelsGroupGlobe && highDensityOverlay.regionLabelsGroupGlobe.parent) {
+        highDensityOverlay.regionLabelsGroupGlobe.parent.remove(highDensityOverlay.regionLabelsGroupGlobe);
+      }
+    }
+  } else {
+    if (highDensityOverlay) {
+      highDensityOverlay.cubesData.forEach(c => {
+        trueCoordinatesMap.scene.remove(c.tcMesh);
+        globeMap.scene.remove(c.globeMesh);
+      });
+      highDensityOverlay.adjacentLines.forEach(obj => {
+        globeMap.scene.remove(obj.line);
+      });
+      highDensityOverlay = null;
+    }
   }
 
   applyGlobeSurface(globeOpaqueSurface);
@@ -291,12 +415,9 @@ class MapManager {
     this.starGroup = new THREE.Group();
     this.scene.add(this.starGroup);
 
-    // If the visualViewport API is available, use it:
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', debounce(() => {
-        this.onResize();
-      }, 150));
-    }
+    // Remove the per-instance resize listener.
+    // Instead we will use a global debounced resize listener.
+    // window.addEventListener('resize', () => this.onResize(), false);
 
     this.animate();
   }
@@ -354,19 +475,14 @@ class MapManager {
     this.updateConnections(stars, connectionObjs);
   }
 
-  // onResize: if available vertical space (window.innerHeight - header) is less than 1000px, use that value; otherwise use 1000.
+  // UPDATED onResize: now using the parent element’s dimensions.
   onResize() {
-    const headerHeight = document.querySelector('header').offsetHeight;
-    const containerWidth = this.canvas.parentElement.clientWidth;
-    let desiredHeight = 1000;
-    const availableHeight = window.innerHeight - headerHeight;
-    if (availableHeight < 1000) {
-      desiredHeight = availableHeight;
-    }
-    this.camera.aspect = containerWidth / desiredHeight;
+    const parent = this.canvas.parentElement;
+    const w = parent.clientWidth;
+    const h = parent.clientHeight;
+    this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(containerWidth, desiredHeight);
-    this.canvas.style.height = desiredHeight + "px";
+    this.renderer.setSize(w, h);
   }
 
   animate() {
@@ -414,6 +530,7 @@ function initStarInteractions(map) {
   });
   
   map.canvas.addEventListener('click', (event) => {
+    // Check if the click occurred inside the tooltip's bounding box.
     const tooltip = document.getElementById('tooltip');
     if (tooltip) {
       const tRect = tooltip.getBoundingClientRect();
@@ -421,6 +538,7 @@ function initStarInteractions(map) {
         event.clientX >= tRect.left && event.clientX <= tRect.right &&
         event.clientY >= tRect.top && event.clientY <= tRect.bottom
       ) {
+        // Click occurred inside the tooltip; do nothing.
         return;
       }
     }
@@ -450,6 +568,7 @@ function initStarInteractions(map) {
 }
 
 function updateSelectedStarHighlight() {
+  // Remove existing highlights if any.
   if (selectedHighlightTrue) {
     trueCoordinatesMap.scene.remove(selectedHighlightTrue);
     selectedHighlightTrue = null;
@@ -459,6 +578,7 @@ function updateSelectedStarHighlight() {
     selectedHighlightGlobe = null;
   }
   if (selectedStarData) {
+    // Highlight in TrueCoordinates Map
     let posTrue = selectedStarData.truePosition 
       ? selectedStarData.truePosition 
       : new THREE.Vector3(selectedStarData.x_coordinate, selectedStarData.y_coordinate, selectedStarData.z_coordinate);
@@ -469,6 +589,7 @@ function updateSelectedStarHighlight() {
     selectedHighlightTrue.position.copy(posTrue);
     trueCoordinatesMap.scene.add(selectedHighlightTrue);
 
+    // Highlight in Globe Map
     let posGlobe = selectedStarData.spherePosition 
       ? selectedStarData.spherePosition 
       : projectStarGlobe(selectedStarData);
@@ -511,21 +632,11 @@ async function main() {
     const globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
 
-    // Global debounced resize listener
+    // ADD GLOBAL DEBOUNCED RESIZE LISTENER
     window.addEventListener('resize', debounce(() => {
       trueCoordinatesMap.onResize();
       globeMap.onResize();
     }, 150));
-
-    // Also poll for changes in window.innerHeight so that closing the console triggers a resize.
-    let lastHeight = window.innerHeight;
-    setInterval(() => {
-      if (window.innerHeight !== lastHeight) {
-        lastHeight = window.innerHeight;
-        trueCoordinatesMap.onResize();
-        globeMap.onResize();
-      }
-    }, 300);
 
     buildAndApplyFilters();
 
