@@ -13,7 +13,7 @@ export function showTooltip(x, y, star) {
     }
     
     // Attach a click event listener (if not already attached) so that clicks inside
-    // the tooltip do not propagate to the canvas.
+    // the tooltip do not propagate further.
     if (!tooltip.hasAttribute('data-stop-propagation')) {
         tooltip.addEventListener('click', (event) => {
             event.stopPropagation();
@@ -21,7 +21,7 @@ export function showTooltip(x, y, star) {
         tooltip.setAttribute('data-stop-propagation', 'true');
     }
     
-    // Build the tooltip content with all the fields (each on its own line)
+    // Build the tooltip content with all fields.
     tooltip.innerHTML = `
       <div id="tooltip-starName"><strong>Name:</strong> ${star.Common_name_of_the_star || 'Unknown Star'}</div>
       <div id="tooltip-systemName"><strong>System:</strong> ${star.Common_name_of_the_star_system || 'Unknown System'}</div>
