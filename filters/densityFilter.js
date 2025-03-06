@@ -4,9 +4,9 @@ import { DensityGridOverlay } from './densityGridOverlay.js';
 import { HighDensityTreeOverlay } from './densityTreeOverlay.js';
 
 /**
- * Initializes the overlay.
- * - If mode="low", use the old grid approach.
- * - If mode="high", use the new octree approach.
+ * Initializes the density overlay.
+ * If mode === "low", use the grid‐based overlay.
+ * If mode === "high", use the new octree‐based overlay.
  */
 export function initDensityOverlay(minDistance, maxDistance, starArray, mode = "low", gridSize = 2) {
   if (mode === "low") {
@@ -20,7 +20,6 @@ export function initDensityOverlay(minDistance, maxDistance, starArray, mode = "
   }
 }
 
-/** The update logic calls the overlay's `update()` method. */
 export function updateDensityMapping(starArray, overlay) {
   if (!overlay) return;
   overlay.update(starArray);
