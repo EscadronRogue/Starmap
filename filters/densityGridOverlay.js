@@ -1,5 +1,3 @@
-// /filters/densityGridOverlay.js
-
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { 
   getDoubleSidedLabelMaterial, 
@@ -63,7 +61,6 @@ function subdivideGeometry(geometry, iterations) {
     const newVertices = [...oldPositions];
     const newIndices = [];
     const midpointCache = {};
-    
     function getMidpoint(i1, i2) {
       const key = i1 < i2 ? `${i1}_${i2}` : `${i2}_${i1}`;
       if (midpointCache[key] !== undefined) return midpointCache[key];
@@ -75,7 +72,6 @@ function subdivideGeometry(geometry, iterations) {
       midpointCache[key] = idx;
       return idx;
     }
-    
     for (let i = 0; i < oldIndices.length; i += 3) {
       const i0 = oldIndices[i];
       const i1 = oldIndices[i + 1];
@@ -88,11 +84,8 @@ function subdivideGeometry(geometry, iterations) {
       newIndices.push(m0, m1, m2);
       newIndices.push(m2, m1, i2);
     }
-    
     const positions = [];
-    newVertices.forEach(v => {
-      positions.push(v.x, v.y, v.z);
-    });
+    newVertices.forEach(v => positions.push(v.x, v.y, v.z));
     geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geo.setIndex(newIndices);
@@ -133,14 +126,14 @@ export class DensityGridOverlay {
   /**
    * @param {number} minDistance - Minimum distance (LY) to include grid cells.
    * @param {number} maxDistance - Maximum distance (LY) to include grid cells.
-   * @param {number} gridSize - For low density mode, the size (in LY) of each grid cell. (Ignored in high mode.)
+   * @param {number} gridSize - For low density mode, the cell size in LY.
    * @param {string} mode - "low" or "high".
    */
   constructor(minDistance, maxDistance, gridSize = 2, mode = "low") {
     this.minDistance = parseFloat(minDistance);
     this.maxDistance = parseFloat(maxDistance);
     this.gridSize = gridSize;
-    this.mode = mode; // "low" or "high"
+    this.mode = mode;
     this.cubesData = [];
     this.adjacentLines = [];
     this.regionClusters = [];
@@ -148,7 +141,7 @@ export class DensityGridOverlay {
     this.regionLabelsGroupGlobe = new THREE.Group();
     
     if (this.mode === "high") {
-      // Parameters for octree mode will be set externally via UI sliders.
+      // These parameters are updated from the UI
       this.starThreshold = 10;
       this.maxDepth = 6;
     }
@@ -156,7 +149,7 @@ export class DensityGridOverlay {
 
   createGrid(stars) {
     if (this.mode === "low") {
-      // Existing grid approach
+      // Use the existing grid‐based method.
       const halfExt = Math.ceil(this.maxDistance / this.gridSize) * this.gridSize;
       this.cubesData = [];
       for (let x = -halfExt; x <= halfExt; x += this.gridSize) {
@@ -165,7 +158,6 @@ export class DensityGridOverlay {
             const posTC = new THREE.Vector3(x + this.gridSize / 2, y + this.gridSize / 2, z + this.gridSize / 2);
             const distFromCenter = posTC.length();
             if (distFromCenter < this.minDistance || distFromCenter > this.maxDistance) continue;
-            
             const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
             const material = new THREE.MeshBasicMaterial({
               color: 0x0000ff,
@@ -175,7 +167,6 @@ export class DensityGridOverlay {
             });
             const cubeTC = new THREE.Mesh(geometry, material);
             cubeTC.position.copy(posTC);
-            
             const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
             const material2 = material.clone();
             const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -216,12 +207,13 @@ export class DensityGridOverlay {
       this.cubesData.forEach(cell => computeCellDistances(cell, extendedStars));
       this.computeAdjacentLines();
     } else if (this.mode === "high") {
-      // High density: use an octree approach.
+      // Build an octree over the cube [-maxDistance, maxDistance]^3.
       const half = this.maxDistance;
       this.rootMin = new THREE.Vector3(-half, -half, -half);
       this.rootMax = new THREE.Vector3(half, half, half);
+      // Use distance fallback: use s.distance if available.
       const starPts = stars.filter(s => {
-        const d = s.Distance_from_the_Sun;
+        const d = (s.distance !== undefined) ? s.distance : s.Distance_from_the_Sun;
         return d <= this.maxDistance + 10;
       }).map(s => {
         if (s.truePosition) {
@@ -231,7 +223,14 @@ export class DensityGridOverlay {
       });
       this.octreeRoot = this.buildOctreeRecursive(this.rootMin, this.rootMax, 0, starPts, this.starThreshold, this.maxDepth);
       this.leafNodes = [];
-      this.collectLeafNodes(this.octreeRoot);
+      const collectLeaves = (node) => {
+        if (node.isLeaf) {
+          this.leafNodes.push(node);
+        } else if (node.children) {
+          node.children.forEach(child => collectLeaves(child));
+        }
+      };
+      collectLeaves(this.octreeRoot);
       this.cubesData = [];
       this.leafNodes.forEach(leaf => {
         const center = new THREE.Vector3(
@@ -239,7 +238,6 @@ export class DensityGridOverlay {
           0.5 * (leaf.minPt.y + leaf.maxPt.y),
           0.5 * (leaf.minPt.z + leaf.maxPt.z)
         );
-        // Only add cells whose centers lie within the sphere.
         if (center.length() > this.maxDistance) return;
         const dx = leaf.maxPt.x - leaf.minPt.x;
         const dy = leaf.maxPt.y - leaf.minPt.y;
@@ -322,6 +320,7 @@ export class DensityGridOverlay {
 
   update(stars) {
     if (this.mode === "low") {
+      // Low-density update (unchanged)
       const extendedStars = stars.filter(star => {
         const d = star.Distance_from_the_Sun;
         return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
@@ -345,8 +344,6 @@ export class DensityGridOverlay {
         cell.tcMesh.material.opacity = alpha;
         cell.globeMesh.visible = showSquare;
         cell.globeMesh.material.opacity = alpha;
-        const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
-        cell.globeMesh.scale.set(scale, scale, 1);
       });
       this.computeAdjacentLines();
       this.adjacentLines.forEach(obj => {
@@ -377,7 +374,8 @@ export class DensityGridOverlay {
         }
       });
     } else if (this.mode === "high") {
-      // For high density, rebuild the octree and grid on each update so slider changes take effect.
+      // Rebuild the octree overlay so that slider changes take effect.
+      // Remove old cubes from scene if any.
       this.cubesData.forEach(cell => {
         if (cell.tcMesh.parent) cell.tcMesh.parent.remove(cell.tcMesh);
         if (cell.globeMesh.parent) cell.globeMesh.parent.remove(cell.globeMesh);
@@ -392,7 +390,6 @@ export class DensityGridOverlay {
           0.5 * (cell.node.minPt.y + cell.node.maxPt.y),
           0.5 * (cell.node.minPt.z + cell.node.maxPt.z)
         );
-        // For high mode, show cell if center is within the sphere.
         cell.active = (center.length() <= this.maxDistance);
         const alpha = (cell.node.depth / this.maxDepth) * 0.5;
         cell.tcMesh.material.opacity = alpha;
@@ -468,45 +465,37 @@ export class DensityGridOverlay {
   }
 
   async assignConstellationsToCells() {
-    if (this.mode === "low") {
-      await loadConstellationCenters();
-      await loadConstellationBoundaries();
-      const centers = getConstellationCenters();
-      const boundaries = getConstellationBoundaries();
-      if (!boundaries.length) {
-        console.warn("No constellation boundaries available!");
+    await loadConstellationCenters();
+    await loadConstellationBoundaries();
+    const centers = getConstellationCenters();
+    const boundaries = getConstellationBoundaries();
+    if (!boundaries.length) {
+      console.warn("No constellation boundaries available!");
+      return;
+    }
+    const namesMapping = await loadConstellationFullNames();
+    this.cubesData.forEach(cell => {
+      if (!cell.active) return;
+      const cellPos = cell.tcPos.clone();
+      let nearestBoundary = null;
+      let minBoundaryDist = Infinity;
+      boundaries.forEach(bdry => {
+         const p1 = radToSphere(bdry.ra1, bdry.dec1, 100);
+         const p2 = radToSphere(bdry.ra2, bdry.dec2, 100);
+         const angle = cellPos.angleTo(p1);
+         if (angle < minBoundaryDist) {
+           minBoundaryDist = angle;
+           nearestBoundary = bdry;
+         }
+      });
+      if (!nearestBoundary) {
+        cell.constellation = "Unknown";
         return;
       }
-      const namesMapping = await loadConstellationFullNames();
-      this.cubesData.forEach(cell => {
-        if (!cell.active) return;
-        const cellPos = cell.tcPos.clone();
-        let nearestBoundary = null;
-        let minBoundaryDist = Infinity;
-        boundaries.forEach(bdry => {
-          const p1 = radToSphere(bdry.ra1, bdry.dec1, 100);
-          const p2 = radToSphere(bdry.ra2, bdry.dec2, 100);
-          const angle = cellPos.angleTo(p1);
-          if (angle < minBoundaryDist) {
-            minBoundaryDist = angle;
-            nearestBoundary = bdry;
-          }
-        });
-        if (!nearestBoundary) {
-          cell.constellation = "Unknown";
-          return;
-        }
-        const abbr1 = nearestBoundary.const1.toUpperCase();
-        const fullName1 = namesMapping[abbr1] || toTitleCase(abbr1);
-        cell.constellation = toTitleCase(fullName1);
-      });
-    } else {
-      this.cubesData.forEach(cell => {
-        if (cell.active) {
-          cell.clusterLabel = "HighOctreeRegion";
-        }
-      });
-    }
+      const abbr1 = nearestBoundary.const1.toUpperCase();
+      const fullName1 = namesMapping[abbr1] || toTitleCase(abbr1);
+      cell.constellation = toTitleCase(fullName1);
+    });
   }
 
   addRegionLabelsToScene(scene, mapType) {
