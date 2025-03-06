@@ -270,7 +270,7 @@ filter-item input[type="range"]::-moz-range-thumb:hover {
   border-radius: 8px;
   padding: 10px;
   box-shadow: 0 0 15px rgba(255, 111, 97, 0.5);
-  /* The container height is left to be controlled by JS */
+  /* Height is managed by the JavaScript */
   height: auto;
 }
 
