@@ -1,5 +1,3 @@
-// script.js
-
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { applyFilters, setupFilterUI } from './filters/index.js';
 import { createConnectionLines, mergeConnectionLines } from './filters/connectionsFilter.js';
@@ -185,7 +183,7 @@ async function buildAndApplyFilters() {
     constellationLabelsGlobe.forEach(lbl => globeMap.scene.add(lbl));
   }
 
-  // Low Density Mapping (grid-based)
+  // LOW DENSITY Mapping (grid-based)
   if (lowDensityMapping) {
     const form = document.getElementById('filters-form');
     const gridVal = parseInt(new FormData(form).get('low-density-grid-size') || "5", 10);
@@ -225,7 +223,7 @@ async function buildAndApplyFilters() {
     }
   }
 
-  // High Density Mapping (octree-based)
+  // HIGH DENSITY Mapping (octree-based)
   if (highDensityMapping) {
     const form = document.getElementById('filters-form');
     const starT = parseInt(form.querySelector('#high-octree-star-threshold').value || "10", 10);
@@ -485,9 +483,7 @@ async function main() {
     await setupFilterUI(cachedStars);
     const debouncedApplyFilters = debounce(buildAndApplyFilters, 150);
     const form = document.getElementById('filters-form');
-    if (form) {
-      form.addEventListener('change', debouncedApplyFilters);
-    }
+    if (form) { form.addEventListener('change', debouncedApplyFilters); }
     trueCoordinatesMap = new MapManager({ canvasId: 'map3D', mapType: 'TrueCoordinates' });
     globeMap = new MapManager({ canvasId: 'sphereMap', mapType: 'Globe' });
     window.trueCoordinatesMap = trueCoordinatesMap;
