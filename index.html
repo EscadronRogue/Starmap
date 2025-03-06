@@ -149,9 +149,9 @@
               <input type="checkbox" id="enable-low-density-labeling" name="enable-low-density-labeling" />
               <label for="enable-low-density-labeling">Enable Low Density Cluster Labeling &amp; Segmentation</label>
             </div>
-            <!-- Grid Subdivision (levels 1..10). We'll map behind the scenes to 0.005..5.0. -->
+            <!-- Grid Subdivision from 1..10 (step=1). We'll interpret directly as cellSize = that integer. -->
             <div class="filter-item">
-              <label for="low-density-grid-slider">Grid Subdivision (Level):</label>
+              <label for="low-density-grid-slider">Grid Cell Size (1..10):</label>
               <input 
                 type="range" 
                 id="low-density-grid-slider" 
@@ -176,7 +176,7 @@
           </div>
         </fieldset>
 
-        <!-- HIGH DENSITY MAPPING Filter -->
+        <!-- HIGH DENSITY MAPPING Filter (Octree) -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">High Density Mapping</legend>
           <div class="filter-content">
@@ -184,74 +184,35 @@
               <input type="checkbox" id="enable-high-density-mapping" name="enable-high-density-mapping" />
               <label for="enable-high-density-mapping">Enable High Density Mapping</label>
             </div>
-            <!-- We'll keep the old "distance" slider or remove it? Let's keep it for now, with step=1. -->
+            <!-- We remove old "distance X" & "min stars Y" sliders, add direct numeric inputs: -->
             <div class="filter-item">
-              <label for="high-density-slider">Distance X (LY):</label>
+              <label for="high-octree-star-threshold">Star Threshold:</label>
               <input 
-                type="range" 
-                id="high-density-slider" 
-                name="high-density" 
-                min="1" 
-                max="20" 
-                step="1" 
-                value="1" 
-                disabled
-              />
-              <input 
-                type="number" 
-                id="high-density-number" 
-                name="high-density" 
-                min="1" 
-                max="20" 
-                step="1" 
-                value="1" 
-                disabled
-              />
-              <span id="high-density-value">1</span> LY
-            </div>
-            <!-- "Y" star-count slider => step=1. -->
-            <div class="filter-item">
-              <label for="high-density-count-slider">Minimum Stars Y:</label>
-              <input 
-                type="range" 
-                id="high-density-count-slider" 
-                name="high-density-count" 
-                min="1" 
-                max="200" 
+                type="number"
+                id="high-octree-star-threshold"
+                name="high-octree-star-threshold"
+                min="1"
                 step="1"
-                value="1" 
+                value="10"
                 disabled
               />
-              <span id="high-density-count-value">1</span>
+            </div>
+            <div class="filter-item">
+              <label for="high-octree-max-depth">Max Depth:</label>
+              <input 
+                type="number"
+                id="high-octree-max-depth"
+                name="high-octree-max-depth"
+                min="1"
+                step="1"
+                value="6"
+                disabled
+              />
             </div>
             <!-- High Density Cluster Labeling & Segmentation toggle -->
             <div class="filter-item">
               <input type="checkbox" id="enable-high-density-labeling" name="enable-high-density-labeling" />
               <label for="enable-high-density-labeling">Enable High Density Cluster Labeling &amp; Segmentation</label>
-            </div>
-            <!-- Grid Subdivision (levels 1..10). We'll ignore it for the octree approach, or keep? We'll keep it but do nothing. -->
-            <div class="filter-item">
-              <label for="high-density-grid-slider">Grid Subdivision (Level):</label>
-              <input 
-                type="range" 
-                id="high-density-grid-slider" 
-                name="high-density-grid-size" 
-                min="1" 
-                max="10" 
-                step="1"
-                value="5" 
-                disabled
-              />
-              <input 
-                type="number" 
-                id="high-density-grid-number" 
-                name="high-density-grid-size" 
-                min="1" 
-                max="10" 
-                step="1" 
-                value="5" 
-                disabled
-              />
             </div>
           </div>
         </fieldset>
@@ -298,7 +259,7 @@
       document.querySelector('.sidebar').classList.toggle('open');
     });
 
-    // Enable/disable connection slider based on checkbox state
+    // Connection slider toggle
     document.getElementById('enable-connections').addEventListener('change', function() {
       document.getElementById('connection-slider').disabled = !this.checked;
     });
@@ -316,14 +277,11 @@
     // High density toggles
     document.getElementById('enable-high-density-mapping').addEventListener('change', function() {
       const highEnabled = this.checked;
-      document.getElementById('high-density-slider').disabled = !highEnabled;
-      document.getElementById('high-density-number').disabled = !highEnabled;
-      document.getElementById('high-density-count-slider').disabled = !highEnabled;
-      document.getElementById('high-density-grid-slider').disabled = !highEnabled;
-      document.getElementById('high-density-grid-number').disabled = !highEnabled;
+      document.getElementById('high-octree-star-threshold').disabled = !highEnabled;
+      document.getElementById('high-octree-max-depth').disabled = !highEnabled;
     });
 
-    // Tolerance slider
+    // Low tolerance
     document.getElementById('low-tolerance-slider').addEventListener('input', function() {
       document.getElementById('low-tolerance-value').textContent = this.value;
     });
@@ -342,7 +300,7 @@
       document.getElementById('max-distance-slider').value = this.value;
     });
 
-    // Low density slider
+    // Low density isolation slider
     document.getElementById('low-density-slider').addEventListener('input', function() {
       document.getElementById('low-density-number').value = this.value;
       document.getElementById('low-density-value').textContent = this.value;
@@ -352,33 +310,12 @@
       document.getElementById('low-density-value').textContent = this.value;
     });
 
-    // High density distance slider
-    document.getElementById('high-density-slider').addEventListener('input', function() {
-      document.getElementById('high-density-number').value = this.value;
-      document.getElementById('high-density-value').textContent = this.value;
-    });
-    document.getElementById('high-density-number').addEventListener('input', function() {
-      document.getElementById('high-density-slider').value = this.value;
-      document.getElementById('high-density-value').textContent = this.value;
-    });
-
-    // High density star-count slider
-    document.getElementById('high-density-count-slider').addEventListener('input', function() {
-      document.getElementById('high-density-count-value').textContent = this.value;
-    });
-
-    // Subdivision "levels" sync (just 1..10)
+    // Low density grid slider
     document.getElementById('low-density-grid-slider').addEventListener('input', function() {
       document.getElementById('low-density-grid-number').value = this.value;
     });
     document.getElementById('low-density-grid-number').addEventListener('input', function() {
       document.getElementById('low-density-grid-slider').value = this.value;
-    });
-    document.getElementById('high-density-grid-slider').addEventListener('input', function() {
-      document.getElementById('high-density-grid-number').value = this.value;
-    });
-    document.getElementById('high-density-grid-number').addEventListener('input', function() {
-      document.getElementById('high-density-grid-slider').value = this.value;
     });
 
     // Connection slider
