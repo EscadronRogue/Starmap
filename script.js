@@ -31,7 +31,8 @@ let globeSurfaceSphere = null;
 let lowDensityOverlay = null;
 let highDensityOverlay = null;
 
-/* Utility functions for star positions */
+/* Utility Functions */
+
 function radToSphere(ra, dec, R) {
   return new THREE.Vector3(
     -R * Math.cos(dec) * Math.cos(ra),
@@ -72,7 +73,7 @@ function projectStarGlobe(star) {
   return radToSphere(ra, dec, R);
 }
 
-/* Example helper: loadStarData reads the manifest and returns a flattened star array */
+/* Helper: loadStarData - loads the manifest and returns a flattened star array */
 async function loadStarData() {
   const manifestUrl = 'data/manifest.json';
   try {
@@ -99,6 +100,7 @@ async function loadStarData() {
   }
 }
 
+/* Helper: debounce */
 function debounce(func, wait) {
   let timeout;
   return function (...args) {
@@ -107,7 +109,47 @@ function debounce(func, wait) {
   };
 }
 
-/* MapManager class controls a Three.js scene and handles resizing */
+/* Helper: createGlobeGrid - draws grid lines on a sphere */
+function createGlobeGrid(R = 100, options = {}) {
+  const gridGroup = new THREE.Group();
+  const gridColor = options.color || 0x444444;
+  const lineOpacity = options.opacity !== undefined ? options.opacity : 0.2;
+  const lineWidth = options.lineWidth || 1;
+  const material = new THREE.LineBasicMaterial({
+    color: gridColor,
+    transparent: true,
+    opacity: lineOpacity,
+    linewidth: lineWidth
+  });
+  // Draw meridians (constant RA)
+  for (let raDeg = 0; raDeg < 360; raDeg += 30) {
+    const ra = THREE.Math.degToRad(raDeg);
+    const points = [];
+    for (let decDeg = -80; decDeg <= 80; decDeg += 2) {
+      const dec = THREE.Math.degToRad(decDeg);
+      points.push(radToSphere(ra, dec, R));
+    }
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geometry, material);
+    gridGroup.add(line);
+  }
+  // Draw parallels (constant DEC)
+  for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
+    const dec = THREE.Math.degToRad(decDeg);
+    const points = [];
+    const segments = 64;
+    for (let i = 0; i <= segments; i++) {
+      const ra = (i / segments) * 2 * Math.PI;
+      points.push(radToSphere(ra, dec, R));
+    }
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geometry, material);
+    gridGroup.add(line);
+  }
+  return gridGroup;
+}
+
+/* MapManager Class */
 class MapManager {
   constructor({ canvasId, mapType }) {
     this.canvas = document.getElementById(canvasId);
@@ -120,7 +162,7 @@ class MapManager {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
 
-    // Default aspect ratio for 1000px height
+    // Set default aspect ratio based on a 1000px canvas height
     this.camera = new THREE.PerspectiveCamera(
       75,
       window.innerWidth / 1000,
@@ -227,6 +269,8 @@ class MapManager {
     this.renderer.render(this.scene, this.camera);
   }
 }
+
+/* Star Interaction Functions */
 
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
