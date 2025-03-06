@@ -1,3 +1,5 @@
+// script.js
+
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { applyFilters, setupFilterUI } from './filters/index.js';
 import { createConnectionLines, mergeConnectionLines } from './filters/connectionsFilter.js';
@@ -38,8 +40,9 @@ function radToSphere(ra, dec, R) {
     -R * Math.cos(dec) * Math.sin(ra)
   );
 }
+
 function getStarTruePosition(star) {
-  const R = star.distance !== undefined ? star.distance : star.Distance_from_the_Sun;
+  const R = (star.distance !== undefined) ? star.distance : star.Distance_from_the_Sun;
   let ra, dec;
   if (star.RA_in_radian !== undefined && star.DEC_in_radian !== undefined) {
     ra = star.RA_in_radian;
@@ -52,6 +55,7 @@ function getStarTruePosition(star) {
   }
   return radToSphere(ra, dec, R);
 }
+
 function projectStarGlobe(star) {
   const R = 100;
   let ra, dec;
@@ -66,6 +70,7 @@ function projectStarGlobe(star) {
   }
   return radToSphere(ra, dec, R);
 }
+
 function createGlobeGrid(R = 100, options = {}) {
   const gridGroup = new THREE.Group();
   const gridColor = options.color || 0x444444;
@@ -101,6 +106,7 @@ function createGlobeGrid(R = 100, options = {}) {
   }
   return gridGroup;
 }
+
 async function loadStarData() {
   try {
     const resp = await fetch('data/manifest.json');
@@ -119,6 +125,7 @@ async function loadStarData() {
     return [];
   }
 }
+
 function debounce(fn, wait) {
   let t;
   return function(...args) {
@@ -126,6 +133,7 @@ function debounce(fn, wait) {
     t = setTimeout(() => fn.apply(this, args), wait);
   };
 }
+
 async function buildAndApplyFilters() {
   if (!cachedStars) return;
   const filters = applyFilters(cachedStars);
@@ -147,18 +155,27 @@ async function buildAndApplyFilters() {
     minDistance,
     maxDistance
   } = filters;
+
   currentFilteredStars = filteredStars;
   currentConnections = connections;
   currentGlobeFilteredStars = globeFilteredStars;
   currentGlobeConnections = globeConnections;
-  currentGlobeFilteredStars.forEach(s => { s.spherePosition = projectStarGlobe(s); });
-  currentFilteredStars.forEach(s => { s.truePosition = getStarTruePosition(s); });
+
+  currentGlobeFilteredStars.forEach(star => {
+    star.spherePosition = projectStarGlobe(star);
+  });
+  currentFilteredStars.forEach(star => {
+    star.truePosition = getStarTruePosition(star);
+  });
+
   trueCoordinatesMap.updateMap(currentFilteredStars, currentConnections);
   trueCoordinatesMap.labelManager.refreshLabels(currentFilteredStars);
   globeMap.updateMap(currentGlobeFilteredStars, currentGlobeConnections);
   globeMap.labelManager.refreshLabels(currentGlobeFilteredStars);
+
   removeConstellationObjectsFromGlobe();
   removeConstellationOverlayObjectsFromGlobe();
+
   if (showConstellationBoundaries) {
     constellationLinesGlobe = createConstellationBoundariesForGlobe();
     constellationLinesGlobe.forEach(ln => globeMap.scene.add(ln));
@@ -167,6 +184,8 @@ async function buildAndApplyFilters() {
     constellationLabelsGlobe = createConstellationLabelsForGlobe();
     constellationLabelsGlobe.forEach(lbl => globeMap.scene.add(lbl));
   }
+
+  // Low Density Mapping (grid-based)
   if (lowDensityMapping) {
     const form = document.getElementById('filters-form');
     const gridVal = parseInt(new FormData(form).get('low-density-grid-size') || "5", 10);
@@ -180,37 +199,33 @@ async function buildAndApplyFilters() {
           trueCoordinatesMap.scene.remove(c.tcMesh);
           globeMap.scene.remove(c.globeMesh);
         });
-        lowDensityOverlay.adjacentLines.forEach(obj => { globeMap.scene.remove(obj.line); });
+        lowDensityOverlay.adjacentLines.forEach(obj => {
+          globeMap.scene.remove(obj.line);
+        });
       }
       lowDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "low", gridSize);
-      lowDensityOverlay.cubesData.forEach(c => { trueCoordinatesMap.scene.add(c.tcMesh); });
-      lowDensityOverlay.adjacentLines.forEach(obj => { globeMap.scene.add(obj.line); });
+      lowDensityOverlay.cubesData.forEach(c => {
+        trueCoordinatesMap.scene.add(c.tcMesh);
+      });
+      lowDensityOverlay.adjacentLines.forEach(obj => {
+        globeMap.scene.add(obj.line);
+      });
     }
     updateDensityMapping(cachedStars, lowDensityOverlay);
-    const labelCk = form.querySelector('#enable-low-density-labeling');
-    if (labelCk && labelCk.checked) {
-      lowDensityOverlay.assignConstellationsToCells().then(() => {
-        lowDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
-        lowDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
-      });
-    } else {
-      if (lowDensityOverlay.regionLabelsGroupTC?.parent) {
-        lowDensityOverlay.regionLabelsGroupTC.parent.remove(lowDensityOverlay.regionLabelsGroupTC);
-      }
-      if (lowDensityOverlay.regionLabelsGroupGlobe?.parent) {
-        lowDensityOverlay.regionLabelsGroupGlobe.parent.remove(lowDensityOverlay.regionLabelsGroupGlobe);
-      }
-    }
   } else {
     if (lowDensityOverlay) {
       lowDensityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.remove(c.tcMesh);
         globeMap.scene.remove(c.globeMesh);
       });
-      lowDensityOverlay.adjacentLines.forEach(obj => { globeMap.scene.remove(obj.line); });
+      lowDensityOverlay.adjacentLines.forEach(obj => {
+        globeMap.scene.remove(obj.line);
+      });
       lowDensityOverlay = null;
     }
   }
+
+  // High Density Mapping (octree-based)
   if (highDensityMapping) {
     const form = document.getElementById('filters-form');
     const starT = parseInt(form.querySelector('#high-octree-star-threshold').value || "10", 10);
@@ -223,57 +238,46 @@ async function buildAndApplyFilters() {
           trueCoordinatesMap.scene.remove(c.tcMesh);
           globeMap.scene.remove(c.globeMesh);
         });
-        highDensityOverlay.adjacentLines.forEach(obj => { globeMap.scene.remove(obj.line); });
       }
       highDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "high");
-      highDensityOverlay.cubesData.forEach(c => { trueCoordinatesMap.scene.add(c.tcMesh); });
-      highDensityOverlay.adjacentLines.forEach(obj => { globeMap.scene.add(obj.line); });
+      highDensityOverlay.cubesData.forEach(c => {
+        trueCoordinatesMap.scene.add(c.tcMesh);
+      });
     }
     highDensityOverlay.starThreshold = starT;
     highDensityOverlay.maxDepth = maxD;
     updateDensityMapping(cachedStars, highDensityOverlay);
-    const highLabelCk = form.querySelector('#enable-high-density-labeling');
-    if (highLabelCk && highLabelCk.checked) {
-      highDensityOverlay.assignConstellationsToCells().then(() => {
-        highDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
-        highDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
-      });
-    } else {
-      if (highDensityOverlay.regionLabelsGroupTC?.parent) {
-        highDensityOverlay.regionLabelsGroupTC.parent.remove(highDensityOverlay.regionLabelsGroupTC);
-      }
-      if (highDensityOverlay.regionLabelsGroupGlobe?.parent) {
-        highDensityOverlay.regionLabelsGroupGlobe.parent.remove(highDensityOverlay.regionLabelsGroupGlobe);
-      }
-    }
   } else {
     if (highDensityOverlay) {
       highDensityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.remove(c.tcMesh);
         globeMap.scene.remove(c.globeMesh);
       });
-      highDensityOverlay.adjacentLines.forEach(obj => { globeMap.scene.remove(obj.line); });
       highDensityOverlay = null;
     }
   }
+
   applyGlobeSurface(globeOpaqueSurface);
 }
+
 function removeConstellationObjectsFromGlobe() {
-  if (constellationLinesGlobe?.length > 0) {
+  if (constellationLinesGlobe && constellationLinesGlobe.length > 0) {
     constellationLinesGlobe.forEach(l => globeMap.scene.remove(l));
   }
   constellationLinesGlobe = [];
-  if (constellationLabelsGlobe?.length > 0) {
+  if (constellationLabelsGlobe && constellationLabelsGlobe.length > 0) {
     constellationLabelsGlobe.forEach(lbl => globeMap.scene.remove(lbl));
   }
   constellationLabelsGlobe = [];
 }
+
 function removeConstellationOverlayObjectsFromGlobe() {
-  if (constellationOverlayGlobe?.length > 0) {
+  if (constellationOverlayGlobe && constellationOverlayGlobe.length > 0) {
     constellationOverlayGlobe.forEach(m => globeMap.scene.remove(m));
   }
   constellationOverlayGlobe = [];
 }
+
 function applyGlobeSurface(isOpaque) {
   if (globeSurfaceSphere) {
     globeMap.scene.remove(globeSurfaceSphere);
@@ -293,6 +297,7 @@ function applyGlobeSurface(isOpaque) {
     globeMap.scene.add(globeSurfaceSphere);
   }
 }
+
 class MapManager {
   constructor({ canvasId, mapType }) {
     this.canvas = document.getElementById(canvasId);
@@ -304,7 +309,12 @@ class MapManager {
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
-    this.camera = new THREE.PerspectiveCamera(75, this.canvas.clientWidth / this.canvas.clientHeight, 0.1, 10000);
+    this.camera = new THREE.PerspectiveCamera(
+      75,
+      this.canvas.clientWidth / this.canvas.clientHeight,
+      0.1,
+      10000
+    );
     if (mapType === 'TrueCoordinates') {
       this.camera.position.set(0, 0, 70);
     } else {
@@ -322,6 +332,7 @@ class MapManager {
     window.addEventListener('resize', () => this.onResize(), false);
     this.animate();
   }
+
   addStars(stars) {
     while (this.starGroup.children.length > 0) {
       const child = this.starGroup.children[0];
@@ -332,7 +343,11 @@ class MapManager {
     stars.forEach(star => {
       const size = star.displaySize || 1;
       const geom = new THREE.SphereGeometry(size * 0.2, 12, 12);
-      const mat = new THREE.MeshBasicMaterial({ color: star.displayColor || '#ffffff', transparent: true, opacity: 1.0 });
+      const mat = new THREE.MeshBasicMaterial({
+        color: star.displayColor || '#ffffff',
+        transparent: true,
+        opacity: 1.0
+      });
       const starMesh = new THREE.Mesh(geom, mat);
       let pos;
       if (this.mapType === 'TrueCoordinates') {
@@ -345,6 +360,7 @@ class MapManager {
     });
     this.starObjects = stars;
   }
+
   updateConnections(stars, connectionObjs) {
     if (this.connectionGroup) {
       this.scene.remove(this.connectionGroup);
@@ -354,17 +370,19 @@ class MapManager {
     this.connectionGroup = new THREE.Group();
     if (this.mapType === 'Globe') {
       const linesArray = createConnectionLines(stars, connectionObjs, 'Globe');
-      linesArray.forEach(l => this.connectionGroup.add(l));
+      linesArray.forEach(line => this.connectionGroup.add(line));
     } else {
       const merged = mergeConnectionLines(connectionObjs);
       this.connectionGroup.add(merged);
     }
     this.scene.add(this.connectionGroup);
   }
+
   updateMap(stars, connectionObjs) {
     this.addStars(stars);
     this.updateConnections(stars, connectionObjs);
   }
+
   onResize() {
     const w = this.canvas.clientWidth;
     const h = this.canvas.clientHeight;
@@ -372,11 +390,13 @@ class MapManager {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
   }
+
   animate() {
     requestAnimationFrame(() => this.animate());
     this.renderer.render(this.scene, this.camera);
   }
 }
+
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
@@ -428,6 +448,7 @@ function initStarInteractions(map) {
     }
   });
 }
+
 function updateSelectedStarHighlight() {
   if (selectedHighlightTrue) {
     trueCoordinatesMap.scene.remove(selectedHighlightTrue);
@@ -454,16 +475,19 @@ function updateSelectedStarHighlight() {
     globeMap.scene.add(selectedHighlightGlobe);
   }
 }
+
 async function main() {
   const loader = document.getElementById('loader');
-  loader.classList.remove('hidden');
+  loader.classList.remove('active');
   try {
     cachedStars = await loadStarData();
     if (!cachedStars.length) throw new Error("No star data available");
     await setupFilterUI(cachedStars);
     const debouncedApplyFilters = debounce(buildAndApplyFilters, 150);
     const form = document.getElementById('filters-form');
-    if (form) { form.addEventListener('change', debouncedApplyFilters); }
+    if (form) {
+      form.addEventListener('change', debouncedApplyFilters);
+    }
     trueCoordinatesMap = new MapManager({ canvasId: 'map3D', mapType: 'TrueCoordinates' });
     globeMap = new MapManager({ canvasId: 'sphereMap', mapType: 'Globe' });
     window.trueCoordinatesMap = trueCoordinatesMap;
@@ -477,11 +501,12 @@ async function main() {
     const globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
     buildAndApplyFilters();
-    loader.classList.add('hidden');
+    loader.classList.add('active');
   } catch (err) {
     console.error("Error initializing starmap:", err);
     alert("Initialization failed. Check console for details.");
-    loader.classList.add('hidden');
+    loader.classList.add('active');
   }
 }
+
 window.onload = main;
