@@ -20,7 +20,6 @@ let currentGlobeFilteredStars = [];
 let currentGlobeConnections = [];
 
 let selectedStarData = null;
-// Global variables for star highlight meshes
 let selectedHighlightTrue = null;
 let selectedHighlightGlobe = null;
 
@@ -34,9 +33,6 @@ let globeSurfaceSphere = null;
 let lowDensityOverlay = null;
 let highDensityOverlay = null;
 
-/**
- * Converts spherical coordinates (RA, DEC) to a THREE.Vector3 on a sphere of radius R.
- */
 function radToSphere(ra, dec, R) {
   return new THREE.Vector3(
     -R * Math.cos(dec) * Math.cos(ra),
@@ -44,11 +40,6 @@ function radToSphere(ra, dec, R) {
     -R * Math.cos(dec) * Math.sin(ra)
   );
 }
-
-/**
- * Computes the true 3D position of a star using its RA/DEC and its distance.
- * It supports both the new "distance" property and the legacy "Distance_from_the_Sun" property.
- */
 function getStarTruePosition(star) {
   const R = star.distance !== undefined ? star.distance : star.Distance_from_the_Sun;
   let ra, dec;
@@ -64,10 +55,6 @@ function getStarTruePosition(star) {
   }
   return radToSphere(ra, dec, R);
 }
-
-/**
- * Projects a star onto the Globe.
- */
 function projectStarGlobe(star) {
   const R = 100;
   let ra, dec;
@@ -83,15 +70,10 @@ function projectStarGlobe(star) {
   }
   return radToSphere(ra, dec, R);
 }
-
-/**
- * Creates a grid for the Globe map.
- * This function builds a set of lines (using great-circle points) representing RA/DEC grid lines.
- */
 function createGlobeGrid(R = 100, options = {}) {
   const gridGroup = new THREE.Group();
   const gridColor = options.color || 0x444444;
-  const lineOpacity = options.opacity !== undefined ? options.opacity : 0.2;
+  const lineOpacity = (options.opacity !== undefined) ? options.opacity : 0.2;
   const lineWidth = options.lineWidth || 1;
   const material = new THREE.LineBasicMaterial({
     color: gridColor,
@@ -99,7 +81,7 @@ function createGlobeGrid(R = 100, options = {}) {
     opacity: lineOpacity,
     linewidth: lineWidth
   });
-  // Draw meridians (constant RA)
+  // Meridians
   for (let raDeg = 0; raDeg < 360; raDeg += 30) {
     const ra = THREE.Math.degToRad(raDeg);
     const points = [];
@@ -111,7 +93,7 @@ function createGlobeGrid(R = 100, options = {}) {
     const line = new THREE.Line(geometry, material);
     gridGroup.add(line);
   }
-  // Draw parallels (constant DEC)
+  // Parallels
   for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
     const dec = THREE.Math.degToRad(decDeg);
     const points = [];
@@ -126,42 +108,34 @@ function createGlobeGrid(R = 100, options = {}) {
   }
   return gridGroup;
 }
-
-/**
- * Loads star data by reading every JSON file listed in data/manifest.json.
- */
 async function loadStarData() {
   const manifestUrl = 'data/manifest.json';
   try {
-    const manifestResp = await fetch(manifestUrl);
-    if (!manifestResp.ok) {
+    const resp = await fetch(manifestUrl);
+    if (!resp.ok) {
       console.warn(`Manifest file not found: ${manifestUrl}`);
       return [];
     }
-    const fileNames = await manifestResp.json(); // e.g., ["Stars1.json", "Stars2.json", ...]
-    // Load each file in parallel
-    const dataPromises = fileNames.map(name =>
-      fetch(`data/${name}`).then(resp => {
-        if (!resp.ok) {
+    const fileNames = await resp.json();
+    const dataPromises = fileNames.map(name => 
+      fetch(`data/${name}`).then(r => {
+        if (!r.ok) {
           console.warn(`File not found: data/${name}`);
           return [];
         }
-        return resp.json();
+        return r.json();
       })
     );
     const filesData = await Promise.all(dataPromises);
-    // Flatten all arrays into one array
-    const combinedData = filesData.flat();
-    return combinedData;
-  } catch (e) {
+    return filesData.flat();
+  } catch(e) {
     console.warn("Error loading star data:", e);
     return [];
   }
 }
-
 function debounce(func, wait) {
   let timeout;
-  return function (...args) {
+  return function(...args) {
     clearTimeout(timeout);
     timeout = setTimeout(() => { func.apply(this, args); }, wait);
   };
@@ -184,7 +158,6 @@ async function buildAndApplyFilters() {
     highDensityMapping,
     lowDensity,
     lowTolerance,
-    // no need for highTolerance anymore
     highDensityLabeling,
     minDistance,
     maxDistance
@@ -219,26 +192,22 @@ async function buildAndApplyFilters() {
     constellationLabelsGlobe.forEach(lbl => globeMap.scene.add(lbl));
   }
   if (showConstellationOverlay) {
-    // Optional overlay handling.
+    // Optional overlay
   }
 
-  // LOW DENSITY MAPPING
+  // Low density overlay as usual
   if (lowDensityMapping) {
-    // We also read the "low-density-grid-size"
     const form = document.getElementById('filters-form');
     const lowGridSliderValue = parseFloat(new FormData(form).get('low-density-grid-size') || '2');
-    // Invert so that smaller slider => bigger cells
     const lowGridSize = 4 / lowGridSliderValue;
-
-    if (
-      !lowDensityOverlay ||
-      lowDensityOverlay.minDistance !== parseFloat(minDistance) ||
-      lowDensityOverlay.maxDistance !== parseFloat(maxDistance) ||
-      lowDensityOverlay.gridSize !== lowGridSize
-    ) {
+    if (!lowDensityOverlay ||
+        lowDensityOverlay.minDistance !== parseFloat(minDistance) ||
+        lowDensityOverlay.maxDistance !== parseFloat(maxDistance) ||
+        lowDensityOverlay.gridSize !== lowGridSize) {
       if (lowDensityOverlay) {
         lowDensityOverlay.cubesData.forEach(c => {
           trueCoordinatesMap.scene.remove(c.tcMesh);
+          globeMap.scene.remove(c.globeMesh);
         });
         lowDensityOverlay.adjacentLines.forEach(obj => {
           globeMap.scene.remove(obj.line);
@@ -253,8 +222,8 @@ async function buildAndApplyFilters() {
       });
     }
     updateDensityMapping(cachedStars, lowDensityOverlay);
-    const lowDensityLabelingCheckbox = form.querySelector('#enable-low-density-labeling');
-    if (lowDensityLabelingCheckbox && lowDensityLabelingCheckbox.checked) {
+    const lowDensityLabeling = form.querySelector('#enable-low-density-labeling');
+    if (lowDensityLabeling && lowDensityLabeling.checked) {
       lowDensityOverlay.assignConstellationsToCells().then(() => {
         lowDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
         lowDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
@@ -280,29 +249,24 @@ async function buildAndApplyFilters() {
     }
   }
 
-  // HIGH DENSITY MAPPING
+  // High density overlay => use the new tree approach
   const form = document.getElementById('filters-form');
   const highEnabled = form.querySelector('#enable-high-density-mapping')?.checked;
   if (highEnabled) {
-    // Grid size
-    const highGridSliderValue = parseFloat(new FormData(form).get('high-density-grid-size') || '2');
-    const highGridSize = 4 / highGridSliderValue;
-
-    if (
-      !highDensityOverlay ||
-      highDensityOverlay.minDistance !== parseFloat(minDistance) ||
-      highDensityOverlay.maxDistance !== parseFloat(maxDistance) ||
-      highDensityOverlay.gridSize !== highGridSize
-    ) {
+    // We'll still interpret the grid slider, but it's unused in the tree approach. We won't break the UI.
+    if (!highDensityOverlay ||
+        highDensityOverlay.minDistance !== parseFloat(minDistance) ||
+        highDensityOverlay.maxDistance !== parseFloat(maxDistance)) {
       if (highDensityOverlay) {
         highDensityOverlay.cubesData.forEach(c => {
           trueCoordinatesMap.scene.remove(c.tcMesh);
+          globeMap.scene.remove(c.globeMesh);
         });
         highDensityOverlay.adjacentLines.forEach(obj => {
           globeMap.scene.remove(obj.line);
         });
       }
-      highDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "high", highGridSize);
+      highDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "high");
       highDensityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.add(c.tcMesh);
       });
@@ -351,14 +315,12 @@ function removeConstellationObjectsFromGlobe() {
   }
   constellationLabelsGlobe = [];
 }
-
 function removeConstellationOverlayObjectsFromGlobe() {
   if (constellationOverlayGlobe && constellationOverlayGlobe.length > 0) {
     constellationOverlayGlobe.forEach(mesh => globeMap.scene.remove(mesh));
   }
   constellationOverlayGlobe = [];
 }
-
 function applyGlobeSurface(isOpaque) {
   if (globeSurfaceSphere) {
     globeMap.scene.remove(globeSurfaceSphere);
@@ -481,24 +443,6 @@ class MapManager {
 
   animate() {
     requestAnimationFrame(() => this.animate());
-    if (this.mapType === 'Globe' && window.constellationOverlayGlobe) {
-      window.constellationOverlayGlobe.forEach(mesh => {
-        if (this.camera.position.length() > 100) {
-          mesh.material.depthTest = false;
-          mesh.renderOrder = 2;
-        } else {
-          mesh.material.depthTest = true;
-          mesh.renderOrder = 0;
-        }
-      });
-    }
-    if (this.mapType === 'Globe') {
-      this.scene.traverse(child => {
-        if (child.material && child.material.uniforms && child.material.uniforms.cameraPos) {
-          child.material.uniforms.cameraPos.value.copy(this.camera.position);
-        }
-      });
-    }
     this.renderer.render(this.scene, this.camera);
   }
 }
@@ -522,9 +466,7 @@ function initStarInteractions(map) {
       hideTooltip();
     }
   });
-  
   map.canvas.addEventListener('click', (event) => {
-    // Check if the click occurred inside the tooltip's bounding box.
     const tooltip = document.getElementById('tooltip');
     if (tooltip) {
       const tRect = tooltip.getBoundingClientRect();
@@ -532,11 +474,10 @@ function initStarInteractions(map) {
         event.clientX >= tRect.left && event.clientX <= tRect.right &&
         event.clientY >= tRect.top && event.clientY <= tRect.bottom
       ) {
-        // Click occurred inside the tooltip; do nothing.
+        // Click occurred inside tooltip
         return;
       }
     }
-    
     const rect = map.canvas.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -562,7 +503,6 @@ function initStarInteractions(map) {
 }
 
 function updateSelectedStarHighlight() {
-  // Remove existing highlights if any.
   if (selectedHighlightTrue) {
     trueCoordinatesMap.scene.remove(selectedHighlightTrue);
     selectedHighlightTrue = null;
@@ -572,9 +512,8 @@ function updateSelectedStarHighlight() {
     selectedHighlightGlobe = null;
   }
   if (selectedStarData) {
-    // Highlight in TrueCoordinates Map
     let posTrue = selectedStarData.truePosition 
-      ? selectedStarData.truePosition 
+      ? selectedStarData.truePosition
       : new THREE.Vector3(selectedStarData.x_coordinate, selectedStarData.y_coordinate, selectedStarData.z_coordinate);
     let radius = (selectedStarData.displaySize || 2) * 0.2 * 1.2;
     const highlightGeom = new THREE.SphereGeometry(radius, 16, 16);
@@ -583,9 +522,8 @@ function updateSelectedStarHighlight() {
     selectedHighlightTrue.position.copy(posTrue);
     trueCoordinatesMap.scene.add(selectedHighlightTrue);
 
-    // Highlight in Globe Map
     let posGlobe = selectedStarData.spherePosition 
-      ? selectedStarData.spherePosition 
+      ? selectedStarData.spherePosition
       : projectStarGlobe(selectedStarData);
     let radiusGlobe = (selectedStarData.displaySize || 2) * 0.2 * 1.2;
     const highlightGeomGlobe = new THREE.SphereGeometry(radiusGlobe, 16, 16);
@@ -627,7 +565,6 @@ async function main() {
     globeMap.scene.add(globeGrid);
 
     buildAndApplyFilters();
-
     loader.classList.add('hidden');
   } catch (err) {
     console.error('Error initializing starmap:', err);
