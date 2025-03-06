@@ -45,7 +45,6 @@ function radToSphere(ra, dec, R) {
 
 /**
  * Computes the true 3D position of a star using its RA/DEC and its distance.
- * Supports both the new "distance" property and the legacy "Distance_from_the_Sun".
  */
 function getStarTruePosition(star) {
   const R = star.distance !== undefined ? star.distance : star.Distance_from_the_Sun;
@@ -292,7 +291,7 @@ class MapManager {
     this.starGroup = new THREE.Group();
     this.scene.add(this.starGroup);
 
-    // Listen for visualViewport changes if available.
+    // If the visualViewport API is available, use it:
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', debounce(() => {
         this.onResize();
@@ -517,6 +516,16 @@ async function main() {
       trueCoordinatesMap.onResize();
       globeMap.onResize();
     }, 150));
+
+    // Also poll for changes in window.innerHeight so that closing the console triggers a resize.
+    let lastHeight = window.innerHeight;
+    setInterval(() => {
+      if (window.innerHeight !== lastHeight) {
+        lastHeight = window.innerHeight;
+        trueCoordinatesMap.onResize();
+        globeMap.onResize();
+      }
+    }, 300);
 
     buildAndApplyFilters();
 
