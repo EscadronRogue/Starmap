@@ -3,11 +3,9 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { 
   getDoubleSidedLabelMaterial, 
-  getBaseColor, 
-  lightenColor, 
-  darkenColor, 
   getBlueColor,
-  getGreenColor
+  getGreenColor,
+  lightenColor
 } from './densityColorUtils.js';
 import { getGreatCirclePoints, computeInterconnectedCell, segmentOceanCandidate } from './densitySegmentation.js';
 import { loadConstellationCenters, getConstellationCenters, loadConstellationBoundaries, getConstellationBoundaries } from './constellationFilter.js';
@@ -119,16 +117,19 @@ function radToSphere(ra, dec, R) {
 }
 
 function computeCellDistances(cell, stars) {
+  // store an array of star-distances in cell.distances
+  // sorted ascending
   const dArr = stars.map(star => {
-    let starPos = star.truePosition ? star.truePosition : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+    const starPos = star.truePosition 
+      ? star.truePosition 
+      : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
     const dx = cell.tcPos.x - starPos.x;
     const dy = cell.tcPos.y - starPos.y;
     const dz = cell.tcPos.z - starPos.z;
-    return { distance: Math.sqrt(dx * dx + dy * dy + dz * dz), star };
+    return Math.sqrt(dx*dx + dy*dy + dz*dz);
   });
-  dArr.sort((a, b) => a.distance - b.distance);
-  cell.distances = dArr.map(obj => obj.distance);
-  cell.nearestStar = dArr.length > 0 ? dArr[0].star : null;
+  dArr.sort((a,b) => a - b);
+  cell.distances = dArr;
 }
 
 export class DensityGridOverlay {
@@ -207,10 +208,6 @@ export class DensityGridOverlay {
             active: false
           };
 
-          const cellRa = ((posTC.x + halfExt) / (2 * halfExt)) * 360;
-          const cellDec = ((posTC.y + halfExt) / (2 * halfExt)) * 180 - 90;
-          cell.ra = cellRa;
-          cell.dec = cellDec;
           cell.id = this.cubesData.length;
           this.cubesData.push(cell);
         }
@@ -237,6 +234,7 @@ export class DensityGridOverlay {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dz = -1; dz <= 1; dz++) {
           if (dx === 0 && dy === 0 && dz === 0) continue;
+          // only do 'forward' directions so we don't double up lines
           if (dx > 0 || (dx === 0 && dy > 0) || (dx === 0 && dy === 0 && dz > 0)) {
             directions.push({ dx, dy, dz });
           }
@@ -288,33 +286,52 @@ export class DensityGridOverlay {
       computeCellDistances(cell, extendedStars);
     });
 
-    let isolationVal, toleranceVal;
+    // For the low-density filter, we do the old "ignore T closest, show if next dist >= isolationVal"
+    // For the high-density filter, we show the cell if it has >= Y stars within X LY
     if (this.mode === "low") {
-      isolationVal = parseFloat(document.getElementById('low-density-slider').value) || 7;
-      toleranceVal = parseInt(document.getElementById('low-tolerance-slider').value) || 0;
-    } else { // high
-      isolationVal = parseFloat(document.getElementById('high-density-slider').value) || 1;
-      toleranceVal = parseInt(document.getElementById('high-tolerance-slider').value) || 0;
+      const isolationVal = parseFloat(document.getElementById('low-density-slider').value) || 7;
+      const toleranceVal = parseInt(document.getElementById('low-tolerance-slider').value) || 0;
+      this.cubesData.forEach(cell => {
+        let isoDist = Infinity;
+        if (cell.distances.length > toleranceVal) {
+          isoDist = cell.distances[toleranceVal];
+        }
+        const showSquare = (isoDist >= isolationVal);
+        cell.active = showSquare;
+        // fade
+        let ratio = cell.tcPos.length() / this.maxDistance;
+        if (ratio > 1) ratio = 1;
+        const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
+        cell.tcMesh.visible = showSquare;
+        cell.tcMesh.material.opacity = alpha;
+        cell.globeMesh.visible = showSquare;
+        cell.globeMesh.material.opacity = alpha;
+        const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
+        cell.globeMesh.scale.set(scale, scale, 1);
+      });
+    } else {
+      // "high" => we read X from #high-density-slider, Y from #high-density-count-slider
+      const distanceX = parseFloat(document.getElementById('high-density-slider').value) || 1;
+      const starCountY = parseInt(document.getElementById('high-density-count-slider').value) || 1;
+      this.cubesData.forEach(cell => {
+        // count how many stars are within distanceX
+        const numStarsWithinX = cell.distances.filter(d => d <= distanceX).length;
+        const showSquare = (numStarsWithinX >= starCountY);
+        cell.active = showSquare;
+        // fade based on radial distance
+        let ratio = cell.tcPos.length() / this.maxDistance;
+        if (ratio > 1) ratio = 1;
+        const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
+        cell.tcMesh.visible = showSquare;
+        cell.tcMesh.material.opacity = alpha;
+        cell.globeMesh.visible = showSquare;
+        cell.globeMesh.material.opacity = alpha;
+        const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
+        cell.globeMesh.scale.set(scale, scale, 1);
+      });
     }
-    this.cubesData.forEach(cell => {
-      let isoDist = Infinity;
-      if (cell.distances.length > toleranceVal) {
-        isoDist = cell.distances[toleranceVal];
-      }
-      let showSquare = (this.mode === "low")
-        ? (isoDist >= isolationVal)
-        : (isoDist < isolationVal);
-      cell.active = showSquare;
-      let ratio = cell.tcPos.length() / this.maxDistance;
-      if (ratio > 1) ratio = 1;
-      const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
-      cell.tcMesh.visible = showSquare;
-      cell.tcMesh.material.opacity = alpha;
-      cell.globeMesh.visible = showSquare;
-      cell.globeMesh.material.opacity = alpha;
-      const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
-      cell.globeMesh.scale.set(scale, scale, 1);
-    });
+
+    // Update adjacency lines
     this.adjacentLines.forEach(obj => {
       const { line, cell1, cell2 } = obj;
       if (cell1.globeMesh.visible && cell2.globeMesh.visible) {
@@ -344,29 +361,32 @@ export class DensityGridOverlay {
     });
   }
 
+  // low/hig's "labeling" logic
   getBestStarLabel(cells) {
+    // for "high" we name by best star's star system
+    // for "low" we might do a different approach but here we just pick
     let bestStar = null;
     let bestRank = -Infinity;
     cells.forEach(cell => {
+      // not used in the new high density logic, but we keep it for consistency
+      // could do an advanced approach, but let's keep as is
       if (cell.nearestStar) {
         const rank = getStellarClassRank(cell.nearestStar);
         if (rank > bestRank) {
           bestRank = rank;
           bestStar = cell.nearestStar;
-        } else if (rank === bestRank && bestStar) {
-          if (cell.nearestStar.Absolute_magnitude !== undefined && bestStar.Absolute_magnitude !== undefined) {
-            if (cell.nearestStar.Absolute_magnitude < bestStar.Absolute_magnitude) {
-              bestStar = cell.nearestStar;
-            }
-          }
         }
       }
     });
-    return bestStar ? (bestStar.Common_name_of_the_star_system || bestStar.Common_name_of_the_star || "Unknown") : "Unknown";
+    if (!bestStar) return "Unknown";
+    return bestStar.Common_name_of_the_star_system 
+        || bestStar.Common_name_of_the_star 
+        || "Unknown";
   }
 
   async assignConstellationsToCells() {
     if (this.mode === "low") {
+      // low => same as before
       await loadConstellationCenters();
       await loadConstellationBoundaries();
       const centers = getConstellationCenters();
@@ -375,6 +395,8 @@ export class DensityGridOverlay {
         console.warn("No constellation boundaries available!");
         return;
       }
+      const namesMapping = await loadConstellationFullNames();
+
       function radToSphere(ra, dec, R) {
         const x = -R * Math.cos(dec) * Math.cos(ra);
         const y = R * Math.sin(dec);
@@ -400,20 +422,19 @@ export class DensityGridOverlay {
         if (raDeg < 0) raDeg += 360;
         return { ra: raDeg, dec: dec * 180 / Math.PI };
       }
-      const namesMapping = await loadConstellationFullNames();
-      
+
       this.cubesData.forEach(cell => {
         if (!cell.active) return;
         const cellPos = cell.globeMesh.position.clone();
         let nearestBoundary = null;
         let minBoundaryDist = Infinity;
-        boundaries.forEach(boundary => {
-           const p1 = radToSphere(boundary.ra1, boundary.dec1, 100);
-           const p2 = radToSphere(boundary.ra2, boundary.dec2, 100);
+        boundaries.forEach(bdry => {
+           const p1 = radToSphere(bdry.ra1, bdry.dec1, 100);
+           const p2 = radToSphere(bdry.ra2, bdry.dec2, 100);
            const angDist = minAngularDistanceToSegment(cellPos, p1, p2);
            if (angDist < minBoundaryDist) {
              minBoundaryDist = angDist;
-             nearestBoundary = boundary;
+             nearestBoundary = bdry;
            }
         });
         if (!nearestBoundary) {
@@ -424,7 +445,7 @@ export class DensityGridOverlay {
         const abbr2 = nearestBoundary.const2 ? nearestBoundary.const2.toUpperCase() : null;
         const fullName1 = namesMapping[abbr1] || toTitleCase(abbr1);
         const fullName2 = abbr2 ? (namesMapping[abbr2] || toTitleCase(abbr2)) : null;
-        
+
         const bp1 = radToSphere(nearestBoundary.ra1, nearestBoundary.dec1, 100);
         const bp2 = radToSphere(nearestBoundary.ra2, nearestBoundary.dec2, 100);
         let normal = bp1.clone().cross(bp2).normalize();
@@ -460,7 +481,8 @@ export class DensityGridOverlay {
           cell.constellation = bestConstellation;
         }
       });
-    } else { // High density mode: assign using best star's star system name.
+    } else {
+      // "high" => label by best star
       this.cubesData.forEach(cell => {
         if (cell.active) {
           cell.clusterLabel = this.getBestStarLabel([cell]);
@@ -589,6 +611,7 @@ export class DensityGridOverlay {
   }
 
   classifyEmptyRegions() {
+    // same as before
     this.regionClusters = [];
     const activeCells = this.cubesData.filter(c => c.active);
     const visited = new Set();
@@ -609,7 +632,7 @@ export class DensityGridOverlay {
               const nx = current.grid.ix + dx;
               const ny = current.grid.iy + dy;
               const nz = current.grid.iz + dz;
-              const neighbor = activeCells.find(c => c.grid.ix === nx && c.grid.iy === ny && c.grid.iz === dz);
+              const neighbor = activeCells.find(cc => cc.grid.ix === nx && cc.grid.iy === ny && cc.grid.iz === dz);
               if (neighbor && !visited.has(neighbor.id)) {
                 stack.push(neighbor);
               }
@@ -625,24 +648,24 @@ export class DensityGridOverlay {
     });
     const allRegions = [];
     clusters.forEach(c => {
-      let subRegions;
-      if (this.mode === "low") {
-        const majority = this.getMajorityConstellation(c);
-        subRegions = this.recursiveSegmentCluster(c, V_max, majority);
+      let labelForCells;
+      if (this.mode === 'low') {
+        labelForCells = this.getMajorityConstellation(c);
       } else {
-        const bestLabel = this.getBestStarLabel(c);
-        subRegions = this.recursiveSegmentCluster(c, V_max, bestLabel);
+        labelForCells = this.getBestStarLabel(c);
       }
-      subRegions.forEach(sr => allRegions.push(sr));
+      const sub = this.recursiveSegmentCluster(c, V_max, labelForCells);
+      sub.forEach(r => allRegions.push(r));
     });
     this.regionClusters = allRegions;
     return allRegions;
   }
 
-  // Modified recursiveSegmentCluster accepts a label parameter computed from majority (low) or best star (high)
   recursiveSegmentCluster(cells, V_max, labelForCells) {
+    // keep the same "low" vs "high" approach for naming
     const size = cells.length;
-    if (this.mode === "low") {
+    if (this.mode === 'low') {
+      // the old oceanus, mare, etc logic
       if (size < 0.1 * V_max) {
         return [{
           cells,
@@ -697,7 +720,8 @@ export class DensityGridOverlay {
         });
       }
       return regions;
-    } else { // high density mode
+    } else {
+      // high => same logic as before, but named differently
       if (size < 0.1 * V_max) {
         return [{
           cells,
