@@ -504,7 +504,21 @@ function initStarInteractions(map) {
       hideTooltip();
     }
   });
+  
   map.canvas.addEventListener('click', (event) => {
+    // Check if the click occurred inside the tooltip's bounding box.
+    const tooltip = document.getElementById('tooltip');
+    if (tooltip) {
+      const tRect = tooltip.getBoundingClientRect();
+      if (
+        event.clientX >= tRect.left && event.clientX <= tRect.right &&
+        event.clientY >= tRect.top && event.clientY <= tRect.bottom
+      ) {
+        // Click occurred inside the tooltip; do nothing.
+        return;
+      }
+    }
+    
     const rect = map.canvas.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -529,9 +543,6 @@ function initStarInteractions(map) {
   });
 }
 
-/**
- * Provides visual feedback for the selected star by adding a yellow wireframe sphere around it.
- */
 function updateSelectedStarHighlight() {
   // Remove existing highlights if any.
   if (selectedHighlightTrue) {
