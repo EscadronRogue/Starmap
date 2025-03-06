@@ -20,6 +20,9 @@ let currentGlobeFilteredStars = [];
 let currentGlobeConnections = [];
 
 let selectedStarData = null;
+// Global variables for star highlight meshes
+let selectedHighlightTrue = null;
+let selectedHighlightGlobe = null;
 
 let trueCoordinatesMap;
 let globeMap;
@@ -526,8 +529,42 @@ function initStarInteractions(map) {
   });
 }
 
+/**
+ * Provides visual feedback for the selected star by adding a yellow wireframe sphere around it.
+ */
 function updateSelectedStarHighlight() {
-  // Optional: implement highlighting if desired.
+  // Remove existing highlights if any.
+  if (selectedHighlightTrue) {
+    trueCoordinatesMap.scene.remove(selectedHighlightTrue);
+    selectedHighlightTrue = null;
+  }
+  if (selectedHighlightGlobe) {
+    globeMap.scene.remove(selectedHighlightGlobe);
+    selectedHighlightGlobe = null;
+  }
+  if (selectedStarData) {
+    // Highlight in TrueCoordinates Map
+    let posTrue = selectedStarData.truePosition 
+      ? selectedStarData.truePosition 
+      : new THREE.Vector3(selectedStarData.x_coordinate, selectedStarData.y_coordinate, selectedStarData.z_coordinate);
+    let radius = (selectedStarData.displaySize || 2) * 0.2 * 1.2;
+    const highlightGeom = new THREE.SphereGeometry(radius, 16, 16);
+    const highlightMat = new THREE.MeshBasicMaterial({ color: 0xffff00, wireframe: true });
+    selectedHighlightTrue = new THREE.Mesh(highlightGeom, highlightMat);
+    selectedHighlightTrue.position.copy(posTrue);
+    trueCoordinatesMap.scene.add(selectedHighlightTrue);
+
+    // Highlight in Globe Map
+    let posGlobe = selectedStarData.spherePosition 
+      ? selectedStarData.spherePosition 
+      : projectStarGlobe(selectedStarData);
+    let radiusGlobe = (selectedStarData.displaySize || 2) * 0.2 * 1.2;
+    const highlightGeomGlobe = new THREE.SphereGeometry(radiusGlobe, 16, 16);
+    const highlightMatGlobe = new THREE.MeshBasicMaterial({ color: 0xffff00, wireframe: true });
+    selectedHighlightGlobe = new THREE.Mesh(highlightGeomGlobe, highlightMatGlobe);
+    selectedHighlightGlobe.position.copy(posGlobe);
+    globeMap.scene.add(selectedHighlightGlobe);
+  }
 }
 
 async function main() {
