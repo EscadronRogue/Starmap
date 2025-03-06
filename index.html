@@ -144,34 +144,14 @@
               <label>Ignore this many closest stars: <span id="low-tolerance-value">0</span></label>
               <input type="range" id="low-tolerance-slider" name="low-tolerance" min="0" max="10" step="1" value="0" disabled />
             </div>
-            <!-- Low Density Cluster Labeling & Segmentation toggle -->
             <div class="filter-item">
               <input type="checkbox" id="enable-low-density-labeling" name="enable-low-density-labeling" />
               <label for="enable-low-density-labeling">Enable Low Density Cluster Labeling &amp; Segmentation</label>
             </div>
-            <!-- Grid Subdivision from 1..10 (step=1). We'll interpret directly as cellSize = that integer. -->
             <div class="filter-item">
-              <label for="low-density-grid-slider">Grid Cell Size (1..10):</label>
-              <input 
-                type="range" 
-                id="low-density-grid-slider" 
-                name="low-density-grid-size" 
-                min="1" 
-                max="10" 
-                step="1" 
-                value="5" 
-                disabled
-              />
-              <input 
-                type="number" 
-                id="low-density-grid-number" 
-                name="low-density-grid-size" 
-                min="1" 
-                max="10" 
-                step="1" 
-                value="5" 
-                disabled
-              />
+              <label for="low-density-grid-slider">Grid Cell Size (1–10):</label>
+              <input type="range" id="low-density-grid-slider" name="low-density-grid-size" min="1" max="10" step="1" value="5" disabled />
+              <input type="number" id="low-density-grid-number" name="low-density-grid-size" min="1" max="10" step="1" value="5" disabled />
             </div>
           </div>
         </fieldset>
@@ -184,32 +164,14 @@
               <input type="checkbox" id="enable-high-density-mapping" name="enable-high-density-mapping" />
               <label for="enable-high-density-mapping">Enable High Density Mapping</label>
             </div>
-            <!-- We remove old "distance X" & "min stars Y" sliders, add direct numeric inputs: -->
             <div class="filter-item">
-              <label for="high-octree-star-threshold">Star Threshold:</label>
-              <input 
-                type="number"
-                id="high-octree-star-threshold"
-                name="high-octree-star-threshold"
-                min="1"
-                step="1"
-                value="10"
-                disabled
-              />
+              <label for="high-octree-star-threshold">Star Threshold: <span id="high-octree-star-threshold-value">10</span></label>
+              <input type="range" id="high-octree-star-threshold" name="high-octree-star-threshold" min="1" max="200" step="1" value="10" />
             </div>
             <div class="filter-item">
-              <label for="high-octree-max-depth">Max Depth:</label>
-              <input 
-                type="number"
-                id="high-octree-max-depth"
-                name="high-octree-max-depth"
-                min="1"
-                step="1"
-                value="6"
-                disabled
-              />
+              <label for="high-octree-max-depth">Max Depth: <span id="high-octree-max-depth-value">6</span></label>
+              <input type="range" id="high-octree-max-depth" name="high-octree-max-depth" min="1" max="10" step="1" value="6" />
             </div>
-            <!-- High Density Cluster Labeling & Segmentation toggle -->
             <div class="filter-item">
               <input type="checkbox" id="enable-high-density-labeling" name="enable-high-density-labeling" />
               <label for="enable-high-density-labeling">Enable High Density Cluster Labeling &amp; Segmentation</label>
@@ -221,14 +183,11 @@
 
     <!-- Maps Section -->
     <section class="maps-section">
-      <!-- True Coordinates Map -->
       <div class="map-container">
         <h2>True Coordinates Map</h2>
         <button class="fullscreen-btn" aria-label="Fullscreen True Coordinates Map">⤢</button>
         <canvas id="map3D"></canvas>
       </div>
-
-      <!-- Globe Map -->
       <div class="map-container">
         <h2>Globe Map</h2>
         <button class="fullscreen-btn" aria-label="Fullscreen Globe Map">⤢</button>
@@ -259,34 +218,38 @@
       document.querySelector('.sidebar').classList.toggle('open');
     });
 
-    // Connection slider toggle
+    // Enable/disable connection slider based on checkbox state
     document.getElementById('enable-connections').addEventListener('change', function() {
       document.getElementById('connection-slider').disabled = !this.checked;
     });
 
-    // Low density toggles
+    // Low density mapping toggles
     document.getElementById('enable-low-density-mapping').addEventListener('change', function() {
-      const lowEnabled = this.checked;
-      document.getElementById('low-density-slider').disabled = !lowEnabled;
-      document.getElementById('low-density-number').disabled = !lowEnabled;
-      document.getElementById('low-tolerance-slider').disabled = !lowEnabled;
-      document.getElementById('low-density-grid-slider').disabled = !lowEnabled;
-      document.getElementById('low-density-grid-number').disabled = !lowEnabled;
+      const enabled = this.checked;
+      document.getElementById('low-density-slider').disabled = !enabled;
+      document.getElementById('low-density-number').disabled = !enabled;
+      document.getElementById('low-tolerance-slider').disabled = !enabled;
+      document.getElementById('low-density-grid-slider').disabled = !enabled;
+      document.getElementById('low-density-grid-number').disabled = !enabled;
     });
 
-    // High density toggles
+    // High density mapping toggles
     document.getElementById('enable-high-density-mapping').addEventListener('change', function() {
-      const highEnabled = this.checked;
-      document.getElementById('high-octree-star-threshold').disabled = !highEnabled;
-      document.getElementById('high-octree-max-depth').disabled = !highEnabled;
+      const enabled = this.checked;
+      document.getElementById('high-octree-star-threshold').disabled = !enabled;
+      document.getElementById('high-octree-max-depth').disabled = !enabled;
     });
 
-    // Low tolerance
-    document.getElementById('low-tolerance-slider').addEventListener('input', function() {
-      document.getElementById('low-tolerance-value').textContent = this.value;
+    // Update displayed value for high density star threshold
+    document.getElementById('high-octree-star-threshold').addEventListener('input', function() {
+      document.getElementById('high-octree-star-threshold-value').textContent = this.value;
+    });
+    // Update displayed value for high density max depth
+    document.getElementById('high-octree-max-depth').addEventListener('input', function() {
+      document.getElementById('high-octree-max-depth-value').textContent = this.value;
     });
 
-    // Min/Max distance sync
+    // Synchronize min/max distance inputs
     document.getElementById('min-distance-slider').addEventListener('input', function() {
       document.getElementById('min-distance-number').value = this.value;
     });
@@ -310,7 +273,7 @@
       document.getElementById('low-density-value').textContent = this.value;
     });
 
-    // Low density grid slider
+    // Low density grid size slider sync
     document.getElementById('low-density-grid-slider').addEventListener('input', function() {
       document.getElementById('low-density-grid-number').value = this.value;
     });
@@ -318,27 +281,26 @@
       document.getElementById('low-density-grid-slider').value = this.value;
     });
 
-    // Connection slider
+    // Connection slider sync
     document.getElementById('connection-slider').addEventListener('input', function() {
       document.getElementById('connection-value').textContent = this.value;
     });
 
-    // Fullscreen button
+    // Fullscreen button listeners
     document.querySelectorAll('.fullscreen-btn').forEach(btn => {
       btn.addEventListener('click', function() {
-        const mapContainer = this.parentElement;
-        const canvas = mapContainer.querySelector('canvas');
+        const container = this.parentElement;
+        const canvas = container.querySelector('canvas');
         if (document.fullscreenElement) {
           document.exitFullscreen();
         } else {
           canvas.requestFullscreen().catch(err => {
-            console.error("Error attempting to enable full-screen mode:", err);
+            console.error("Error enabling full-screen mode:", err);
           });
         }
       });
     });
 
-    // On fullscreen exit
     document.addEventListener("fullscreenchange", function() {
       if (!document.fullscreenElement) {
         document.querySelectorAll('.map-container canvas').forEach(canvas => {
