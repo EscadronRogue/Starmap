@@ -39,10 +39,9 @@ export function applyStellarClassLogic(stars, form) {
       ? star.Stellar_class.charAt(0).toUpperCase()
       : 'G'; // fallback
 
+    // Use only the common name of the individual star for display, ignoring the star system name.
     const starName = star.Common_name_of_the_star || '';
-    const starSystemName = star.Common_name_of_the_star_system || '';
-
-    // 1) Decide if star is visible
+    // Determine visibility based on checkboxes
     const classShowStar = stellarClassShowStar.hasOwnProperty(primaryClass)
       ? stellarClassShowStar[primaryClass]
       : true;
@@ -57,7 +56,7 @@ export function applyStellarClassLogic(stars, form) {
       return;
     }
 
-    // 2) Decide if star name is displayed
+    // Decide if star name is displayed based on checkboxes
     const classShowName = stellarClassShowName.hasOwnProperty(primaryClass)
       ? stellarClassShowName[primaryClass]
       : true;
@@ -66,20 +65,10 @@ export function applyStellarClassLogic(stars, form) {
       : true;
 
     if (classShowName && starShowName) {
-      if (starName && starSystemName) {
-        if (starName === starSystemName) {
-          star.displayName = starName;
-        } else if (/^[A-Za-z]$/.test(starName.trim())) {
-          // If the individual star name is a single letter,
-          // display the star system first, then the letter in parentheses.
-          star.displayName = `${starSystemName} (${starName})`;
-        } else {
-          star.displayName = `${starName} (${starSystemName})`;
-        }
-      } else if (starName) {
+      if (starName) {
         star.displayName = starName;
-      } else if (starSystemName) {
-        star.displayName = starSystemName;
+      } else if (star.Common_name_of_the_star_system) {
+        star.displayName = star.Common_name_of_the_star_system;
       } else {
         star.displayName = '';
       }
@@ -88,7 +77,7 @@ export function applyStellarClassLogic(stars, form) {
     }
   });
 
-  // Filter out invisible
+  // Filter out invisible stars
   return stars.filter(st => st.displayVisible);
 }
 
@@ -195,18 +184,6 @@ export function generateStellarClassFilters(stars) {
 
     arr.forEach(star => {
       let formattedName = star.Common_name_of_the_star;
-      if (
-        star.Common_name_of_the_star &&
-        star.Common_name_of_the_star_system &&
-        star.Common_name_of_the_star !== star.Common_name_of_the_star_system
-      ) {
-        if (/^[A-Za-z]$/.test(star.Common_name_of_the_star.trim())) {
-          formattedName = `${star.Common_name_of_the_star_system} (${star.Common_name_of_the_star})`;
-        } else {
-          formattedName = `${star.Common_name_of_the_star} (${star.Common_name_of_the_star_system})`;
-        }
-      }
-
       const starContainer = document.createElement('div');
       starContainer.classList.add('star-container');
 
