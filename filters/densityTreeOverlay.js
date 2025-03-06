@@ -1,14 +1,13 @@
 // /filters/densityTreeOverlay.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { getDoubleSidedLabelMaterial } from './densityColorUtils.js'; // or wherever
-import { getGreatCirclePoints } from './densitySegmentation.js'; // if needed
 
 /**
- * HighDensityTreeOverlay:
- *  Builds an octree from minDistance..maxDistance and subdivides if starCount > starThreshold.
- *  The user sets starThreshold & maxDepth in the UI; we store them in `this.starThreshold` & `this.maxDepth`.
- *  Then in `update()`, we show/hide or set opacity based on node depth, up to alpha=0.5 for the deepest nodes.
+ * HighDensityTreeOverlay uses an octree approach for the high density filter.
+ * The user sets the "Star Threshold" and "Max Depth" via sliders.
+ * On each update, the octree is rebuilt using these parameters.
+ * Each leaf node is represented by a cube.
+ * The deeper a leaf is (closer to max depth), the higher its opacity (up to 0.5).
  */
 export class HighDensityTreeOverlay {
   constructor(minDistance, maxDistance, starArray) {
@@ -16,189 +15,136 @@ export class HighDensityTreeOverlay {
     this.maxDistance = parseFloat(maxDistance);
     this.starArray = starArray;
 
-    // We'll store starThreshold & maxDepth externally
-    this.starThreshold = 10; // default, will be overridden in script.js
-    this.maxDepth = 6;       // also overridden
+    // These parameters are set by the filter menu
+    this.starThreshold = 10;
+    this.maxDepth = 6;
 
     this.mode = 'high';
     this.cubesData = [];
-    this.adjacentLines = []; // Not used here
+    this.adjacentLines = [];
     this.regionLabelsGroupTC = new THREE.Group();
     this.regionLabelsGroupGlobe = new THREE.Group();
 
-    // bounding box around +/- maxDistance
     const half = this.maxDistance;
     this.rootMin = new THREE.Vector3(-half, -half, -half);
-    this.rootMax = new THREE.Vector3(+half, +half, +half);
+    this.rootMax = new THREE.Vector3(half, half, half);
 
-    // Build starPositions
-    this.extendedStars = starArray.filter(s=>{
-      const d = (s.distance!==undefined)?s.distance:s.Distance_from_the_Sun;
-      return d <= this.maxDistance+10;
-    }).map(s=>{
-      let x=0,y=0,z=0;
+    this.extendedStars = starArray.filter(s => {
+      const d = (s.distance !== undefined) ? s.distance : s.Distance_from_the_Sun;
+      return d <= this.maxDistance + 10;
+    }).map(s => {
       if (s.truePosition) {
-        x=s.truePosition.x; y=s.truePosition.y; z=s.truePosition.z;
-      } else {
-        x=s.x_coordinate; y=s.y_coordinate; z=s.z_coordinate;
+        return { x: s.truePosition.x, y: s.truePosition.y, z: s.truePosition.z };
       }
-      return {x, y, z};
+      return { x: s.x_coordinate, y: s.y_coordinate, z: s.z_coordinate };
     });
-
-    // We'll build the octree once in constructor, so if user changes threshold or maxDepth, we won't rebuild the entire structure but we will do a partial show/hide in update.
     this.octreeRoot = null;
   }
 
   buildOctreeRecursive(minPt, maxPt, depth, starPts, starThreshold, maxDepth) {
-    if (!starPts || starPts.length===0) {
-      return {
-        isLeaf:true,
-        minPt, maxPt, depth,
-        starCount:0
-      };
+    if (!starPts || starPts.length === 0) {
+      return { isLeaf: true, minPt, maxPt, depth, starCount: 0 };
     }
-    if (depth>=maxDepth || starPts.length<=starThreshold) {
-      return {
-        isLeaf:true,
-        minPt, maxPt, depth,
-        starCount: starPts.length
-      };
+    if (depth >= maxDepth || starPts.length <= starThreshold) {
+      return { isLeaf: true, minPt, maxPt, depth, starCount: starPts.length };
     }
-    // subdiv
-    const children=[];
+    const children = [];
     const center = new THREE.Vector3(
-      0.5*(minPt.x+maxPt.x),
-      0.5*(minPt.y+maxPt.y),
-      0.5*(minPt.z+maxPt.z)
+      0.5 * (minPt.x + maxPt.x),
+      0.5 * (minPt.y + maxPt.y),
+      0.5 * (minPt.z + maxPt.z)
     );
-    for (let i=0;i<8;i++) {
-      const cmin = new THREE.Vector3(
-        (i & 1)? center.x : minPt.x,
-        (i & 2)? center.y : minPt.y,
-        (i & 4)? center.z : minPt.z
+    for (let i = 0; i < 8; i++) {
+      const childMin = new THREE.Vector3(
+        (i & 1) ? center.x : minPt.x,
+        (i & 2) ? center.y : minPt.y,
+        (i & 4) ? center.z : minPt.z
       );
-      const cmax = new THREE.Vector3(
-        (i & 1)? maxPt.x : center.x,
-        (i & 2)? maxPt.y : center.y,
-        (i & 4)? maxPt.z : center.z
+      const childMax = new THREE.Vector3(
+        (i & 1) ? maxPt.x : center.x,
+        (i & 2) ? maxPt.y : center.y,
+        (i & 4) ? maxPt.z : center.z
       );
-      const subStars = [];
-      for (let st of starPts) {
-        if (st.x>=cmin.x && st.x<=cmax.x &&
-            st.y>=cmin.y && st.y<=cmax.y &&
-            st.z>=cmin.z && st.z<=cmax.z) {
-          subStars.push(st);
-        }
-      }
-      if (subStars.length>0) {
-        children.push(
-          this.buildOctreeRecursive(cmin, cmax, depth+1, subStars, starThreshold, maxDepth)
-        );
+      const childStars = starPts.filter(sp =>
+        sp.x >= childMin.x && sp.x <= childMax.x &&
+        sp.y >= childMin.y && sp.y <= childMax.y &&
+        sp.z >= childMin.z && sp.z <= childMax.z
+      );
+      if (childStars.length > 0) {
+        children.push(this.buildOctreeRecursive(childMin, childMax, depth + 1, childStars, starThreshold, maxDepth));
       }
     }
-    if (children.length===0) {
-      return {
-        isLeaf:true,
-        minPt, maxPt, depth,
-        starCount: starPts.length
-      };
+    if (children.length === 0) {
+      return { isLeaf: true, minPt, maxPt, depth, starCount: starPts.length };
     }
-    return {
-      isLeaf:false,
-      minPt, maxPt, depth,
-      starCount: starPts.length,
-      children
-    };
+    return { isLeaf: false, minPt, maxPt, depth, starCount: starPts.length, children };
   }
 
   buildOctree() {
-    // We read the starThreshold & maxDepth from this object
-    this.octreeRoot = this.buildOctreeRecursive(
-      this.rootMin,
-      this.rootMax,
-      0,
-      this.extendedStars,
-      this.starThreshold,
-      this.maxDepth
-    );
-    // gather leaves
+    this.octreeRoot = this.buildOctreeRecursive(this.rootMin, this.rootMax, 0, this.extendedStars, this.starThreshold, this.maxDepth);
     this.leafNodes = [];
-    const collect = (node) => {
+    const collectLeaves = (node) => {
       if (node.isLeaf) {
         this.leafNodes.push(node);
-      } else {
-        if (node.children) node.children.forEach(c => collect(c));
+      } else if (node.children) {
+        node.children.forEach(child => collectLeaves(child));
       }
     };
-    collect(this.octreeRoot);
+    collectLeaves(this.octreeRoot);
   }
 
   createGrid() {
-    // Actually build the octree once
     this.buildOctree();
-    // Now create a box for each leaf
+    this.cubesData = [];
     this.leafNodes.forEach(leaf => {
       const dx = leaf.maxPt.x - leaf.minPt.x;
       const dy = leaf.maxPt.y - leaf.minPt.y;
       const dz = leaf.maxPt.z - leaf.minPt.z;
-      const geo = new THREE.BoxGeometry(dx,dy,dz);
-      const mat = new THREE.MeshBasicMaterial({ color:0x00ff00, transparent:true, opacity:1.0, depthWrite:false});
-      const mesh = new THREE.Mesh(geo, mat);
+      const geometry = new THREE.BoxGeometry(dx, dy, dz);
+      const material = new THREE.MeshBasicMaterial({
+        color: 0x00ff00,
+        transparent: true,
+        opacity: 1.0,
+        depthWrite: false
+      });
+      const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(
-        0.5*(leaf.minPt.x+leaf.maxPt.x),
-        0.5*(leaf.minPt.y+leaf.maxPt.y),
-        0.5*(leaf.minPt.z+leaf.maxPt.z)
+        0.5 * (leaf.minPt.x + leaf.maxPt.x),
+        0.5 * (leaf.minPt.y + leaf.maxPt.y),
+        0.5 * (leaf.minPt.z + leaf.maxPt.z)
       );
-      const copyMesh = mesh.clone(); // for globe or separate
+      const meshClone = mesh.clone();
       this.cubesData.push({
-        node:leaf,
+        node: leaf,
         tcMesh: mesh,
-        globeMesh: copyMesh,
+        globeMesh: meshClone,
         active: false
       });
     });
   }
 
   update(stars) {
-    // If user changed starThreshold or maxDepth, we should rebuild the octree. 
-    // But user asked "don't do hidden logic." We'll do a quick check:
-    // We'll just do a partial approach: re-building the entire tree is simplest to keep it correct:
-    // so let's remove old, rebuild, re-mesh. But that might break references. 
-    // Or let's do a "live" approach => let's do the simplest: rebuild everything if needed:
-
-    // We'll do a difference check: if this.octreeRoot was built with old starThreshold / maxDepth, let's rebuild.
-    // We can't store the old values, let's just do it each time. This is simplest & guaranteed correct.
-    // We'll remove old meshes from scene => re-run createGrid => new cubes => done.
-
-    // But let's do something simpler: we'll only do "alpha" & "active" updates based on minDist..maxDist and node.depth. 
-    // If user changed starThreshold or maxDepth, they'd have to re-enable high density for it to take effect. 
-    // (You can do a full rebuild if you prefer. We'll do that for clarity.)
-
-    // For demonstration, let's do a full rebuild:
-    this.cubesData.forEach(c => {
-      c.tcMesh.parent?.remove(c.tcMesh);
-      c.globeMesh.parent?.remove(c.globeMesh);
+    // Rebuild the octree each time so slider changes take effect
+    // Remove old meshes
+    this.cubesData.forEach(cell => {
+      if (cell.tcMesh.parent) cell.tcMesh.parent.remove(cell.tcMesh);
+      if (cell.globeMesh.parent) cell.globeMesh.parent.remove(cell.globeMesh);
     });
-    this.cubesData=[];
-    this.octreeRoot=null;
+    this.cubesData = [];
+    this.octreeRoot = null;
     this.buildOctree();
-    this.createGrid(); // re-creates cubesData with fresh leaves
-
-    // Now show/hide them based on minDistance..maxDistance
+    this.createGrid();
+    // Now update each cell’s visibility and opacity
     this.cubesData.forEach(cell => {
       const center = new THREE.Vector3(
-        0.5*(cell.node.minPt.x+cell.node.maxPt.x),
-        0.5*(cell.node.minPt.y+cell.node.maxPt.y),
-        0.5*(cell.node.minPt.z+cell.node.maxPt.z)
+        0.5 * (cell.node.minPt.x + cell.node.maxPt.x),
+        0.5 * (cell.node.minPt.y + cell.node.maxPt.y),
+        0.5 * (cell.node.minPt.z + cell.node.maxPt.z)
       );
       const dist = center.length();
-      if (dist < this.minDistance || dist> this.maxDistance) {
-        cell.active=false;
-      } else {
-        cell.active=true;
-      }
-      // alpha from 0..0.5 => node.depth=0 => alpha=0 => node.depth=maxDepth => alpha=0.5
-      const alpha = (cell.node.depth/this.maxDepth)*0.5;
+      cell.active = (dist >= this.minDistance && dist <= this.maxDistance);
+      // Set opacity proportional to depth (0 at depth 0, 0.5 at maxDepth)
+      const alpha = (cell.node.depth / this.maxDepth) * 0.5;
       cell.tcMesh.material.opacity = alpha;
       cell.globeMesh.material.opacity = alpha;
       cell.tcMesh.visible = cell.active;
@@ -211,15 +157,14 @@ export class HighDensityTreeOverlay {
   }
 
   async assignConstellationsToCells() {
-    // No-op or a trivial approach. 
-    this.cubesData.forEach(cell=>{
+    this.cubesData.forEach(cell => {
       if (cell.active) {
-        cell.clusterLabel="HighOctreeRegion";
+        cell.clusterLabel = "HighOctreeRegion";
       }
     });
   }
 
   addRegionLabelsToScene(scene, mapType) {
-    // optional no-op
+    // No labeling for this example.
   }
 }
