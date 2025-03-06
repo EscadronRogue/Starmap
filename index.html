@@ -149,6 +149,30 @@
               <input type="checkbox" id="enable-low-density-labeling" name="enable-low-density-labeling" />
               <label for="enable-low-density-labeling">Enable Low Density Cluster Labeling &amp; Segmentation</label>
             </div>
+            <!-- NEW: Low Density Grid-Size Slider -->
+            <div class="filter-item">
+              <label for="low-density-grid-slider">Grid Subdivision:</label>
+              <input 
+                type="range" 
+                id="low-density-grid-slider" 
+                name="low-density-grid-size" 
+                min="1" 
+                max="4" 
+                step="0.1" 
+                value="2" 
+                disabled
+              />
+              <input 
+                type="number" 
+                id="low-density-grid-number" 
+                name="low-density-grid-size" 
+                min="1" 
+                max="4" 
+                step="0.1" 
+                value="2" 
+                disabled
+              />
+            </div>
           </div>
         </fieldset>
 
@@ -174,6 +198,30 @@
             <div class="filter-item">
               <input type="checkbox" id="enable-high-density-labeling" name="enable-high-density-labeling" />
               <label for="enable-high-density-labeling">Enable High Density Cluster Labeling &amp; Segmentation</label>
+            </div>
+            <!-- NEW: High Density Grid-Size Slider -->
+            <div class="filter-item">
+              <label for="high-density-grid-slider">Grid Subdivision:</label>
+              <input 
+                type="range" 
+                id="high-density-grid-slider" 
+                name="high-density-grid-size" 
+                min="1" 
+                max="4" 
+                step="0.1" 
+                value="2" 
+                disabled
+              />
+              <input 
+                type="number" 
+                id="high-density-grid-number" 
+                name="high-density-grid-size" 
+                min="1" 
+                max="4" 
+                step="0.1" 
+                value="2" 
+                disabled
+              />
             </div>
           </div>
         </fieldset>
@@ -227,16 +275,22 @@
 
     // Enable/disable low density mapping sliders
     document.getElementById('enable-low-density-mapping').addEventListener('change', function() {
-      document.getElementById('low-density-slider').disabled = !this.checked;
-      document.getElementById('low-density-number').disabled = !this.checked;
-      document.getElementById('low-tolerance-slider').disabled = !this.checked;
+      const lowEnabled = this.checked;
+      document.getElementById('low-density-slider').disabled = !lowEnabled;
+      document.getElementById('low-density-number').disabled = !lowEnabled;
+      document.getElementById('low-tolerance-slider').disabled = !lowEnabled;
+      document.getElementById('low-density-grid-slider').disabled = !lowEnabled;
+      document.getElementById('low-density-grid-number').disabled = !lowEnabled;
     });
 
     // Enable/disable high density mapping sliders
     document.getElementById('enable-high-density-mapping').addEventListener('change', function() {
-      document.getElementById('high-density-slider').disabled = !this.checked;
-      document.getElementById('high-density-number').disabled = !this.checked;
-      document.getElementById('high-tolerance-slider').disabled = !this.checked;
+      const highEnabled = this.checked;
+      document.getElementById('high-density-slider').disabled = !highEnabled;
+      document.getElementById('high-density-number').disabled = !highEnabled;
+      document.getElementById('high-tolerance-slider').disabled = !highEnabled;
+      document.getElementById('high-density-grid-slider').disabled = !highEnabled;
+      document.getElementById('high-density-grid-number').disabled = !highEnabled;
     });
 
     // Update displayed slider values for tolerance sliders
@@ -280,6 +334,22 @@
     document.getElementById('high-density-number').addEventListener('input', function() {
       document.getElementById('high-density-slider').value = this.value;
       document.getElementById('high-density-value').textContent = this.value;
+    });
+
+    // Sync low density grid slider and number input
+    document.getElementById('low-density-grid-slider').addEventListener('input', function() {
+      document.getElementById('low-density-grid-number').value = this.value;
+    });
+    document.getElementById('low-density-grid-number').addEventListener('input', function() {
+      document.getElementById('low-density-grid-slider').value = this.value;
+    });
+
+    // Sync high density grid slider and number input
+    document.getElementById('high-density-grid-slider').addEventListener('input', function() {
+      document.getElementById('high-density-grid-number').value = this.value;
+    });
+    document.getElementById('high-density-grid-number').addEventListener('input', function() {
+      document.getElementById('high-density-grid-slider').value = this.value;
     });
 
     // Fullscreen button listeners
