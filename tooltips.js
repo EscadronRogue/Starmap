@@ -12,6 +12,15 @@ export function showTooltip(x, y, star) {
         return;
     }
     
+    // Attach a click event listener (if not already attached) so that clicks inside
+    // the tooltip do not propagate to the canvas.
+    if (!tooltip.hasAttribute('data-stop-propagation')) {
+        tooltip.addEventListener('click', (event) => {
+            event.stopPropagation();
+        });
+        tooltip.setAttribute('data-stop-propagation', 'true');
+    }
+    
     // Build the tooltip content with all the fields (each on its own line)
     tooltip.innerHTML = `
       <div id="tooltip-starName"><strong>Name:</strong> ${star.Common_name_of_the_star || 'Unknown Star'}</div>
@@ -25,7 +34,9 @@ export function showTooltip(x, y, star) {
       <div id="tooltip-parallax"><strong>Parallax:</strong> ${star.Parallax !== undefined ? star.Parallax : 'N/A'}</div>
       <div id="tooltip-catalogLink">
         <strong>Catalog:</strong> 
-        ${star.Catalog_link ? `<a href="${star.Catalog_link}" target="_blank" onclick="event.stopPropagation()" style="color: #ff6f61; text-decoration: underline;">Catalog</a>` : 'N/A'}
+        ${star.Catalog_link 
+            ? `<a href="${star.Catalog_link}" target="_blank" style="color: #ff6f61; text-decoration: underline;">Catalog</a>` 
+            : 'N/A'}
       </div>
     `;
     
