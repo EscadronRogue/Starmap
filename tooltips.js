@@ -23,7 +23,10 @@ export function showTooltip(x, y, star) {
       <div id="tooltip-size"><strong>Size:</strong> ${star.Size !== undefined ? star.Size : 'N/A'}</div>
       <div id="tooltip-absoluteMag"><strong>Absolute Mag:</strong> ${star.Absolute_magnitude !== undefined ? star.Absolute_magnitude : 'N/A'}</div>
       <div id="tooltip-parallax"><strong>Parallax:</strong> ${star.Parallax !== undefined ? star.Parallax : 'N/A'}</div>
-      <div id="tooltip-catalogLink"><strong>Catalog:</strong> ${star.Catalog_link ? `<a href="${star.Catalog_link}" target="_blank" style="color: #ff6f61; text-decoration: underline;">Catalog</a>` : 'N/A'}</div>
+      <div id="tooltip-catalogLink">
+        <strong>Catalog:</strong> 
+        ${star.Catalog_link ? `<a href="${star.Catalog_link}" target="_blank" onclick="event.stopPropagation()" style="color: #ff6f61; text-decoration: underline;">Catalog</a>` : 'N/A'}
+      </div>
     `;
     
     // Position tooltip near the cursor with a slight offset.
