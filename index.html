@@ -26,7 +26,6 @@
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Stellar Class</legend>
           <div class="filter-content">
-            <!-- This container must exist so that generateStellarClassFilters can set its innerHTML -->
             <div id="stellar-class-container"></div>
           </div>
         </fieldset>
@@ -214,7 +213,7 @@
   <!-- Scripts -->
   <script type="module" src="script.js"></script>
   <script>
-    // Toggle sidebar menu
+    // Sidebar toggle
     document.getElementById('menu-toggle').addEventListener('click', function() {
       document.querySelector('.sidebar').classList.toggle('open');
     });
@@ -224,7 +223,7 @@
       document.getElementById('connection-slider').disabled = !this.checked;
     });
 
-    // Low density mapping toggles
+    // Low density toggles
     document.getElementById('enable-low-density-mapping').addEventListener('change', function() {
       const enabled = this.checked;
       document.getElementById('low-density-slider').disabled = !enabled;
@@ -234,14 +233,14 @@
       document.getElementById('low-density-grid-number').disabled = !enabled;
     });
 
-    // High density mapping toggles
+    // High density toggles
     document.getElementById('enable-high-density-mapping').addEventListener('change', function() {
       const enabled = this.checked;
       document.getElementById('high-octree-star-threshold').disabled = !enabled;
       document.getElementById('high-octree-max-depth').disabled = !enabled;
     });
 
-    // Update displayed values for high density sliders
+    // Update high density displayed values
     document.getElementById('high-octree-star-threshold').addEventListener('input', function() {
       document.getElementById('high-octree-star-threshold-value').textContent = this.value;
     });
@@ -249,7 +248,7 @@
       document.getElementById('high-octree-max-depth-value').textContent = this.value;
     });
 
-    // Synchronize min/max distance inputs
+    // Sync min/max distance inputs
     document.getElementById('min-distance-slider').addEventListener('input', function() {
       document.getElementById('min-distance-number').value = this.value;
     });
