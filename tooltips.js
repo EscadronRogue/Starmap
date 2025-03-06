@@ -1,5 +1,6 @@
 /**
  * Displays the tooltip with star information at the specified coordinates.
+ * Builds the entire tooltip innerHTML so that all requested details appear.
  * @param {number} x - The X-coordinate on the screen.
  * @param {number} y - The Y-coordinate on the screen.
  * @param {Object} star - The star object containing information to display.
@@ -10,65 +11,21 @@ export function showTooltip(x, y, star) {
         console.warn("Tooltip container not found in DOM.");
         return;
     }
-
-    const tooltipStarName = document.getElementById('tooltip-starName');
-    if (tooltipStarName) {
-      tooltipStarName.textContent = star.Common_name_of_the_star || 'Unknown Star';
-    }
-
-    const tooltipSystemName = document.getElementById('tooltip-systemName');
-    if (tooltipSystemName) {
-      tooltipSystemName.textContent = star.Common_name_of_the_star_system || 'Unknown System';
-    }
-
-    const tooltipDistance = document.getElementById('tooltip-distance');
-    if (tooltipDistance) {
-      tooltipDistance.textContent = star.Distance_from_the_Sun !== undefined 
-        ? `${star.Distance_from_the_Sun.toFixed(2)} LY` 
-        : 'N/A';
-    }
-
-    const tooltipConstellation = document.getElementById('tooltip-constellation');
-    if (tooltipConstellation) {
-      tooltipConstellation.textContent = star.Constellation || 'N/A';
-    }
-
-    const tooltipStellarClass = document.getElementById('tooltip-stellarClass');
-    if (tooltipStellarClass) {
-      tooltipStellarClass.textContent = star.Stellar_class || 'N/A';
-    }
-
-    const tooltipMass = document.getElementById('tooltip-mass');
-    if (tooltipMass) {
-      tooltipMass.textContent = star.Mass !== undefined ? star.Mass : 'N/A';
-    }
-
-    const tooltipSize = document.getElementById('tooltip-size');
-    if (tooltipSize) {
-      tooltipSize.textContent = star.Size !== undefined ? star.Size : 'N/A';
-    }
-
-    const tooltipAbsoluteMag = document.getElementById('tooltip-absoluteMag');
-    if (tooltipAbsoluteMag) {
-      tooltipAbsoluteMag.textContent = star.Absolute_magnitude !== undefined 
-        ? star.Absolute_magnitude 
-        : 'N/A';
-    }
-
-    const tooltipParallax = document.getElementById('tooltip-parallax');
-    if (tooltipParallax) {
-      tooltipParallax.textContent = star.Parallax !== undefined ? star.Parallax : 'N/A';
-    }
-
-    const tooltipCatalogLink = document.getElementById('tooltip-catalogLink');
-    if (tooltipCatalogLink) {
-      if (star.Catalog_link) {
-          tooltipCatalogLink.innerHTML = `<a href="${star.Catalog_link}" target="_blank" style="color: #ff6f61; text-decoration: underline;">Catalog</a>`;
-      } else {
-          tooltipCatalogLink.textContent = 'N/A';
-      }
-    }
-
+    
+    // Build the tooltip content with all the fields (each on its own line)
+    tooltip.innerHTML = `
+      <div id="tooltip-starName"><strong>Name:</strong> ${star.Common_name_of_the_star || 'Unknown Star'}</div>
+      <div id="tooltip-systemName"><strong>System:</strong> ${star.Common_name_of_the_star_system || 'Unknown System'}</div>
+      <div id="tooltip-distance"><strong>Distance:</strong> ${star.Distance_from_the_Sun !== undefined ? star.Distance_from_the_Sun.toFixed(2) + ' LY' : 'N/A'}</div>
+      <div id="tooltip-constellation"><strong>Constellation:</strong> ${star.Constellation || 'N/A'}</div>
+      <div id="tooltip-stellarClass"><strong>Stellar Class:</strong> ${star.Stellar_class || 'N/A'}</div>
+      <div id="tooltip-mass"><strong>Mass:</strong> ${star.Mass !== undefined ? star.Mass : 'N/A'}</div>
+      <div id="tooltip-size"><strong>Size:</strong> ${star.Size !== undefined ? star.Size : 'N/A'}</div>
+      <div id="tooltip-absoluteMag"><strong>Absolute Mag:</strong> ${star.Absolute_magnitude !== undefined ? star.Absolute_magnitude : 'N/A'}</div>
+      <div id="tooltip-parallax"><strong>Parallax:</strong> ${star.Parallax !== undefined ? star.Parallax : 'N/A'}</div>
+      <div id="tooltip-catalogLink"><strong>Catalog:</strong> ${star.Catalog_link ? `<a href="${star.Catalog_link}" target="_blank" style="color: #ff6f61; text-decoration: underline;">Catalog</a>` : 'N/A'}</div>
+    `;
+    
     // Position tooltip near the cursor with a slight offset.
     tooltip.style.left = `${x + 15}px`;
     tooltip.style.top = `${y + 15}px`;
