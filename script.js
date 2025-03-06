@@ -224,10 +224,6 @@ async function buildAndApplyFilters() {
 
   // LOW DENSITY MAPPING – use the complete star set (cachedStars) for density mapping
   if (lowDensityMapping) {
-    // We also read the "low-density-grid-size" from the form data
-    // We invert it so that a lower slider => bigger cells => larger gridSize
-    // For example, default slider=2 => gridSize=2 => matches current code
-    // If slider=1 => gridSize=4 => bigger cells, if slider=4 => gridSize=1 => smaller cells
     const form = document.getElementById('filters-form');
     const lowGridSliderValue = parseFloat(new FormData(form).get('low-density-grid-size') || '2');
     const lowGridSize = 4 / lowGridSliderValue;  // invert relationship
@@ -284,7 +280,6 @@ async function buildAndApplyFilters() {
 
   // HIGH DENSITY MAPPING – also use cachedStars
   if (highDensityMapping) {
-    // Similarly read the "high-density-grid-size"
     const form = document.getElementById('filters-form');
     const highGridSliderValue = parseFloat(new FormData(form).get('high-density-grid-size') || '2');
     const highGridSize = 4 / highGridSliderValue;  // invert relationship
@@ -415,10 +410,6 @@ class MapManager {
     this.starGroup = new THREE.Group();
     this.scene.add(this.starGroup);
 
-    // Remove the per-instance resize listener.
-    // Instead we will use a global debounced resize listener.
-    // window.addEventListener('resize', () => this.onResize(), false);
-
     this.animate();
   }
 
@@ -475,14 +466,20 @@ class MapManager {
     this.updateConnections(stars, connectionObjs);
   }
 
-  // UPDATED onResize: now using the parent element’s dimensions.
+  // UPDATED onResize: if available vertical space (window.innerHeight minus header) is less than 1000px, we use that height.
   onResize() {
-    const parent = this.canvas.parentElement;
-    const w = parent.clientWidth;
-    const h = parent.clientHeight;
-    this.camera.aspect = w / h;
+    const headerHeight = document.querySelector('header').offsetHeight;
+    const containerWidth = this.canvas.parentElement.clientWidth;
+    let desiredHeight = 1000;
+    const availableHeight = window.innerHeight - headerHeight;
+    if (availableHeight < 1000) {
+      desiredHeight = availableHeight;
+    }
+    this.camera.aspect = containerWidth / desiredHeight;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(w, h);
+    this.renderer.setSize(containerWidth, desiredHeight);
+    // Also update the canvas style so the container adapts.
+    this.canvas.style.height = desiredHeight + "px";
   }
 
   animate() {
@@ -538,7 +535,6 @@ function initStarInteractions(map) {
         event.clientX >= tRect.left && event.clientX <= tRect.right &&
         event.clientY >= tRect.top && event.clientY <= tRect.bottom
       ) {
-        // Click occurred inside the tooltip; do nothing.
         return;
       }
     }
@@ -568,7 +564,6 @@ function initStarInteractions(map) {
 }
 
 function updateSelectedStarHighlight() {
-  // Remove existing highlights if any.
   if (selectedHighlightTrue) {
     trueCoordinatesMap.scene.remove(selectedHighlightTrue);
     selectedHighlightTrue = null;
@@ -578,7 +573,6 @@ function updateSelectedStarHighlight() {
     selectedHighlightGlobe = null;
   }
   if (selectedStarData) {
-    // Highlight in TrueCoordinates Map
     let posTrue = selectedStarData.truePosition 
       ? selectedStarData.truePosition 
       : new THREE.Vector3(selectedStarData.x_coordinate, selectedStarData.y_coordinate, selectedStarData.z_coordinate);
@@ -589,7 +583,6 @@ function updateSelectedStarHighlight() {
     selectedHighlightTrue.position.copy(posTrue);
     trueCoordinatesMap.scene.add(selectedHighlightTrue);
 
-    // Highlight in Globe Map
     let posGlobe = selectedStarData.spherePosition 
       ? selectedStarData.spherePosition 
       : projectStarGlobe(selectedStarData);
@@ -632,7 +625,7 @@ async function main() {
     const globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
 
-    // ADD GLOBAL DEBOUNCED RESIZE LISTENER
+    // Global debounced resize listener.
     window.addEventListener('resize', debounce(() => {
       trueCoordinatesMap.onResize();
       globeMap.onResize();
