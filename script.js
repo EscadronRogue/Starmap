@@ -59,7 +59,8 @@ function getStarTruePosition(star) {
     ra = THREE.Math.degToRad(star.RA_in_degrees);
     dec = THREE.Math.degToRad(star.DEC_in_degrees);
   } else {
-    ra = 0; dec = 0;
+    ra = 0; 
+    dec = 0;
   }
   return radToSphere(ra, dec, R);
 }
@@ -77,7 +78,8 @@ function projectStarGlobe(star) {
     ra = THREE.Math.degToRad(star.RA_in_degrees);
     dec = THREE.Math.degToRad(star.DEC_in_degrees);
   } else {
-    ra = 0; dec = 0;
+    ra = 0; 
+    dec = 0;
   }
   return radToSphere(ra, dec, R);
 }
@@ -224,9 +226,20 @@ async function buildAndApplyFilters() {
 
   // LOW DENSITY MAPPING – use the complete star set (cachedStars) for density mapping
   if (lowDensityMapping) {
-    if (!lowDensityOverlay ||
-        lowDensityOverlay.minDistance !== parseFloat(minDistance) ||
-        lowDensityOverlay.maxDistance !== parseFloat(maxDistance)) {
+    // We also read the "low-density-grid-size" from the form data
+    // We invert it so that a lower slider => bigger cells => larger gridSize
+    // For example, default slider=2 => gridSize=2 => matches current code
+    // If slider=1 => gridSize=4 => bigger cells, if slider=4 => gridSize=1 => smaller cells
+    const form = document.getElementById('filters-form');
+    const lowGridSliderValue = parseFloat(new FormData(form).get('low-density-grid-size') || '2');
+    const lowGridSize = 4 / lowGridSliderValue;  // invert relationship
+
+    if (
+      !lowDensityOverlay ||
+      lowDensityOverlay.minDistance !== parseFloat(minDistance) ||
+      lowDensityOverlay.maxDistance !== parseFloat(maxDistance) ||
+      lowDensityOverlay.gridSize !== lowGridSize
+    ) {
       if (lowDensityOverlay) {
         lowDensityOverlay.cubesData.forEach(c => {
           trueCoordinatesMap.scene.remove(c.tcMesh);
@@ -235,7 +248,7 @@ async function buildAndApplyFilters() {
           globeMap.scene.remove(obj.line);
         });
       }
-      lowDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "low");
+      lowDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "low", lowGridSize);
       lowDensityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.add(c.tcMesh);
       });
@@ -273,9 +286,17 @@ async function buildAndApplyFilters() {
 
   // HIGH DENSITY MAPPING – also use cachedStars
   if (highDensityMapping) {
-    if (!highDensityOverlay ||
-        highDensityOverlay.minDistance !== parseFloat(minDistance) ||
-        highDensityOverlay.maxDistance !== parseFloat(maxDistance)) {
+    // Similarly read the "high-density-grid-size"
+    const form = document.getElementById('filters-form');
+    const highGridSliderValue = parseFloat(new FormData(form).get('high-density-grid-size') || '2');
+    const highGridSize = 4 / highGridSliderValue;  // invert relationship
+
+    if (
+      !highDensityOverlay ||
+      highDensityOverlay.minDistance !== parseFloat(minDistance) ||
+      highDensityOverlay.maxDistance !== parseFloat(maxDistance) ||
+      highDensityOverlay.gridSize !== highGridSize
+    ) {
       if (highDensityOverlay) {
         highDensityOverlay.cubesData.forEach(c => {
           trueCoordinatesMap.scene.remove(c.tcMesh);
@@ -284,7 +305,7 @@ async function buildAndApplyFilters() {
           globeMap.scene.remove(obj.line);
         });
       }
-      highDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "high");
+      highDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "high", highGridSize);
       highDensityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.add(c.tcMesh);
       });
@@ -591,11 +612,6 @@ async function main() {
     if (form) {
       form.addEventListener('change', debouncedApplyFilters);
     }
-
-    const trueCoordinates = cachedStars.map(s =>
-      new THREE.Vector3(s.x_coordinate, s.y_coordinate, s.z_coordinate)
-    );
-    const overallMaxDistance = Math.max(...trueCoordinates.map(v => v.length()));
 
     trueCoordinatesMap = new MapManager({ canvasId: 'map3D', mapType: 'TrueCoordinates' });
     globeMap = new MapManager({ canvasId: 'sphereMap', mapType: 'Globe' });
