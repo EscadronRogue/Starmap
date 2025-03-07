@@ -1,15 +1,9 @@
-// /filters/densitySegmentation.js
+// filters/densitySegmentation.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getBlueColor, lightenColor, darkenColor, getIndividualBlueColor } from './densityColorUtils.js';
 import { getDensityCenterData } from './densityData.js';
-import { radToSphere, subdivideGeometry, getGreatCirclePoints, vectorToRaDec } from '../utils/geometryUtils.js';
+import { cachedRadToSphere, subdivideGeometry, getGreatCirclePoints, vectorToRaDec } from '../utils/geometryUtils.js';
 
-/**
- * Helper: Standard 2D ray-casting point-in-polygon test.
- * @param {Object} point - {x, y}
- * @param {Array} vs - Array of vertices [{x, y}, ...]
- * @returns {boolean} - true if the point is inside the polygon.
- */
 function pointInPolygon2D(point, vs) {
   let inside = false;
   for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
@@ -22,9 +16,6 @@ function pointInPolygon2D(point, vs) {
   return inside;
 }
 
-/**
- * Spherical point-in-polygon test.
- */
 function isPointInSphericalPolygon(point, polygon) {
   let totalAngle = 0;
   const n = polygon.length;
@@ -36,20 +27,8 @@ function isPointInSphericalPolygon(point, polygon) {
   return Math.abs(totalAngle - 2 * Math.PI) < 0.3;
 }
 
-/**
- * (Legacy) Subdivides geometry on the sphere.
- * Now using the shared subdivideGeometry function.
- */
 export { subdivideGeometry };
 
-/**
- * Note: The function vectorToRaDec is now provided by the centralized utility
- * in /utils/geometryUtils.js. Use that version to convert sphere coordinates to RA/DEC.
- */
-
-/**
- * A small BFS to compute connected components among a set of cell objects.
- */
 function computeConnectedComponents(cells) {
   const visited = new Set();
   const components = [];
@@ -93,9 +72,6 @@ function neighbors(cell) {
   return result;
 }
 
-/**
- * Finds the single "best" choke point to segment a large cluster.
- */
 export function segmentOceanCandidate(cells) {
   function getNeighborCount(cell, cluster) {
     let count = 0;
@@ -112,7 +88,6 @@ export function segmentOceanCandidate(cells) {
     }
     return count;
   }
-
   const candidateCells = [];
   cells.forEach(c => {
     const nCount = getNeighborCount(c, cells);
@@ -123,7 +98,6 @@ export function segmentOceanCandidate(cells) {
   if (candidateCells.length === 0) {
     return { segmented: false, cores: [ cells ] };
   }
-
   const visited = new Set();
   const lumps = [];
   function getNeighborsInCandidates(cell) {
@@ -134,7 +108,6 @@ export function segmentOceanCandidate(cells) {
              Math.abs(cc.grid.iz - cell.grid.iz) <= 1;
     });
   }
-
   candidateCells.forEach(cand => {
     if (visited.has(cand.id)) return;
     const stack = [ cand ];
@@ -153,7 +126,6 @@ export function segmentOceanCandidate(cells) {
     }
     lumps.push(lump);
   });
-
   for (let i = 0; i < lumps.length; i++) {
     const lump = lumps[i];
     const remainder = cells.filter(c => !lump.includes(c));
