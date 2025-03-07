@@ -8,119 +8,265 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Loader, Header, Sidebar, Maps, Tooltip, etc. remain unchanged -->
+  <!-- Loader -->
+  <div id="loader" class="active">Loading Stars...</div>
 
-  <!-- ... [rest of the unchanged HTML] ... -->
+  <!-- Header with Menu Toggle Button -->
+  <header>
+    <button id="menu-toggle" aria-label="Toggle Menu">☰</button>
+    <h1>Starmap Visualization</h1>
+  </header>
 
-  <!-- LOW DENSITY MAPPING Filter -->
-  <fieldset>
-    <legend class="collapsible" aria-expanded="false">Low Density Mapping</legend>
-    <div class="filter-content">
-      <div class="filter-item">
-        <input type="checkbox" id="enable-low-density-mapping" name="enable-low-density-mapping" />
-        <label for="enable-low-density-mapping">Enable Low Density Mapping</label>
-      </div>
-      <div class="filter-item">
-        <label for="low-density-slider">Isolation Distance (LY):</label>
-        <input type="range" id="low-density-slider" name="low-density" min="1" max="20" value="7" disabled />
-        <input type="number" id="low-density-number" name="low-density" min="1" max="20" value="7" disabled />
-        <span id="low-density-value">7</span> LY
-      </div>
-      <div class="filter-item">
-        <label>Ignore this many closest stars: <span id="low-tolerance-value">0</span></label>
-        <input type="range" id="low-tolerance-slider" name="low-tolerance" min="0" max="10" value="0" disabled />
-      </div>
-      <!-- Low Density Cluster Labeling & Segmentation toggle -->
-      <div class="filter-item">
-        <input type="checkbox" id="enable-low-density-labeling" name="enable-low-density-labeling" />
-        <label for="enable-low-density-labeling">Enable Low Density Cluster Labeling &amp; Segmentation</label>
-      </div>
-      <!-- LOW DENSITY GRID SUBDIVISION: slider uses a discrete mapping -->
-      <div class="filter-item">
-        <label for="low-density-grid-slider">Grid Subdivision:</label>
-        <!-- The slider's internal value ranges from -99 to 99 with 0 as default.
-             Negative values map to fractions: value = 1/(|x|+1). Positive values map to integers: value = x+1 -->
-        <input 
-          type="range" 
-          id="low-density-grid-slider" 
-          name="low-density-grid-size" 
-          min="-99" 
-          max="99" 
-          step="1" 
-          value="0" 
-          disabled
-        />
-        <!-- The number input shows the actual grid subdivision value -->
-        <input 
-          type="number" 
-          id="low-density-grid-number" 
-          name="low-density-grid-size" 
-          min="0.01" 
-          max="100" 
-          step="any" 
-          value="1" 
-          disabled
-        />
-      </div>
-    </div>
-  </fieldset>
+  <!-- Main Container -->
+  <div class="main-container">
+    <aside class="sidebar">
+      <h2>Filters</h2>
+      <form id="filters-form">
+        <!-- Stellar Class Filter Fieldset -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Stellar Class</legend>
+          <div class="filter-content">
+            <div id="stellar-class-container"></div>
+          </div>
+        </fieldset>
 
-  <!-- HIGH DENSITY MAPPING Filter -->
-  <fieldset>
-    <legend class="collapsible" aria-expanded="false">High Density Mapping</legend>
-    <div class="filter-content">
-      <div class="filter-item">
-        <input type="checkbox" id="enable-high-density-mapping" name="enable-high-density-mapping" />
-        <label for="enable-high-density-mapping">Enable High Density Mapping</label>
-      </div>
-      <div class="filter-item">
-        <label for="high-density-slider">Clustering Distance (LY):</label>
-        <input type="range" id="high-density-slider" name="high-density" min="1" max="20" value="1" disabled />
-        <input type="number" id="high-density-number" name="high-density" min="1" max="20" value="1" disabled />
-        <span id="high-density-value">1</span> LY
-      </div>
-      <div class="filter-item">
-        <label>Ignore this many closest stars: <span id="high-tolerance-value">0</span></label>
-        <input type="range" id="high-tolerance-slider" name="high-tolerance" min="0" max="10" value="0" disabled />
-      </div>
-      <!-- High Density Cluster Labeling & Segmentation toggle -->
-      <div class="filter-item">
-        <input type="checkbox" id="enable-high-density-labeling" name="enable-high-density-labeling" />
-        <label for="enable-high-density-labeling">Enable High Density Cluster Labeling &amp; Segmentation</label>
-      </div>
-      <!-- HIGH DENSITY GRID SUBDIVISION: slider uses the same discrete mapping -->
-      <div class="filter-item">
-        <label for="high-density-grid-slider">Grid Subdivision:</label>
-        <input 
-          type="range" 
-          id="high-density-grid-slider" 
-          name="high-density-grid-size" 
-          min="-99" 
-          max="99" 
-          step="1" 
-          value="0" 
-          disabled
-        />
-        <input 
-          type="number" 
-          id="high-density-grid-number" 
-          name="high-density-grid-size" 
-          min="0.01" 
-          max="100" 
-          step="any" 
-          value="1" 
-          disabled
-        />
-      </div>
-    </div>
-  </fieldset>
+        <!-- Size Filter -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Size</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <input type="radio" id="size-stellar-class" name="size" value="stellar-class" checked />
+              <label for="size-stellar-class">Stellar Class-Based</label>
+            </div>
+            <div class="filter-item">
+              <input type="radio" id="size-distance" name="size" value="distance" />
+              <label for="size-distance">Distance-Based</label>
+            </div>
+          </div>
+        </fieldset>
 
-  <!-- ... [rest of the unchanged HTML: closing tags, scripts, etc.] ... -->
+        <!-- Color Filter -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Color</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <input type="radio" id="color-stellar-class" name="color" value="stellar-class" checked />
+              <label for="color-stellar-class">Stellar Class-Based</label>
+            </div>
+            <div class="filter-item">
+              <input type="radio" id="color-constellation" name="color" value="constellation" />
+              <label for="color-constellation">Constellation</label>
+            </div>
+            <div class="filter-item">
+              <input type="radio" id="color-galactic-plane" name="color" value="galactic-plane" />
+              <label for="color-galactic-plane">Galactic Plane</label>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Opacity Filter -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Opacity</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <input type="radio" id="opacity-absolute-mag" name="opacity" value="absolute-magnitude" checked />
+              <label for="opacity-absolute-mag">Absolute Magnitude-Based</label>
+            </div>
+            <div class="filter-item">
+              <input type="radio" id="opacity-75" name="opacity" value="75" />
+              <label for="opacity-75">75% Opacity</label>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Stars Shown Filter -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Stars Shown</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <input type="radio" id="stars-shown-all" name="stars-shown" value="all" checked />
+              <label for="stars-shown-all">All Stars</label>
+            </div>
+            <div class="filter-item">
+              <input type="radio" id="stars-shown-visible" name="stars-shown" value="visible" />
+              <label for="stars-shown-visible">Visible Stars (Magnitude ≤ 6)</label>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Distance Filter Fieldset -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Distance Filter (LY)</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <label for="min-distance-slider">Minimum Distance:</label>
+              <input type="range" id="min-distance-slider" min="0" max="100" value="0" />
+              <input type="number" id="min-distance-number" name="min-distance" min="0" max="100" value="0" />
+            </div>
+            <div class="filter-item">
+              <label for="max-distance-slider">Maximum Distance:</label>
+              <input type="range" id="max-distance-slider" min="0" max="100" value="20" />
+              <input type="number" id="max-distance-number" name="max-distance" min="0" max="100" value="20" />
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Connections Filter (disabled by default) -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Connections (LY)</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <input type="checkbox" id="enable-connections" name="enable-connections" />
+              <label for="enable-connections">Enable Connections</label>
+            </div>
+            <div class="filter-item">
+              <input type="range" id="connection-slider" name="connections" min="1" max="50" value="7" disabled />
+              <input type="number" id="connection-number" name="connections-number" min="1" max="50" value="7" disabled />
+              <span id="connection-value">7</span> Light Years
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- LOW DENSITY MAPPING Filter -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">Low Density Mapping</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <input type="checkbox" id="enable-low-density-mapping" name="enable-low-density-mapping" />
+              <label for="enable-low-density-mapping">Enable Low Density Mapping</label>
+            </div>
+            <div class="filter-item">
+              <label for="low-density-slider">Isolation Distance (LY):</label>
+              <input type="range" id="low-density-slider" name="low-density" min="1" max="20" value="7" disabled />
+              <input type="number" id="low-density-number" name="low-density" min="1" max="20" value="7" disabled />
+              <span id="low-density-value">7</span> LY
+            </div>
+            <div class="filter-item">
+              <label>Ignore this many closest stars: <span id="low-tolerance-value">0</span></label>
+              <input type="range" id="low-tolerance-slider" name="low-tolerance" min="0" max="10" value="0" disabled />
+            </div>
+            <!-- Low Density Cluster Labeling & Segmentation toggle -->
+            <div class="filter-item">
+              <input type="checkbox" id="enable-low-density-labeling" name="enable-low-density-labeling" />
+              <label for="enable-low-density-labeling">Enable Low Density Cluster Labeling &amp; Segmentation</label>
+            </div>
+            <!-- LOW DENSITY GRID SUBDIVISION -->
+            <div class="filter-item">
+              <label for="low-density-grid-slider">Grid Subdivision:</label>
+              <!-- Slider internal value ranges from -99 to 99 -->
+              <input 
+                type="range" 
+                id="low-density-grid-slider" 
+                name="low-density-grid-size" 
+                min="-99" 
+                max="99" 
+                step="1" 
+                value="0" 
+                disabled
+              />
+              <!-- Number input shows the actual grid subdivision value -->
+              <input 
+                type="number" 
+                id="low-density-grid-number" 
+                name="low-density-grid-size" 
+                min="0.01" 
+                max="100" 
+                step="any" 
+                value="1" 
+                disabled
+              />
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- HIGH DENSITY MAPPING Filter -->
+        <fieldset>
+          <legend class="collapsible" aria-expanded="false">High Density Mapping</legend>
+          <div class="filter-content">
+            <div class="filter-item">
+              <input type="checkbox" id="enable-high-density-mapping" name="enable-high-density-mapping" />
+              <label for="enable-high-density-mapping">Enable High Density Mapping</label>
+            </div>
+            <div class="filter-item">
+              <label for="high-density-slider">Clustering Distance (LY):</label>
+              <input type="range" id="high-density-slider" name="high-density" min="1" max="20" value="1" disabled />
+              <input type="number" id="high-density-number" name="high-density" min="1" max="20" value="1" disabled />
+              <span id="high-density-value">1</span> LY
+            </div>
+            <div class="filter-item">
+              <label>Ignore this many closest stars: <span id="high-tolerance-value">0</span></label>
+              <input type="range" id="high-tolerance-slider" name="high-tolerance" min="0" max="10" value="0" disabled />
+            </div>
+            <!-- High Density Cluster Labeling & Segmentation toggle -->
+            <div class="filter-item">
+              <input type="checkbox" id="enable-high-density-labeling" name="enable-high-density-labeling" />
+              <label for="enable-high-density-labeling">Enable High Density Cluster Labeling &amp; Segmentation</label>
+            </div>
+            <!-- HIGH DENSITY GRID SUBDIVISION -->
+            <div class="filter-item">
+              <label for="high-density-grid-slider">Grid Subdivision:</label>
+              <input 
+                type="range" 
+                id="high-density-grid-slider" 
+                name="high-density-grid-size" 
+                min="-99" 
+                max="99" 
+                step="1" 
+                value="0" 
+                disabled
+              />
+              <input 
+                type="number" 
+                id="high-density-grid-number" 
+                name="high-density-grid-size" 
+                min="0.01" 
+                max="100" 
+                step="any" 
+                value="1" 
+                disabled
+              />
+            </div>
+          </div>
+        </fieldset>
+      </form>
+    </aside>
+
+    <!-- Maps Section -->
+    <section class="maps-section">
+      <!-- True Coordinates Map -->
+      <div class="map-container">
+        <h2>True Coordinates Map</h2>
+        <button class="fullscreen-btn" aria-label="Fullscreen True Coordinates Map">⤢</button>
+        <canvas id="map3D"></canvas>
+      </div>
+
+      <!-- Globe Map -->
+      <div class="map-container">
+        <h2>Globe Map</h2>
+        <button class="fullscreen-btn" aria-label="Fullscreen Globe Map">⤢</button>
+        <canvas id="sphereMap"></canvas>
+      </div>
+    </section>
+  </div>
+
+  <!-- Tooltip -->
+  <div id="tooltip" class="hidden">
+    <div id="tooltip-starName"></div>
+    <div id="tooltip-systemName"></div>
+    <div id="tooltip-distance"></div>
+    <div id="tooltip-stellarClass"></div>
+    <div id="tooltip-mass"></div>
+    <div id="tooltip-apparentMag"></div>
+    <div id="tooltip-absoluteMag"></div>
+  </div>
+
+  <!-- Labels Container -->
+  <div class="label-container"></div>
 
   <!-- Scripts -->
   <script type="module" src="script.js"></script>
   <script>
-    // Define mapping functions for the grid subdivision slider:
+    // Mapping functions for grid subdivision:
     function sliderToGridValue(sliderVal) {
       const intVal = parseInt(sliderVal, 10);
       if (intVal === 0) return 1;
@@ -137,30 +283,128 @@
     // Wrap event listener setup to ensure DOM elements exist
     document.addEventListener('DOMContentLoaded', function() {
 
-      // (Other event listeners remain unchanged...)
+      // Toggle sidebar menu on mobile
+      document.getElementById('menu-toggle').addEventListener('click', function() {
+        document.querySelector('.sidebar').classList.toggle('open');
+      });
+
+      // Enable/disable connection slider based on checkbox state
+      document.getElementById('enable-connections').addEventListener('change', function() {
+        const enabled = this.checked;
+        document.getElementById('connection-slider').disabled = !enabled;
+        document.getElementById('connection-number').disabled = !enabled;
+      });
+
+      // Sync connection slider and number input
+      document.getElementById('connection-slider').addEventListener('input', function() {
+        document.getElementById('connection-number').value = this.value;
+        document.getElementById('connection-value').textContent = this.value;
+      });
+      document.getElementById('connection-number').addEventListener('input', function() {
+        document.getElementById('connection-slider').value = this.value;
+        document.getElementById('connection-value').textContent = this.value;
+      });
+
+      // Enable/disable low density mapping sliders
+      document.getElementById('enable-low-density-mapping').addEventListener('change', function() {
+        const lowEnabled = this.checked;
+        document.getElementById('low-density-slider').disabled = !lowEnabled;
+        document.getElementById('low-density-number').disabled = !lowEnabled;
+        document.getElementById('low-tolerance-slider').disabled = !lowEnabled;
+        document.getElementById('low-density-grid-slider').disabled = !lowEnabled;
+        document.getElementById('low-density-grid-number').disabled = !lowEnabled;
+      });
+
+      // Enable/disable high density mapping sliders
+      document.getElementById('enable-high-density-mapping').addEventListener('change', function() {
+        const highEnabled = this.checked;
+        document.getElementById('high-density-slider').disabled = !highEnabled;
+        document.getElementById('high-density-number').disabled = !highEnabled;
+        document.getElementById('high-tolerance-slider').disabled = !highEnabled;
+        document.getElementById('high-density-grid-slider').disabled = !highEnabled;
+        document.getElementById('high-density-grid-number').disabled = !highEnabled;
+      });
+
+      // Sync low density slider and number input
+      document.getElementById('low-density-slider').addEventListener('input', function() {
+        document.getElementById('low-density-number').value = this.value;
+        document.getElementById('low-density-value').textContent = this.value;
+      });
+      document.getElementById('low-density-number').addEventListener('input', function() {
+        document.getElementById('low-density-slider').value = this.value;
+        document.getElementById('low-density-value').textContent = this.value;
+      });
+
+      // Sync high density slider and number input
+      document.getElementById('high-density-slider').addEventListener('input', function() {
+        document.getElementById('high-density-number').value = this.value;
+        document.getElementById('high-density-value').textContent = this.value;
+      });
+      document.getElementById('high-density-number').addEventListener('input', function() {
+        document.getElementById('high-density-slider').value = this.value;
+        document.getElementById('high-density-value').textContent = this.value;
+      });
 
       // Sync low density grid slider and number input using discrete mapping
       document.getElementById('low-density-grid-slider').addEventListener('input', function() {
-          const gridValue = sliderToGridValue(this.value);
-          // Use a fixed number of decimal places for display (up to 3 decimals)
-          document.getElementById('low-density-grid-number').value = gridValue.toFixed(3);
+        const gridValue = sliderToGridValue(this.value);
+        document.getElementById('low-density-grid-number').value = gridValue.toFixed(3);
       });
       document.getElementById('low-density-grid-number').addEventListener('input', function() {
-          const sliderVal = gridValueToSlider(this.value);
-          document.getElementById('low-density-grid-slider').value = sliderVal;
+        const sliderVal = gridValueToSlider(this.value);
+        document.getElementById('low-density-grid-slider').value = sliderVal;
       });
 
       // Sync high density grid slider and number input using discrete mapping
       document.getElementById('high-density-grid-slider').addEventListener('input', function() {
-          const gridValue = sliderToGridValue(this.value);
-          document.getElementById('high-density-grid-number').value = gridValue.toFixed(3);
+        const gridValue = sliderToGridValue(this.value);
+        document.getElementById('high-density-grid-number').value = gridValue.toFixed(3);
       });
       document.getElementById('high-density-grid-number').addEventListener('input', function() {
-          const sliderVal = gridValueToSlider(this.value);
-          document.getElementById('high-density-grid-slider').value = sliderVal;
+        const sliderVal = gridValueToSlider(this.value);
+        document.getElementById('high-density-grid-slider').value = sliderVal;
       });
 
-      // (All other event listeners for checkboxes, sliders, number inputs, and fullscreen remain unchanged)
+      // Sync distance slider and number input for minimum distance
+      document.getElementById('min-distance-slider').addEventListener('input', function() {
+        document.getElementById('min-distance-number').value = this.value;
+      });
+      document.getElementById('min-distance-number').addEventListener('input', function() {
+        document.getElementById('min-distance-slider').value = this.value;
+      });
+      // Sync distance slider and number input for maximum distance
+      document.getElementById('max-distance-slider').addEventListener('input', function() {
+        document.getElementById('max-distance-number').value = this.value;
+      });
+      document.getElementById('max-distance-number').addEventListener('input', function() {
+        document.getElementById('max-distance-slider').value = this.value;
+      });
+
+      // Fullscreen button listeners
+      document.querySelectorAll('.fullscreen-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const mapContainer = this.parentElement;
+          const canvas = mapContainer.querySelector('canvas');
+          if (document.fullscreenElement) {
+            document.exitFullscreen();
+          } else {
+            canvas.requestFullscreen().catch(err => {
+              console.error("Error attempting to enable full-screen mode:", err);
+            });
+          }
+        });
+      });
+
+      // Adjust canvas on fullscreen exit
+      document.addEventListener("fullscreenchange", function() {
+        if (!document.fullscreenElement) {
+          document.querySelectorAll('.map-container canvas').forEach(canvas => {
+            canvas.style.width = "";
+            canvas.style.height = "";
+          });
+          window.dispatchEvent(new Event('resize'));
+        }
+      });
     });
   </script>
 </body>
