@@ -365,38 +365,69 @@ class MapManager {
     this.labelManager = new LabelManager(mapType, this.scene);
     this.starGroup = new THREE.Group();
     this.scene.add(this.starGroup);
-    // Use a debounced resize handler to avoid repeated heavy updates
+    // For instanced stars rendering
+    this.instancedStars = null;
+    this.starObjects = [];
     this.debouncedResize = debounce(() => this.onResize(), 200);
     window.addEventListener('resize', this.debouncedResize, false);
     this.animate();
   }
 
+  // UPDATED: Use instanced rendering to draw stars in a single draw call.
   addStars(stars) {
-    while (this.starGroup.children.length > 0) {
-      const child = this.starGroup.children[0];
-      this.starGroup.remove(child);
-      child.geometry.dispose();
-      child.material.dispose();
+    // Remove previous instanced mesh if present.
+    if (this.instancedStars) {
+      this.scene.remove(this.instancedStars);
+      this.instancedStars.geometry.dispose();
+      this.instancedStars.material.dispose();
+      this.instancedStars = null;
     }
-    stars.forEach(star => {
-      const size = star.displaySize || 1;
-      const sphereGeometry = new THREE.SphereGeometry(size * 0.2, 12, 12);
-      const material = new THREE.MeshBasicMaterial({
-        color: star.displayColor || '#ffffff',
-        transparent: true,
-        opacity: 1.0
-      });
-      const starMesh = new THREE.Mesh(sphereGeometry, material);
+    const count = stars.length;
+    // Base sphere geometry with unit radius (0.2). Each instance will be scaled.
+    const baseRadius = 0.2;
+    const geometry = new THREE.SphereGeometry(baseRadius, 12, 12);
+    // Material supports per-instance vertex colors.
+    const material = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 1.0
+    });
+    const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
+    const instanceColors = new Float32Array(count * 3);
+    const dummy = new THREE.Object3D();
+    for (let i = 0; i < count; i++) {
+      const star = stars[i];
       let pos;
       if (this.mapType === 'TrueCoordinates') {
         pos = star.truePosition ? star.truePosition.clone() : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
       } else {
         pos = star.spherePosition || new THREE.Vector3(0, 0, 0);
       }
-      starMesh.position.copy(pos);
-      this.starGroup.add(starMesh);
-    });
+      // Use star.displaySize for scaling; default to 2.
+      const scale = star.displaySize || 2;
+      dummy.position.copy(pos);
+      dummy.scale.set(scale, scale, scale);
+      dummy.updateMatrix();
+      instancedMesh.setMatrixAt(i, dummy.matrix);
+      const color = new THREE.Color(star.displayColor || '#ffffff');
+      instanceColors[i * 3] = color.r;
+      instanceColors[i * 3 + 1] = color.g;
+      instanceColors[i * 3 + 2] = color.b;
+    }
+    instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(instanceColors, 3);
+    this.scene.add(instancedMesh);
+    this.instancedStars = instancedMesh;
+    // Update starObjects for tooltip and interaction purposes.
     this.starObjects = stars;
+    // Optionally clear the older starGroup.
+    if (this.starGroup) {
+      while (this.starGroup.children.length > 0) {
+        const child = this.starGroup.children[0];
+        this.starGroup.remove(child);
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+      }
+    }
   }
 
   updateConnections(stars, connectionObjs) {
@@ -547,3 +578,4 @@ async function main() {
 }
 
 window.onload = main;
+export { MapManager };
