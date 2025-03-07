@@ -279,125 +279,129 @@
       return Math.round(gridVal) - 1;
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
+    // Since the script tag is at the bottom, the DOM is ready.
+    // Toggle sidebar menu on mobile
+    document.getElementById('menu-toggle').addEventListener('click', function() {
+      document.querySelector('.sidebar').classList.toggle('open');
+    });
 
-      // Toggle sidebar menu on mobile
-      document.getElementById('menu-toggle').addEventListener('click', function() {
-        document.querySelector('.sidebar').classList.toggle('open');
-      });
+    // Enable/disable connection slider based on checkbox state
+    document.getElementById('enable-connections').addEventListener('change', function() {
+      const enabled = this.checked;
+      document.getElementById('connection-slider').disabled = !enabled;
+      document.getElementById('connection-number').disabled = !enabled;
+    });
 
-      // Enable/disable connection slider based on checkbox state
-      document.getElementById('enable-connections').addEventListener('change', function() {
-        const enabled = this.checked;
-        document.getElementById('connection-slider').disabled = !enabled;
-        document.getElementById('connection-number').disabled = !enabled;
-      });
+    // Sync connection slider and number input
+    document.getElementById('connection-slider').addEventListener('input', function() {
+      document.getElementById('connection-number').value = this.value;
+      document.getElementById('connection-value').textContent = this.value;
+    });
+    document.getElementById('connection-number').addEventListener('input', function() {
+      document.getElementById('connection-slider').value = this.value;
+      document.getElementById('connection-value').textContent = this.value;
+    });
 
-      // Sync connection slider and number input
-      document.getElementById('connection-slider').addEventListener('input', function() {
-        document.getElementById('connection-number').value = this.value;
-        document.getElementById('connection-value').textContent = this.value;
-      });
-      document.getElementById('connection-number').addEventListener('input', function() {
-        document.getElementById('connection-slider').value = this.value;
-        document.getElementById('connection-value').textContent = this.value;
-      });
+    // Enable/disable low density mapping sliders
+    document.getElementById('enable-low-density-mapping').addEventListener('change', function() {
+      const lowEnabled = this.checked;
+      document.getElementById('low-density-slider').disabled = !lowEnabled;
+      document.getElementById('low-density-number').disabled = !lowEnabled;
+      document.getElementById('low-tolerance-slider').disabled = !lowEnabled;
+      document.getElementById('low-density-grid-slider').disabled = !lowEnabled;
+      document.getElementById('low-density-grid-number').disabled = !lowEnabled;
+    });
 
-      // Enable/disable low density mapping sliders
-      document.getElementById('enable-low-density-mapping').addEventListener('change', function() {
-        const lowEnabled = this.checked;
-        document.getElementById('low-density-slider').disabled = !lowEnabled;
-        document.getElementById('low-density-number').disabled = !lowEnabled;
-        document.getElementById('low-tolerance-slider').disabled = !lowEnabled;
-        document.getElementById('low-density-grid-slider').disabled = !lowEnabled;
-        document.getElementById('low-density-grid-number').disabled = !lowEnabled;
-      });
+    // Enable/disable high density mapping sliders
+    document.getElementById('enable-high-density-mapping').addEventListener('change', function() {
+      const highEnabled = this.checked;
+      document.getElementById('high-density-slider').disabled = !highEnabled;
+      document.getElementById('high-density-number').disabled = !highEnabled;
+      document.getElementById('high-tolerance-slider').disabled = !highEnabled;
+      document.getElementById('high-density-grid-slider').disabled = !highEnabled;
+      document.getElementById('high-density-grid-number').disabled = !highEnabled;
+    });
 
-      // Enable/disable high density mapping sliders
-      document.getElementById('enable-high-density-mapping').addEventListener('change', function() {
-        const highEnabled = this.checked;
-        document.getElementById('high-density-slider').disabled = !highEnabled;
-        document.getElementById('high-density-number').disabled = !highEnabled;
-        document.getElementById('high-tolerance-slider').disabled = !highEnabled;
-        document.getElementById('high-density-grid-slider').disabled = !highEnabled;
-        document.getElementById('high-density-grid-number').disabled = !highEnabled;
-      });
+    // Sync low density slider and number input
+    document.getElementById('low-density-slider').addEventListener('input', function() {
+      document.getElementById('low-density-number').value = this.value;
+      document.getElementById('low-density-value').textContent = this.value;
+    });
+    document.getElementById('low-density-number').addEventListener('input', function() {
+      document.getElementById('low-density-slider').value = this.value;
+      document.getElementById('low-density-value').textContent = this.value;
+    });
 
-      // Sync low density slider and number input
-      document.getElementById('low-density-slider').addEventListener('input', function() {
-        document.getElementById('low-density-number').value = this.value;
-        document.getElementById('low-density-value').textContent = this.value;
-      });
-      document.getElementById('low-density-number').addEventListener('input', function() {
-        document.getElementById('low-density-slider').value = this.value;
-        document.getElementById('low-density-value').textContent = this.value;
-      });
+    // Sync high density slider and number input
+    document.getElementById('high-density-slider').addEventListener('input', function() {
+      document.getElementById('high-density-number').value = this.value;
+      document.getElementById('high-density-value').textContent = this.value;
+    });
+    document.getElementById('high-density-number').addEventListener('input', function() {
+      document.getElementById('high-density-slider').value = this.value;
+      document.getElementById('high-density-value').textContent = this.value;
+    });
 
-      // Sync high density slider and number input
-      document.getElementById('high-density-slider').addEventListener('input', function() {
-        document.getElementById('high-density-number').value = this.value;
-        document.getElementById('high-density-value').textContent = this.value;
-      });
-      document.getElementById('high-density-number').addEventListener('input', function() {
-        document.getElementById('high-density-slider').value = this.value;
-        document.getElementById('high-density-value').textContent = this.value;
-      });
+    // Sync low density grid slider and number input using discrete mapping
+    document.getElementById('low-density-grid-slider').addEventListener('input', function() {
+      const gridValue = sliderToGridValue(this.value);
+      document.getElementById('low-density-grid-number').value = gridValue.toFixed(3);
+    });
+    document.getElementById('low-density-grid-number').addEventListener('input', function() {
+      const sliderVal = gridValueToSlider(this.value);
+      document.getElementById('low-density-grid-slider').value = sliderVal;
+    });
 
-      // Sync low density grid slider and number input using discrete mapping
-      document.getElementById('low-density-grid-slider').addEventListener('input', function() {
-        const gridValue = sliderToGridValue(this.value);
-        document.getElementById('low-density-grid-number').value = gridValue.toFixed(3);
-      });
-      document.getElementById('low-density-grid-number').addEventListener('input', function() {
-        const sliderVal = gridValueToSlider(this.value);
-        document.getElementById('low-density-grid-slider').value = sliderVal;
-      });
+    // Sync high density grid slider and number input using discrete mapping
+    document.getElementById('high-density-grid-slider').addEventListener('input', function() {
+      const gridValue = sliderToGridValue(this.value);
+      document.getElementById('high-density-grid-number').value = gridValue.toFixed(3);
+    });
+    document.getElementById('high-density-grid-number').addEventListener('input', function() {
+      const sliderVal = gridValueToSlider(this.value);
+      document.getElementById('high-density-grid-slider').value = sliderVal;
+    });
 
-      // Sync high density grid slider and number input using discrete mapping
-      document.getElementById('high-density-grid-slider').addEventListener('input', function() {
-        const gridValue = sliderToGridValue(this.value);
-        document.getElementById('high-density-grid-number').value = gridValue.toFixed(3);
-      });
-      document.getElementById('high-density-grid-number').addEventListener('input', function() {
-        const sliderVal = gridValueToSlider(this.value);
-        document.getElementById('high-density-grid-slider').value = sliderVal;
-      });
+    // Sync distance slider and number input for minimum distance
+    document.getElementById('min-distance-slider').addEventListener('input', function() {
+      document.getElementById('min-distance-number').value = this.value;
+    });
+    document.getElementById('min-distance-number').addEventListener('input', function() {
+      document.getElementById('min-distance-slider').value = this.value;
+    });
+    // Sync distance slider and number input for maximum distance
+    document.getElementById('max-distance-slider').addEventListener('input', function() {
+      document.getElementById('max-distance-number').value = this.value;
+    });
+    document.getElementById('max-distance-number').addEventListener('input', function() {
+      document.getElementById('max-distance-slider').value = this.value;
+    });
 
-      // Sync distance slider and number input for minimum distance
-      document.getElementById('min-distance-slider').addEventListener('input', function() {
-        document.getElementById('min-distance-number').value = this.value;
-      });
-      document.getElementById('min-distance-number').addEventListener('input', function() {
-        document.getElementById('min-distance-slider').value = this.value;
-      });
-      // Sync distance slider and number input for maximum distance
-      document.getElementById('max-distance-slider').addEventListener('input', function() {
-        document.getElementById('max-distance-number').value = this.value;
-      });
-      document.getElementById('max-distance-number').addEventListener('input', function() {
-        document.getElementById('max-distance-slider').value = this.value;
-      });
-
-      // Fullscreen button listeners
-      document.querySelectorAll('.fullscreen-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-          const mapContainer = this.parentElement;
-          const canvas = mapContainer.querySelector('canvas');
-          if (document.fullscreenElement) {
-            document.exitFullscreen();
-          } else {
-            canvas.requestFullscreen().catch(err => {
-              console.error("Error attempting to enable full-screen mode:", err);
-            });
-          }
-        });
-      });
-
-      // Adjust canvas on fullscreen exit
-      document.addEventListener("fullscreenchange", function() {
-        if (!document.fullscreenElement) {
-          document.querySelectorAll('.map-container canvas').forEach(canvas => {
-            canvas.style.width = "";
-            canvas.style.height = "";
+    // Fullscreen button listeners
+    document.querySelectorAll('.fullscreen-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const mapContainer = this.parentElement;
+        const canvas = mapContainer.querySelector('canvas');
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+        } else {
+          canvas.requestFullscreen().catch(err => {
+            console.error("Error attempting to enable full-screen mode:", err);
           });
-          window.di
+        }
+      });
+    });
+
+    // Adjust canvas on fullscreen exit
+    document.addEventListener("fullscreenchange", function() {
+      if (!document.fullscreenElement) {
+        document.querySelectorAll('.map-container canvas').forEach(canvas => {
+          canvas.style.width = "";
+          canvas.style.height = "";
+        });
+        window.dispatchEvent(new Event('resize'));
+      }
+    });
+  </script>
+</body>
+</html>
