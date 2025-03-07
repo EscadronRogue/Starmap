@@ -1,204 +1,205 @@
-// /filters/constellationFilter.js
-
+// filters/constellationOverlayFilter.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { radToSphere, getGreatCirclePoints } from '../utils/geometryUtils.js';
+import { cachedRadToSphere, getGreatCirclePoints, subdivideGeometry } from '../utils/geometryUtils.js';
+import { getConstellationBoundaries } from './constellationFilter.js';
 
-let boundaryData = [];
-let centerData = [];
+const R = 100;
+const distinctPalette = [
+  "#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00",
+  "#ffff33", "#a65628", "#f781bf", "#66c2a5", "#fc8d62",
+  "#8da0cb", "#e78ac3", "#a6d854", "#ffd92f", "#e5c494",
+  "#b3b3b3", "#1b9e77", "#d95f02", "#7570b3", "#e7298a"
+];
 
-/**
- * Loads constellation boundary data asynchronously.
- */
-export async function loadConstellationBoundaries() {
-  try {
-    const resp = await fetch('constellation_boundaries.txt');
-    if (!resp.ok) throw new Error(`Failed to load constellation_boundaries.txt: ${resp.status}`);
-    const raw = await resp.text();
-    const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
-    boundaryData = [];
-    for (const line of lines) {
-      const parts = line.split(/\s+/);
-      if (parts.length < 8) continue;
-      const raStr1 = parts[2];
-      const decStr1 = parts[3];
-      const raStr2 = parts[4];
-      const decStr2 = parts[5];
-      const c1 = parts[6];
-      const c2 = parts[7];
-      const ra1 = parseRA(raStr1);
-      const dec1 = parseDec(decStr1);
-      const ra2 = parseRA(raStr2);
-      const dec2 = parseDec(decStr2);
-      boundaryData.push({ ra1, dec1, ra2, dec2, const1: c1, const2: c2 });
+function computeNeighborMap() {
+  const boundaries = getConstellationBoundaries();
+  const neighbors = {};
+  boundaries.forEach(seg => {
+    if (seg.const1) {
+      const key1 = seg.const1.toUpperCase();
+      const key2 = seg.const2 ? seg.const2.toUpperCase() : null;
+      if (!neighbors[key1]) neighbors[key1] = new Set();
+      if (key2) neighbors[key1].add(key2);
     }
-    console.log(`[ConstellationFilter] Boundaries: loaded ${boundaryData.length} lines.`);
-  } catch (err) {
-    console.error('Error loading constellation boundaries:', err);
-    boundaryData = [];
-  }
-}
-
-/**
- * Loads constellation center data asynchronously.
- */
-export async function loadConstellationCenters() {
-  try {
-    const resp = await fetch('constellation_center.txt');
-    if (!resp.ok) throw new Error(`Failed to load constellation_center.txt: ${resp.status}`);
-    const raw = await resp.text();
-    const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
-    centerData = [];
-    for (const line of lines) {
-      const parts = line.split(/\s+/);
-      if (parts.length < 5) continue;
-      const raStr = parts[2];
-      const decStr = parts[3];
-      const matchName = line.match(/"([^"]+)"/);
-      const name = matchName ? matchName[1] : 'Unknown';
-      const raVal = parseRA(raStr);
-      const decVal = parseDec(decStr);
-      centerData.push({ ra: raVal, dec: decVal, name });
+    if (seg.const2) {
+      const key2 = seg.const2.toUpperCase();
+      const key1 = seg.const1 ? seg.const1.toUpperCase() : null;
+      if (!neighbors[key2]) neighbors[key2] = new Set();
+      if (key1) neighbors[key2].add(key1);
     }
-    console.log(`[ConstellationFilter] Centers: loaded ${centerData.length} items.`);
-  } catch (err) {
-    console.error('Error loading constellation centers:', err);
-    centerData = [];
-  }
-}
-
-/**
- * Returns the loaded constellation centers.
- */
-export function getConstellationCenters() {
-  return centerData;
-}
-
-/**
- * Returns the loaded constellation boundaries.
- */
-export function getConstellationBoundaries() {
-  return boundaryData;
-}
-
-/**
- * Creates constellation boundary line meshes for the Globe.
- */
-export function createConstellationBoundariesForGlobe() {
-  const lines = [];
-  const R = 100;
-  boundaryData.forEach(b => {
-    const p1 = radToSphere(b.ra1, b.dec1, R);
-    const p2 = radToSphere(b.ra2, b.dec2, R);
-    // Create a smooth curved line using a CatmullRom curve
-    const curve = new THREE.CatmullRomCurve3(
-      getGreatCirclePoints(p1, p2, R, 32)
-    );
-    const points = curve.getPoints(32);
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineDashedMaterial({
-      color: 0x888888,
-      dashSize: 2,
-      gapSize: 1,
-      linewidth: 1
-    });
-    const line = new THREE.Line(geometry, material);
-    line.computeLineDistances();
-    lines.push(line);
   });
-  return lines;
+  Object.keys(neighbors).forEach(key => {
+    neighbors[key] = Array.from(neighbors[key]);
+  });
+  return neighbors;
 }
 
-/**
- * Creates constellation label meshes for the Globe.
- * The labels are rendered using a custom shader material so that they are double-sided
- * and always oriented correctly.
- */
-export function createConstellationLabelsForGlobe() {
-  const labels = [];
-  const R = 100;
-  // For each center from the loaded centerData
-  centerData.forEach(c => {
-    const p = radToSphere(c.ra, c.dec, R);
-    const baseFontSize = 300; // Very large base font size
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    ctx.font = `${baseFontSize}px Arial`;
-    const textWidth = ctx.measureText(c.name).width;
-    canvas.width = textWidth + 20;
-    canvas.height = baseFontSize * 1.2;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.font = `${baseFontSize}px Arial`;
-    ctx.fillStyle = '#888888';
-    ctx.fillText(c.name, 10, baseFontSize);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-    const material = new THREE.ShaderMaterial({
-      uniforms: {
-        map: { value: texture },
-        opacity: { value: 0.5 }
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+export function computeConstellationColorMapping() {
+  const neighbors = computeNeighborMap();
+  const allConsts = new Set();
+  Object.keys(neighbors).forEach(c => allConsts.add(c));
+  const boundaries = getConstellationBoundaries();
+  boundaries.forEach(seg => {
+    if (seg.const1) allConsts.add(seg.const1.toUpperCase());
+    if (seg.const2) allConsts.add(seg.const2.toUpperCase());
+  });
+  const constellations = Array.from(allConsts);
+  let maxDegree = 0;
+  constellations.forEach(c => {
+    const deg = neighbors[c] ? neighbors[c].length : 0;
+    if (deg > maxDegree) maxDegree = deg;
+  });
+  const palette = distinctPalette;
+  constellations.sort((a, b) => (neighbors[b] ? neighbors[b].length : 0) - (neighbors[a] ? neighbors[a].length : 0));
+  const colorMapping = {};
+  for (const c of constellations) {
+    const used = new Set();
+    if (neighbors[c]) {
+      for (const nb of neighbors[c]) {
+        if (colorMapping[nb]) used.add(colorMapping[nb]);
+      }
+    }
+    let assigned = palette.find(color => !used.has(color));
+    if (!assigned) assigned = palette[0];
+    colorMapping[c] = assigned;
+  }
+  return colorMapping;
+}
+
+function computeSphericalCentroid(vertices) {
+  const sum = new THREE.Vector3(0, 0, 0);
+  vertices.forEach(v => sum.add(v));
+  return sum.normalize().multiplyScalar(R);
+}
+
+function isPointInSphericalPolygon(point, vertices) {
+  let angleSum = 0;
+  for (let i = 0; i < vertices.length; i++) {
+    const v1 = vertices[i].clone().normalize();
+    const v2 = vertices[(i + 1) % vertices.length].clone().normalize();
+    const d1 = v1.clone().sub(point).normalize();
+    const d2 = v2.clone().sub(point).normalize();
+    let angle = Math.acos(THREE.MathUtils.clamp(d1.dot(d2), -1, 1));
+    angleSum += angle;
+  }
+  return Math.abs(angleSum - 2 * Math.PI) < 0.1;
+}
+
+export function createConstellationOverlayForGlobe() {
+  const boundaries = getConstellationBoundaries();
+  const groups = {};
+  boundaries.forEach(seg => {
+    if (seg.const1) {
+      const key = seg.const1.toUpperCase();
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(seg);
+    }
+    if (seg.const2 && seg.const2.toUpperCase() !== (seg.const1 ? seg.const1.toUpperCase() : '')) {
+      const key = seg.const2.toUpperCase();
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(seg);
+    }
+  });
+  const colorMapping = computeConstellationColorMapping();
+  const overlays = [];
+  for (const constellation in groups) {
+    const segs = groups[constellation];
+    const ordered = [];
+    const used = new Array(segs.length).fill(false);
+    const convert = (seg, endpoint) =>
+      cachedRadToSphere(endpoint === 0 ? seg.ra1 : seg.ra2, endpoint === 0 ? seg.dec1 : seg.dec2, R);
+    if (segs.length === 0) continue;
+    let currentPoint = convert(segs[0], 0);
+    ordered.push(currentPoint);
+    used[0] = true;
+    let currentEnd = convert(segs[0], 1);
+    ordered.push(currentEnd);
+    let changed = true;
+    let iteration = 0;
+    while (changed && iteration < segs.length) {
+      changed = false;
+      for (let i = 0; i < segs.length; i++) {
+        if (used[i]) continue;
+        const seg = segs[i];
+        const p0 = convert(seg, 0);
+        const p1 = convert(seg, 1);
+        if (p0.distanceTo(currentEnd) < 0.001) {
+          ordered.push(p1);
+          currentEnd = p1;
+          used[i] = true;
+          changed = true;
+        } else if (p1.distanceTo(currentEnd) < 0.001) {
+          ordered.push(p0);
+          currentEnd = p0;
+          used[i] = true;
+          changed = true;
         }
-      `,
-      fragmentShader: `
-        uniform sampler2D map;
-        uniform float opacity;
-        varying vec2 vUv;
-        void main() {
-          vec2 uvCorrected = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);
-          vec4 color = texture2D(map, uvCorrected);
-          gl_FragColor = vec4(color.rgb, color.a * opacity);
-        }
-      `,
+      }
+      iteration++;
+    }
+    if (ordered.length < 3) continue;
+    if (ordered[0].distanceTo(ordered[ordered.length - 1]) > 0.01) continue;
+    if (ordered[0].distanceTo(ordered[ordered.length - 1]) < 0.001) {
+      ordered.pop();
+    }
+    let geometry;
+    const centroid = computeSphericalCentroid(ordered);
+    if (isPointInSphericalPolygon(centroid, ordered)) {
+      const vertices = [];
+      ordered.forEach(p => vertices.push(p.x, p.y, p.z));
+      vertices.push(centroid.x, centroid.y, centroid.z);
+      const vertexArray = new Float32Array(vertices);
+      geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(vertexArray, 3));
+      const indices = [];
+      const n = ordered.length;
+      const centroidIndex = n;
+      for (let i = 0; i < n; i++) {
+        indices.push(i, (i + 1) % n, centroidIndex);
+      }
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+    } else {
+      const tangent = new THREE.Vector3();
+      const bitangent = new THREE.Vector3();
+      const tempCentroid = new THREE.Vector3(0, 0, 0);
+      ordered.forEach(p => tempCentroid.add(p));
+      tempCentroid.divideScalar(ordered.length);
+      const normal = tempCentroid.clone().normalize();
+      let up = new THREE.Vector3(0, 1, 0);
+      if (Math.abs(normal.dot(up)) > 0.9) up = new THREE.Vector3(1, 0, 0);
+      tangent.copy(up).sub(normal.clone().multiplyScalar(normal.dot(up))).normalize();
+      bitangent.crossVectors(normal, tangent).normalize();
+      const pts2D = ordered.map(p => new THREE.Vector2(p.dot(tangent), p.dot(bitangent)));
+      const indices2D = THREE.ShapeUtils.triangulateShape(pts2D, []);
+      const vertices = [];
+      ordered.forEach(p => vertices.push(p.x, p.y, p.z));
+      geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geometry.setIndex(indices2D.flat());
+      geometry.computeVertexNormals();
+      const posAttr = geometry.attributes.position;
+      for (let i = 0; i < posAttr.count; i++) {
+        const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
+        v.normalize().multiplyScalar(R);
+        posAttr.setXYZ(i, v.x, v.y, v.z);
+      }
+      posAttr.needsUpdate = true;
+    }
+    geometry = subdivideGeometry(geometry, 2);
+    const material = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(colorMapping[constellation]),
+      opacity: 0.15,
       transparent: true,
-      side: THREE.DoubleSide
+      side: THREE.DoubleSide,
+      depthWrite: false
     });
-    const planeGeom = new THREE.PlaneGeometry(canvas.width / 100, canvas.height / 100);
-    const label = new THREE.Mesh(planeGeom, material);
-    label.position.copy(p);
-    // Orient the label so that its up vector is aligned with the projection of global up onto the tangent plane.
-    const normal = p.clone().normalize();
-    const globalUp = new THREE.Vector3(0, 1, 0);
-    let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
-    if (desiredUp.lengthSq() < 1e-6) desiredUp = new THREE.Vector3(0, 0, 1);
-    else desiredUp.normalize();
-    const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
-    const matrix = new THREE.Matrix4().makeBasis(desiredRight, desiredUp, normal);
-    label.setRotationFromMatrix(matrix);
-    label.renderOrder = 1;
-    labels.push(label);
-  });
-  return labels;
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.renderOrder = 1;
+    mesh.userData.constellation = constellation;
+    overlays.push(mesh);
+  }
+  return overlays;
 }
 
-/**
- * Parses a Right Ascension string (e.g. "12:34:56") into radians.
- */
-function parseRA(raStr) {
-  const [hh, mm, ss] = raStr.split(':').map(x => parseFloat(x));
-  const hours = hh + mm / 60 + ss / 3600;
-  const deg = hours * 15;
-  return degToRad(deg);
-}
-
-/**
- * Parses a Declination string (e.g. "-12:34:56") into radians.
- */
-function parseDec(decStr) {
-  const sign = decStr.startsWith('-') ? -1 : 1;
-  const stripped = decStr.replace('+', '').replace('-', '');
-  const [dd, mm, ss] = stripped.split(':').map(x => parseFloat(x));
-  const degVal = (dd + mm / 60 + ss / 3600) * sign;
-  return degToRad(degVal);
-}
-
-/**
- * Converts degrees to radians.
- */
-function degToRad(d) {
-  return d * Math.PI / 180;
-}
+export { computeConstellationColorMapping };
