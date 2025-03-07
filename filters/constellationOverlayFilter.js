@@ -12,18 +12,71 @@ const distinctPalette = [
   "#b3b3b3", "#1b9e77", "#d95f02", "#7570b3", "#e7298a"
 ];
 
-export function computeConstellationColorMapping() {
+/* 
+  Compute a neighbor map: for each constellation, list the neighboring constellations 
+  (i.e. those sharing at least one boundary segment).
+*/
+function computeNeighborMap() {
   const boundaries = getConstellationBoundaries();
-  const constellationsSet = new Set();
+  const neighbors = {};
   boundaries.forEach(seg => {
-    if (seg.const1) constellationsSet.add(seg.const1.toUpperCase());
-    if (seg.const2) constellationsSet.add(seg.const2.toUpperCase());
+    if (seg.const1) {
+      const key1 = seg.const1.toUpperCase();
+      const key2 = seg.const2 ? seg.const2.toUpperCase() : null;
+      if (!neighbors[key1]) neighbors[key1] = new Set();
+      if (key2) neighbors[key1].add(key2);
+    }
+    if (seg.const2) {
+      const key2 = seg.const2.toUpperCase();
+      const key1 = seg.const1 ? seg.const1.toUpperCase() : null;
+      if (!neighbors[key2]) neighbors[key2] = new Set();
+      if (key1) neighbors[key2].add(key1);
+    }
   });
-  const constellations = Array.from(constellationsSet).sort();
+  Object.keys(neighbors).forEach(key => {
+    neighbors[key] = Array.from(neighbors[key]);
+  });
+  return neighbors;
+}
+
+/* 
+  Compute a color mapping that assigns each constellation a color such that 
+  no two neighboring constellations share the same color. This is done via a greedy 
+  algorithm that orders constellations by neighbor count and assigns the first available color.
+*/
+export function computeConstellationColorMapping() {
+  const neighborMap = computeNeighborMap();
+  const boundaries = getConstellationBoundaries();
+  const allConsts = new Set();
+  // Add all constellations present in the neighbor map.
+  Object.keys(neighborMap).forEach(c => allConsts.add(c));
+  // Also add any constellation from boundary data.
+  boundaries.forEach(seg => {
+    if (seg.const1) allConsts.add(seg.const1.toUpperCase());
+    if (seg.const2) allConsts.add(seg.const2.toUpperCase());
+  });
+  const constellations = Array.from(allConsts);
+  
+  // Sort constellations in descending order by number of neighbors.
+  constellations.sort((a, b) => {
+    const degA = neighborMap[a] ? neighborMap[a].length : 0;
+    const degB = neighborMap[b] ? neighborMap[b].length : 0;
+    return degB - degA;
+  });
+  
   const colorMapping = {};
   const palette = distinctPalette;
-  for (let i = 0; i < constellations.length; i++) {
-    colorMapping[constellations[i]] = palette[i % palette.length];
+  for (const c of constellations) {
+    const usedColors = new Set();
+    if (neighborMap[c]) {
+      neighborMap[c].forEach(nb => {
+        if (colorMapping[nb]) usedColors.add(colorMapping[nb]);
+      });
+    }
+    // Find the first color in the palette not used by any neighbor.
+    let assigned = palette.find(color => !usedColors.has(color));
+    if (!assigned) assigned = palette[0]; // Fallback if all colors are used.
+    colorMapping[c] = assigned;
   }
   return colorMapping;
 }
@@ -62,8 +115,10 @@ export function createConstellationOverlayForGlobe() {
       groups[key].push(seg);
     }
   });
+  
   const colorMapping = computeConstellationColorMapping();
   const overlays = [];
+  
   for (const constellation in groups) {
     const segs = groups[constellation];
     const ordered = [];
