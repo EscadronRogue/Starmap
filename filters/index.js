@@ -12,10 +12,10 @@ import { applyStellarClassLogic, generateStellarClassFilters as scGenerate } fro
 import { loadConstellationBoundaries, loadConstellationCenters } from './constellationFilter.js';
 // Globe surface filter
 import { applyGlobeSurfaceFilter } from './globeSurfaceFilter.js';
-// NEW: Constellation overlay filter.
+// Constellation overlay filter
 import { createConstellationOverlayForGlobe } from './constellationOverlayFilter.js';
 
-// NEW: Import the distance filter.
+// Import the distance filter.
 import { applyDistanceFilter } from './distanceFilter.js';
 
 let filterForm = null;
@@ -92,7 +92,7 @@ function addConstellationsFieldset() {
   namesDiv.appendChild(namesLbl);
   contentDiv.appendChild(namesDiv);
 
-  // NEW: Overlay checkbox.
+  // Constellation overlay checkbox
   const overlayDiv = document.createElement('div');
   overlayDiv.classList.add('filter-item');
   const overlayChk = document.createElement('input');
@@ -194,7 +194,6 @@ export function applyFilters(allStars) {
     maxDistance: formData.get('max-distance')
   };
 
-  // NEW: Apply the distance filter first.
   let filteredStars = applyDistanceFilter(allStars, filters);
   filteredStars = applyStarsShownFilter(filteredStars, filters);
   filteredStars = applyStellarClassLogic(filteredStars, filterForm);
@@ -202,7 +201,6 @@ export function applyFilters(allStars) {
   filteredStars = applyColorFilter(filteredStars, filters);
   filteredStars = applyOpacityFilter(filteredStars, filters);
 
-  // Only use stars that are shown for connection lines.
   const globeFiltered = filteredStars.filter(s => s.Common_name_of_the_star !== 'Sol');
   let pairs = [];
   let globePairs = [];
@@ -212,6 +210,14 @@ export function applyFilters(allStars) {
   }
 
   applyGlobeSurfaceFilter(filters);
+
+  // NEW: Apply the constellation overlay filter if enabled.
+  if (filters.showConstellationOverlay) {
+    const constellationOverlay = createConstellationOverlayForGlobe();
+    constellationOverlay.forEach(mesh => {
+      window.globeMap.scene.add(mesh);
+    });
+  }
 
   return {
     filteredStars,
