@@ -11,61 +11,18 @@ const distinctPalette = [
   "#b3b3b3", "#1b9e77", "#d95f02", "#7570b3", "#e7298a"
 ];
 
-function computeNeighborMap() {
-  const boundaries = getConstellationBoundaries();
-  const neighbors = {};
-  boundaries.forEach(seg => {
-    if (seg.const1) {
-      const key1 = seg.const1.toUpperCase();
-      const key2 = seg.const2 ? seg.const2.toUpperCase() : null;
-      if (!neighbors[key1]) neighbors[key1] = new Set();
-      if (key2) neighbors[key1].add(key2);
-    }
-    if (seg.const2) {
-      const key2 = seg.const2.toUpperCase();
-      const key1 = seg.const1 ? seg.const1.toUpperCase() : null;
-      if (!neighbors[key2]) neighbors[key2] = new Set();
-      if (key1) neighbors[key2].add(key1);
-    }
-  });
-  Object.keys(neighbors).forEach(key => {
-    neighbors[key] = Array.from(neighbors[key]);
-  });
-  return neighbors;
-}
-
 export function computeConstellationColorMapping() {
-  const neighbors = computeNeighborMap();
-  const allConsts = new Set();
-  Object.keys(neighbors).forEach(c => allConsts.add(c));
   const boundaries = getConstellationBoundaries();
+  const constellationsSet = new Set();
   boundaries.forEach(seg => {
-    if (seg.const1) allConsts.add(seg.const1.toUpperCase());
-    if (seg.const2) allConsts.add(seg.const2.toUpperCase());
+    if (seg.const1) constellationsSet.add(seg.const1.toUpperCase());
+    if (seg.const2) constellationsSet.add(seg.const2.toUpperCase());
   });
-  const constellations = Array.from(allConsts);
-  
-  let maxDegree = 0;
-  constellations.forEach(c => {
-    const deg = neighbors[c] ? neighbors[c].length : 0;
-    if (deg > maxDegree) maxDegree = deg;
-  });
-  
-  const palette = distinctPalette;
-  
-  constellations.sort((a, b) => (neighbors[b] ? neighbors[b].length : 0) - (neighbors[a] ? neighbors[a].length : 0));
-  
+  const constellations = Array.from(constellationsSet).sort();
   const colorMapping = {};
-  for (const c of constellations) {
-    const used = new Set();
-    if (neighbors[c]) {
-      for (const nb of neighbors[c]) {
-        if (colorMapping[nb]) used.add(colorMapping[nb]);
-      }
-    }
-    let assigned = palette.find(color => !used.has(color));
-    if (!assigned) assigned = palette[0];
-    colorMapping[c] = assigned;
+  const palette = distinctPalette;
+  for (let i = 0; i < constellations.length; i++) {
+    colorMapping[constellations[i]] = palette[i % palette.length];
   }
   return colorMapping;
 }
