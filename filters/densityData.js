@@ -1,11 +1,12 @@
 // /filters/densityData.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { parseRA, parseDec } from '../utils/geometryUtils.js';
+import { degToRad, parseRA, parseDec } from '../utils/geometryUtils.js';
 
 let densityCenterData = null;
 
 /**
  * Loads constellation center data asynchronously if not already loaded.
+ * This replaces the synchronous XHR call with an async fetch.
  */
 export async function loadDensityCenterData() {
   if (densityCenterData !== null) return;
