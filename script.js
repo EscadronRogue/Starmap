@@ -225,8 +225,8 @@ async function buildAndApplyFilters() {
   // LOW DENSITY MAPPING – use the complete star set (cachedStars) for density mapping
   if (lowDensityMapping) {
     const form = document.getElementById('filters-form');
-    const lowGridSliderValue = parseFloat(new FormData(form).get('low-density-grid-size') || '2');
-    const lowGridSize = 4 / lowGridSliderValue;  // invert relationship
+    // Now the slider value is used directly.
+    const lowGridSize = parseFloat(new FormData(form).get('low-density-grid-size') || '1');
 
     if (
       !lowDensityOverlay ||
@@ -281,8 +281,7 @@ async function buildAndApplyFilters() {
   // HIGH DENSITY MAPPING – also use cachedStars
   if (highDensityMapping) {
     const form = document.getElementById('filters-form');
-    const highGridSliderValue = parseFloat(new FormData(form).get('high-density-grid-size') || '2');
-    const highGridSize = 4 / highGridSliderValue;  // invert relationship
+    const highGridSize = parseFloat(new FormData(form).get('high-density-grid-size') || '1');
 
     if (
       !highDensityOverlay ||
@@ -466,7 +465,6 @@ class MapManager {
     this.updateConnections(stars, connectionObjs);
   }
 
-  // UPDATED onResize: if available vertical space (window.innerHeight minus header) is less than 1000px, we use that height.
   onResize() {
     const headerHeight = document.querySelector('header').offsetHeight;
     const containerWidth = this.canvas.parentElement.clientWidth;
@@ -478,7 +476,6 @@ class MapManager {
     this.camera.aspect = containerWidth / desiredHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(containerWidth, desiredHeight);
-    // Also update the canvas style so the container adapts.
     this.canvas.style.height = desiredHeight + "px";
   }
 
@@ -527,7 +524,6 @@ function initStarInteractions(map) {
   });
   
   map.canvas.addEventListener('click', (event) => {
-    // Check if the click occurred inside the tooltip's bounding box.
     const tooltip = document.getElementById('tooltip');
     if (tooltip) {
       const tRect = tooltip.getBoundingClientRect();
@@ -625,7 +621,6 @@ async function main() {
     const globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
 
-    // Global debounced resize listener.
     window.addEventListener('resize', debounce(() => {
       trueCoordinatesMap.onResize();
       globeMap.onResize();
