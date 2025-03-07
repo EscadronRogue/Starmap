@@ -365,7 +365,9 @@ class MapManager {
     this.labelManager = new LabelManager(mapType, this.scene);
     this.starGroup = new THREE.Group();
     this.scene.add(this.starGroup);
-    window.addEventListener('resize', () => this.onResize(), false);
+    // Use a debounced resize handler to avoid repeated heavy updates
+    this.debouncedResize = debounce(() => this.onResize(), 200);
+    window.addEventListener('resize', this.debouncedResize, false);
     this.animate();
   }
 
