@@ -1,12 +1,11 @@
-// filters/densityData.js
-
+// /filters/densityData.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
+import { parseRA, parseDec } from '../utils/geometryUtils.js';
 
 let densityCenterData = null;
 
 /**
  * Loads constellation center data asynchronously if not already loaded.
- * This replaces the synchronous XHR call with an async fetch.
  */
 export async function loadDensityCenterData() {
   if (densityCenterData !== null) return;
@@ -40,32 +39,4 @@ export async function loadDensityCenterData() {
  */
 export function getDensityCenterData() {
   return densityCenterData;
-}
-
-/**
- * Converts degrees to radians.
- */
-export function degToRad(d) {
-  return d * Math.PI / 180;
-}
-
-/**
- * Parses an RA string (e.g. "12:34:56") and returns radians.
- */
-export function parseRA(raStr) {
-  const [hh, mm, ss] = raStr.split(':').map(x => parseFloat(x));
-  const hours = hh + mm / 60 + ss / 3600;
-  const deg = hours * 15;
-  return degToRad(deg);
-}
-
-/**
- * Parses a DEC string (e.g. "-12:34:56") and returns radians.
- */
-export function parseDec(decStr) {
-  const sign = decStr.startsWith('-') ? -1 : 1;
-  const stripped = decStr.replace('+', '').replace('-', '');
-  const [dd, mm, ss] = stripped.split(':').map(x => parseFloat(x));
-  const degVal = (dd + mm / 60 + ss / 3600) * sign;
-  return degToRad(degVal);
 }
