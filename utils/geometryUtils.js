@@ -141,7 +141,6 @@ const radToSphereCache = new Map();
 export function cachedRadToSphere(ra, dec, R) {
   const key = `${ra}_${dec}_${R}`;
   if (radToSphereCache.has(key)) {
-    // Return a clone so that the cached vector is not accidentally mutated.
     return radToSphereCache.get(key).clone();
   }
   const vec = radToSphere(ra, dec, R);
