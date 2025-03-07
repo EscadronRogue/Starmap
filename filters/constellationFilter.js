@@ -163,8 +163,15 @@ export function createConstellationLabelsForGlobe() {
     const normal = p.clone().normalize();
     const globalUp = new THREE.Vector3(0, 1, 0);
     let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
-    if (desiredUp.lengthSq() < 1e-6) desiredUp = new THREE.Vector3(0, 0, 1);
-    else desiredUp.normalize();
+    if (desiredUp.lengthSq() < 1e-6) {
+      desiredUp = new THREE.Vector3(0, 0, 1);
+    } else {
+      desiredUp.normalize();
+    }
+    // Ensure the label remains upright relative to global up.
+    if (desiredUp.dot(globalUp) < 0) {
+      desiredUp.negate();
+    }
     const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
     const matrix = new THREE.Matrix4().makeBasis(desiredRight, desiredUp, normal);
     label.setRotationFromMatrix(matrix);
