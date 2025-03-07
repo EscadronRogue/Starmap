@@ -1,7 +1,6 @@
 // /filters/constellationFilter.js
-
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { radToSphere, getGreatCirclePoints } from '../utils/geometryUtils.js';
+import { radToSphere, getGreatCirclePoints, parseRA, parseDec } from '../utils/geometryUtils.js';
 
 let boundaryData = [];
 let centerData = [];
@@ -173,32 +172,4 @@ export function createConstellationLabelsForGlobe() {
     labels.push(label);
   });
   return labels;
-}
-
-/**
- * Parses a Right Ascension string (e.g. "12:34:56") into radians.
- */
-function parseRA(raStr) {
-  const [hh, mm, ss] = raStr.split(':').map(x => parseFloat(x));
-  const hours = hh + mm / 60 + ss / 3600;
-  const deg = hours * 15;
-  return degToRad(deg);
-}
-
-/**
- * Parses a Declination string (e.g. "-12:34:56") into radians.
- */
-function parseDec(decStr) {
-  const sign = decStr.startsWith('-') ? -1 : 1;
-  const stripped = decStr.replace('+', '').replace('-', '');
-  const [dd, mm, ss] = stripped.split(':').map(x => parseFloat(x));
-  const degVal = (dd + mm / 60 + ss / 3600) * sign;
-  return degToRad(degVal);
-}
-
-/**
- * Converts degrees to radians.
- */
-function degToRad(d) {
-  return d * Math.PI / 180;
 }
