@@ -18,7 +18,6 @@ let currentGlobeFilteredStars = [];
 let currentGlobeConnections = [];
 
 let selectedStarData = null;
-// Global variables for star highlight meshes
 let selectedHighlightTrue = null;
 let selectedHighlightGlobe = null;
 
@@ -45,7 +44,6 @@ function radToSphere(ra, dec, R) {
 
 /**
  * Computes the true 3D position of a star using its RA/DEC and its distance.
- * It supports both the new "distance" property and the legacy "Distance_from_the_Sun" property.
  */
 function getStarTruePosition(star) {
   const R = star.distance !== undefined ? star.distance : star.Distance_from_the_Sun;
@@ -84,7 +82,6 @@ function projectStarGlobe(star) {
 
 /**
  * Creates a grid for the Globe map.
- * This function builds a set of lines (using great-circle points) representing RA/DEC grid lines.
  */
 function createGlobeGrid(R = 100, options = {}) {
   const gridGroup = new THREE.Group();
@@ -97,7 +94,6 @@ function createGlobeGrid(R = 100, options = {}) {
     opacity: lineOpacity,
     linewidth: lineWidth
   });
-  // Draw meridians (constant RA)
   for (let raDeg = 0; raDeg < 360; raDeg += 30) {
     const ra = THREE.Math.degToRad(raDeg);
     const points = [];
@@ -109,7 +105,6 @@ function createGlobeGrid(R = 100, options = {}) {
     const line = new THREE.Line(geometry, material);
     gridGroup.add(line);
   }
-  // Draw parallels (constant DEC)
   for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
     const dec = THREE.Math.degToRad(decDeg);
     const points = [];
@@ -126,7 +121,7 @@ function createGlobeGrid(R = 100, options = {}) {
 }
 
 /**
- * Loads star data by reading every JSON file listed in data/manifest.json.
+ * Loads star data.
  */
 async function loadStarData() {
   const manifestUrl = 'data/manifest.json';
@@ -136,8 +131,7 @@ async function loadStarData() {
       console.warn(`Manifest file not found: ${manifestUrl}`);
       return [];
     }
-    const fileNames = await manifestResp.json(); // e.g., ["Stars1.json", "Stars2.json", ...]
-    // Load each file in parallel
+    const fileNames = await manifestResp.json();
     const dataPromises = fileNames.map(name =>
       fetch(`data/${name}`).then(resp => {
         if (!resp.ok) {
@@ -148,7 +142,6 @@ async function loadStarData() {
       })
     );
     const filesData = await Promise.all(dataPromises);
-    // Flatten all arrays into one array
     const combinedData = filesData.flat();
     return combinedData;
   } catch (e) {
@@ -222,12 +215,13 @@ async function buildAndApplyFilters() {
     // Optional overlay handling.
   }
 
-  // LOW DENSITY MAPPING – use the complete star set (cachedStars) for density mapping
+  // LOW DENSITY MAPPING
   if (lowDensityMapping) {
     const form = document.getElementById('filters-form');
-    // Now the slider value is used directly.
-    const lowGridSize = parseFloat(new FormData(form).get('low-density-grid-size') || '1');
-
+    const lowFactor = parseFloat(new FormData(form).get('low-density-grid-size') || '1');
+    let lowGridSize = 2 * lowFactor;
+    // Clamp to avoid too small grid cells (minimum grid size = 0.5)
+    lowGridSize = Math.max(0.5, lowGridSize);
     if (
       !lowDensityOverlay ||
       lowDensityOverlay.minDistance !== parseFloat(minDistance) ||
@@ -278,11 +272,12 @@ async function buildAndApplyFilters() {
     }
   }
 
-  // HIGH DENSITY MAPPING – also use cachedStars
+  // HIGH DENSITY MAPPING
   if (highDensityMapping) {
     const form = document.getElementById('filters-form');
-    const highGridSize = parseFloat(new FormData(form).get('high-density-grid-size') || '1');
-
+    const highFactor = parseFloat(new FormData(form).get('high-density-grid-size') || '1');
+    let highGridSize = 2 * highFactor;
+    highGridSize = Math.max(0.5, highGridSize);
     if (
       !highDensityOverlay ||
       highDensityOverlay.minDistance !== parseFloat(minDistance) ||
@@ -534,7 +529,6 @@ function initStarInteractions(map) {
         return;
       }
     }
-    
     const rect = map.canvas.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
