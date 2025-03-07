@@ -121,6 +121,7 @@
             </div>
             <div class="filter-item">
               <input type="range" id="connection-slider" name="connections" min="1" max="50" value="7" disabled />
+              <input type="number" id="connection-number" name="connections-number" min="1" max="50" value="7" disabled />
               <span id="connection-value">7</span> Light Years
             </div>
           </div>
@@ -270,35 +271,19 @@
 
     // Enable/disable connection slider based on checkbox state
     document.getElementById('enable-connections').addEventListener('change', function() {
-      document.getElementById('connection-slider').disabled = !this.checked;
+      const enabled = this.checked;
+      document.getElementById('connection-slider').disabled = !enabled;
+      document.getElementById('connection-number').disabled = !enabled;
     });
 
-    // Enable/disable low density mapping sliders
-    document.getElementById('enable-low-density-mapping').addEventListener('change', function() {
-      const lowEnabled = this.checked;
-      document.getElementById('low-density-slider').disabled = !lowEnabled;
-      document.getElementById('low-density-number').disabled = !lowEnabled;
-      document.getElementById('low-tolerance-slider').disabled = !lowEnabled;
-      document.getElementById('low-density-grid-slider').disabled = !lowEnabled;
-      document.getElementById('low-density-grid-number').disabled = !lowEnabled;
+    // Sync connection slider and number input
+    document.getElementById('connection-slider').addEventListener('input', function() {
+      document.getElementById('connection-number').value = this.value;
+      document.getElementById('connection-value').textContent = this.value;
     });
-
-    // Enable/disable high density mapping sliders
-    document.getElementById('enable-high-density-mapping').addEventListener('change', function() {
-      const highEnabled = this.checked;
-      document.getElementById('high-density-slider').disabled = !highEnabled;
-      document.getElementById('high-density-number').disabled = !highEnabled;
-      document.getElementById('high-tolerance-slider').disabled = !highEnabled;
-      document.getElementById('high-density-grid-slider').disabled = !highEnabled;
-      document.getElementById('high-density-grid-number').disabled = !highEnabled;
-    });
-
-    // Update displayed slider values for tolerance sliders
-    document.getElementById('low-tolerance-slider').addEventListener('input', function() {
-      document.getElementById('low-tolerance-value').textContent = this.value;
-    });
-    document.getElementById('high-tolerance-slider').addEventListener('input', function() {
-      document.getElementById('high-tolerance-value').textContent = this.value;
+    document.getElementById('connection-number').addEventListener('input', function() {
+      document.getElementById('connection-slider').value = this.value;
+      document.getElementById('connection-value').textContent = this.value;
     });
 
     // Sync distance slider and number input for minimum distance
