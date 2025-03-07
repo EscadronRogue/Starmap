@@ -1,7 +1,7 @@
 // /filters/constellationFilter.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { radToSphere } from '../utils/geometryUtils.js';
+import { radToSphere, getGreatCirclePoints } from '../utils/geometryUtils.js';
 
 let boundaryData = [];
 let centerData = [];
@@ -89,9 +89,8 @@ export function createConstellationBoundariesForGlobe() {
   boundaryData.forEach(b => {
     const p1 = radToSphere(b.ra1, b.dec1, R);
     const p2 = radToSphere(b.ra2, b.dec2, R);
-    // Create a smooth curved line using a CatmullRom curve.
-    const curve = new THREE.CatmullRomCurve3( 
-      // Here we generate 32 points along a great-circle arc.
+    // Create a smooth curved line using a CatmullRom curve
+    const curve = new THREE.CatmullRomCurve3(
       getGreatCirclePoints(p1, p2, R, 32)
     );
     const points = curve.getPoints(32);
