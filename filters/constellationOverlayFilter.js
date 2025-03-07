@@ -44,13 +44,17 @@ export function computeConstellationColorMapping() {
     if (seg.const2) allConsts.add(seg.const2.toUpperCase());
   });
   const constellations = Array.from(allConsts);
+  
   let maxDegree = 0;
   constellations.forEach(c => {
     const deg = neighbors[c] ? neighbors[c].length : 0;
     if (deg > maxDegree) maxDegree = deg;
   });
+  
   const palette = distinctPalette;
+  
   constellations.sort((a, b) => (neighbors[b] ? neighbors[b].length : 0) - (neighbors[a] ? neighbors[a].length : 0));
+  
   const colorMapping = {};
   for (const c of constellations) {
     const used = new Set();
@@ -201,5 +205,3 @@ export function createConstellationOverlayForGlobe() {
   }
   return overlays;
 }
-
-export { computeConstellationColorMapping };
