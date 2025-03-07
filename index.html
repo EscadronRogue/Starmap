@@ -111,7 +111,7 @@
           </div>
         </fieldset>
 
-        <!-- Connections Filter (disabled by default) -->
+        <!-- Connections Filter -->
         <fieldset>
           <legend class="collapsible" aria-expanded="false">Connections (LY)</legend>
           <div class="filter-content">
@@ -144,12 +144,10 @@
               <label>Ignore this many closest stars: <span id="low-tolerance-value">0</span></label>
               <input type="range" id="low-tolerance-slider" name="low-tolerance" min="0" max="10" value="0" disabled />
             </div>
-            <!-- Low Density Cluster Labeling & Segmentation toggle -->
             <div class="filter-item">
               <input type="checkbox" id="enable-low-density-labeling" name="enable-low-density-labeling" />
               <label for="enable-low-density-labeling">Enable Low Density Cluster Labeling &amp; Segmentation</label>
             </div>
-            <!-- NEW: Low Density Grid-Size Slider -->
             <div class="filter-item">
               <label for="low-density-grid-slider">Grid Subdivision:</label>
               <input 
@@ -194,12 +192,10 @@
               <label>Ignore this many closest stars: <span id="high-tolerance-value">0</span></label>
               <input type="range" id="high-tolerance-slider" name="high-tolerance" min="0" max="10" value="0" disabled />
             </div>
-            <!-- High Density Cluster Labeling & Segmentation toggle -->
             <div class="filter-item">
               <input type="checkbox" id="enable-high-density-labeling" name="enable-high-density-labeling" />
               <label for="enable-high-density-labeling">Enable High Density Cluster Labeling &amp; Segmentation</label>
             </div>
-            <!-- NEW: High Density Grid-Size Slider -->
             <div class="filter-item">
               <label for="high-density-grid-slider">Grid Subdivision:</label>
               <input 
@@ -261,121 +257,14 @@
   <div class="label-container"></div>
 
   <!-- Scripts -->
+  <!-- Main application logic -->
   <script type="module" src="script.js"></script>
-  <script>
-    // Toggle sidebar menu on mobile
-    document.getElementById('menu-toggle').addEventListener('click', function() {
-      document.querySelector('.sidebar').classList.toggle('open');
-    });
 
-    // Enable/disable connection slider based on checkbox state
-    document.getElementById('enable-connections').addEventListener('change', function() {
-      document.getElementById('connection-slider').disabled = !this.checked;
-    });
-
-    // Enable/disable low density mapping sliders
-    document.getElementById('enable-low-density-mapping').addEventListener('change', function() {
-      const lowEnabled = this.checked;
-      document.getElementById('low-density-slider').disabled = !lowEnabled;
-      document.getElementById('low-density-number').disabled = !lowEnabled;
-      document.getElementById('low-tolerance-slider').disabled = !lowEnabled;
-      document.getElementById('low-density-grid-slider').disabled = !lowEnabled;
-      document.getElementById('low-density-grid-number').disabled = !lowEnabled;
-    });
-
-    // Enable/disable high density mapping sliders
-    document.getElementById('enable-high-density-mapping').addEventListener('change', function() {
-      const highEnabled = this.checked;
-      document.getElementById('high-density-slider').disabled = !highEnabled;
-      document.getElementById('high-density-number').disabled = !highEnabled;
-      document.getElementById('high-tolerance-slider').disabled = !highEnabled;
-      document.getElementById('high-density-grid-slider').disabled = !highEnabled;
-      document.getElementById('high-density-grid-number').disabled = !highEnabled;
-    });
-
-    // Update displayed slider values for tolerance sliders
-    document.getElementById('low-tolerance-slider').addEventListener('input', function() {
-      document.getElementById('low-tolerance-value').textContent = this.value;
-    });
-    document.getElementById('high-tolerance-slider').addEventListener('input', function() {
-      document.getElementById('high-tolerance-value').textContent = this.value;
-    });
-
-    // Sync distance slider and number input for minimum distance
-    document.getElementById('min-distance-slider').addEventListener('input', function() {
-      document.getElementById('min-distance-number').value = this.value;
-    });
-    document.getElementById('min-distance-number').addEventListener('input', function() {
-      document.getElementById('min-distance-slider').value = this.value;
-    });
-    // Sync distance slider and number input for maximum distance
-    document.getElementById('max-distance-slider').addEventListener('input', function() {
-      document.getElementById('max-distance-number').value = this.value;
-    });
-    document.getElementById('max-distance-number').addEventListener('input', function() {
-      document.getElementById('max-distance-slider').value = this.value;
-    });
-
-    // Sync low density slider and number input
-    document.getElementById('low-density-slider').addEventListener('input', function() {
-      document.getElementById('low-density-number').value = this.value;
-      document.getElementById('low-density-value').textContent = this.value;
-    });
-    document.getElementById('low-density-number').addEventListener('input', function() {
-      document.getElementById('low-density-slider').value = this.value;
-      document.getElementById('low-density-value').textContent = this.value;
-    });
-
-    // Sync high density slider and number input
-    document.getElementById('high-density-slider').addEventListener('input', function() {
-      document.getElementById('high-density-number').value = this.value;
-      document.getElementById('high-density-value').textContent = this.value;
-    });
-    document.getElementById('high-density-number').addEventListener('input', function() {
-      document.getElementById('high-density-slider').value = this.value;
-      document.getElementById('high-density-value').textContent = this.value;
-    });
-
-    // Sync low density grid slider and number input
-    document.getElementById('low-density-grid-slider').addEventListener('input', function() {
-      document.getElementById('low-density-grid-number').value = this.value;
-    });
-    document.getElementById('low-density-grid-number').addEventListener('input', function() {
-      document.getElementById('low-density-grid-slider').value = this.value;
-    });
-
-    // Sync high density grid slider and number input
-    document.getElementById('high-density-grid-slider').addEventListener('input', function() {
-      document.getElementById('high-density-grid-number').value = this.value;
-    });
-    document.getElementById('high-density-grid-number').addEventListener('input', function() {
-      document.getElementById('high-density-grid-slider').value = this.value;
-    });
-
-    // Fullscreen button listeners
-    document.querySelectorAll('.fullscreen-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const mapContainer = this.parentElement;
-        const canvas = mapContainer.querySelector('canvas');
-        if (document.fullscreenElement) {
-          document.exitFullscreen();
-        } else {
-          canvas.requestFullscreen().catch(err => {
-            console.error("Error attempting to enable full-screen mode:", err);
-          });
-        }
-      });
-    });
-
-    // Adjust canvas on fullscreen exit
-    document.addEventListener("fullscreenchange", function() {
-      if (!document.fullscreenElement) {
-        document.querySelectorAll('.map-container canvas').forEach(canvas => {
-          canvas.style.width = "";
-          canvas.style.height = "";
-        });
-        window.dispatchEvent(new Event('resize'));
-      }
+  <!-- The UI logic module -->
+  <script type="module">
+    import { initFilterUI } from './ui/filterUI.js';
+    window.addEventListener('DOMContentLoaded', () => {
+      initFilterUI();
     });
   </script>
 </body>
