@@ -6,6 +6,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Starmap Visualization</title>
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* Ensure that grid subdivision number inputs are visible and sized appropriately */
+    #low-density-grid-number,
+    #high-density-grid-number {
+      display: inline-block !important;
+      width: 60px !important;
+      vertical-align: middle;
+    }
+  </style>
 </head>
 <body>
   <!-- Loader -->
@@ -279,7 +288,6 @@
       return Math.round(gridVal) - 1;
     }
 
-    // Since the script tag is at the bottom, the DOM is ready.
     // Toggle sidebar menu on mobile
     document.getElementById('menu-toggle').addEventListener('click', function() {
       document.querySelector('.sidebar').classList.toggle('open');
