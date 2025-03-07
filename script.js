@@ -363,67 +363,61 @@ class MapManager {
     this.scene.add(pt);
     this.controls = new ThreeDControls(this.camera, this.renderer.domElement);
     this.labelManager = new LabelManager(mapType, this.scene);
-    // Remove old star group usage.
     this.starGroup = new THREE.Group();
     this.scene.add(this.starGroup);
-    // NEW: Use instanced mesh for stars.
-    this.instancedStars = null;
-    this.starObjects = [];
+    // Use a debounced resize handler to avoid repeated heavy updates
     this.debouncedResize = debounce(() => this.onResize(), 200);
     window.addEventListener('resize', this.debouncedResize, false);
     this.animate();
   }
 
-  // UPDATED: Use instanced rendering to draw stars in one draw call.
+  // UPDATED: Use instanced rendering for stars
   addStars(stars) {
-    if (this.instancedStars) {
-      this.scene.remove(this.instancedStars);
-      this.instancedStars.geometry.dispose();
-      this.instancedStars.material.dispose();
-      this.instancedStars = null;
-    }
-    const count = stars.length;
-    const baseRadius = 0.2;
-    const geometry = new THREE.SphereGeometry(baseRadius, 12, 12);
-    const material = new THREE.MeshBasicMaterial({
-      vertexColors: true,
-      transparent: true,
-      opacity: 1.0
-    });
-    const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
-    const instanceColors = new Float32Array(count * 3);
-    const dummy = new THREE.Object3D();
-    for (let i = 0; i < count; i++) {
-      const star = stars[i];
-      let pos;
-      if (this.mapType === 'TrueCoordinates') {
-        pos = star.truePosition ? star.truePosition.clone() : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
-      } else {
-        pos = star.spherePosition || new THREE.Vector3(0, 0, 0);
-      }
-      const scale = star.displaySize || 2;
-      dummy.position.copy(pos);
-      dummy.scale.set(scale, scale, scale);
-      dummy.updateMatrix();
-      instancedMesh.setMatrixAt(i, dummy.matrix);
-      const color = new THREE.Color(star.displayColor || '#ffffff');
-      instanceColors[i * 3] = color.r;
-      instanceColors[i * 3 + 1] = color.g;
-      instanceColors[i * 3 + 2] = color.b;
-    }
-    instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(instanceColors, 3);
-    instancedMesh.instanceColor.needsUpdate = true;
-    this.scene.add(instancedMesh);
-    this.instancedStars = instancedMesh;
-    // Also update starObjects for interactions.
-    this.starObjects = stars;
-    // Optionally, clear the old starGroup.
+    // Clear previous star objects
     while (this.starGroup.children.length > 0) {
       const child = this.starGroup.children[0];
       this.starGroup.remove(child);
       if (child.geometry) child.geometry.dispose();
       if (child.material) child.material.dispose();
     }
+    const count = stars.length;
+    if (count === 0) return;
+    // Create a base sphere geometry (unit sphere; we'll scale per star)
+    const baseGeometry = new THREE.SphereGeometry(1, 12, 12);
+    const material = new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 1.0,
+      vertexColors: true, // enable instance colors
+    });
+    const instancedMesh = new THREE.InstancedMesh(baseGeometry, material, count);
+    const dummy = new THREE.Object3D();
+    const colors = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      const star = stars[i];
+      // Determine star position based on map type
+      let pos;
+      if (this.mapType === 'TrueCoordinates') {
+        pos = star.truePosition ? star.truePosition.clone() : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+      } else {
+        pos = star.spherePosition ? star.spherePosition.clone() : new THREE.Vector3(0, 0, 0);
+      }
+      // Calculate scale factor (original: displaySize * 0.2)
+      const size = star.displaySize !== undefined ? star.displaySize : 1;
+      const scale = size * 0.2;
+      dummy.position.copy(pos);
+      dummy.scale.set(scale, scale, scale);
+      dummy.updateMatrix();
+      instancedMesh.setMatrixAt(i, dummy.matrix);
+      
+      // Set instance color (parse displayColor or fallback to white)
+      const color = new THREE.Color(star.displayColor || '#ffffff');
+      colors[i * 3] = color.r;
+      colors[i * 3 + 1] = color.g;
+      colors[i * 3 + 2] = color.b;
+    }
+    instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
+    this.starGroup.add(instancedMesh);
+    this.starObjects = stars;
   }
 
   updateConnections(stars, connectionObjs) {
@@ -462,41 +456,27 @@ class MapManager {
   }
 }
 
-// UPDATED: Modify interaction to support instanced mesh raycasting.
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
-
-  function onMouseMove(event) {
+  map.canvas.addEventListener('mousemove', (event) => {
     if (selectedStarData) return;
     const rect = map.canvas.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, map.camera);
-    let intersects = [];
-    if (map.instancedStars) {
-      intersects = raycaster.intersectObject(map.instancedStars);
-      if (intersects.length > 0) {
-        const instanceId = intersects[0].instanceId;
-        if (instanceId !== undefined && map.starObjects[instanceId]) {
-          showTooltip(event.clientX, event.clientY, map.starObjects[instanceId]);
-          return;
-        }
+    const intersects = raycaster.intersectObjects(map.starGroup.children, true);
+    if (intersects.length > 0) {
+      const index = map.starGroup.children.indexOf(intersects[0].object);
+      if (index >= 0 && map.starObjects[index]) {
+        showTooltip(event.clientX, event.clientY, map.starObjects[index]);
       }
     } else {
-      intersects = raycaster.intersectObjects(map.starGroup.children, true);
-      if (intersects.length > 0) {
-        const index = map.starGroup.children.indexOf(intersects[0].object);
-        if (index >= 0 && map.starObjects[index]) {
-          showTooltip(event.clientX, event.clientY, map.starObjects[index]);
-          return;
-        }
-      }
+      hideTooltip();
     }
-    hideTooltip();
-  }
+  });
 
-  function onClick(event) {
+  map.canvas.addEventListener('click', (event) => {
     const tooltip = document.getElementById('tooltip');
     if (tooltip) {
       const tRect = tooltip.getBoundingClientRect();
@@ -509,41 +489,24 @@ function initStarInteractions(map) {
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, map.camera);
-    let intersects = [];
-    if (map.instancedStars) {
-      intersects = raycaster.intersectObject(map.instancedStars);
-      if (intersects.length > 0) {
-        const instanceId = intersects[0].instanceId;
-        if (instanceId !== undefined) {
-          selectedStarData = map.starObjects[instanceId];
-          showTooltip(event.clientX, event.clientY, selectedStarData);
-          updateSelectedStarHighlight();
-          return;
-        }
-      }
-    } else {
-      intersects = raycaster.intersectObjects(map.starGroup.children, true);
-      let clickedStar = null;
-      if (intersects.length > 0) {
-        const index = map.starGroup.children.indexOf(intersects[0].object);
-        if (index >= 0) {
-          clickedStar = map.starObjects[index];
-        }
-      }
-      if (clickedStar) {
-        selectedStarData = clickedStar;
-        showTooltip(event.clientX, event.clientY, clickedStar);
-        updateSelectedStarHighlight();
-        return;
+    const intersects = raycaster.intersectObjects(map.starGroup.children, true);
+    let clickedStar = null;
+    if (intersects.length > 0) {
+      const index = map.starGroup.children.indexOf(intersects[0].object);
+      if (index >= 0) {
+        clickedStar = map.starObjects[index];
       }
     }
-    selectedStarData = null;
-    updateSelectedStarHighlight();
-    hideTooltip();
-  }
-
-  map.canvas.addEventListener('mousemove', onMouseMove);
-  map.canvas.addEventListener('click', onClick);
+    if (clickedStar) {
+      selectedStarData = clickedStar;
+      showTooltip(event.clientX, event.clientY, clickedStar);
+      updateSelectedStarHighlight();
+    } else {
+      selectedStarData = null;
+      updateSelectedStarHighlight();
+      hideTooltip();
+    }
+  });
 }
 
 function updateSelectedStarHighlight() {
@@ -587,9 +550,6 @@ async function main() {
     }
     trueCoordinatesMap = new MapManager({ canvasId: 'map3D', mapType: 'TrueCoordinates' });
     globeMap = new MapManager({ canvasId: 'sphereMap', mapType: 'Globe' });
-    // Initialize interactions for each map.
-    initStarInteractions(trueCoordinatesMap);
-    initStarInteractions(globeMap);
     window.trueCoordinatesMap = trueCoordinatesMap;
     window.globeMap = globeMap;
     cachedStars.forEach(star => {
@@ -608,4 +568,3 @@ async function main() {
 }
 
 window.onload = main;
-export { MapManager };
