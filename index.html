@@ -264,103 +264,127 @@
   <!-- Scripts -->
   <script type="module" src="script.js"></script>
   <script>
-    // Toggle sidebar menu on mobile
-    document.getElementById('menu-toggle').addEventListener('click', function() {
-      document.querySelector('.sidebar').classList.toggle('open');
-    });
+    // Wrap event listener setup to ensure DOM elements exist
+    document.addEventListener('DOMContentLoaded', function() {
 
-    // Enable/disable connection slider based on checkbox state
-    document.getElementById('enable-connections').addEventListener('change', function() {
-      const enabled = this.checked;
-      document.getElementById('connection-slider').disabled = !enabled;
-      document.getElementById('connection-number').disabled = !enabled;
-    });
+      // Toggle sidebar menu on mobile
+      document.getElementById('menu-toggle').addEventListener('click', function() {
+        document.querySelector('.sidebar').classList.toggle('open');
+      });
 
-    // Sync connection slider and number input
-    document.getElementById('connection-slider').addEventListener('input', function() {
-      document.getElementById('connection-number').value = this.value;
-      document.getElementById('connection-value').textContent = this.value;
-    });
-    document.getElementById('connection-number').addEventListener('input', function() {
-      document.getElementById('connection-slider').value = this.value;
-      document.getElementById('connection-value').textContent = this.value;
-    });
+      // Enable/disable connection slider based on checkbox state
+      document.getElementById('enable-connections').addEventListener('change', function() {
+        const enabled = this.checked;
+        document.getElementById('connection-slider').disabled = !enabled;
+        document.getElementById('connection-number').disabled = !enabled;
+      });
 
-    // Sync distance slider and number input for minimum distance
-    document.getElementById('min-distance-slider').addEventListener('input', function() {
-      document.getElementById('min-distance-number').value = this.value;
-    });
-    document.getElementById('min-distance-number').addEventListener('input', function() {
-      document.getElementById('min-distance-slider').value = this.value;
-    });
-    // Sync distance slider and number input for maximum distance
-    document.getElementById('max-distance-slider').addEventListener('input', function() {
-      document.getElementById('max-distance-number').value = this.value;
-    });
-    document.getElementById('max-distance-number').addEventListener('input', function() {
-      document.getElementById('max-distance-slider').value = this.value;
-    });
+      // Sync connection slider and number input
+      document.getElementById('connection-slider').addEventListener('input', function() {
+        document.getElementById('connection-number').value = this.value;
+        document.getElementById('connection-value').textContent = this.value;
+      });
+      document.getElementById('connection-number').addEventListener('input', function() {
+        document.getElementById('connection-slider').value = this.value;
+        document.getElementById('connection-value').textContent = this.value;
+      });
 
-    // Sync low density slider and number input
-    document.getElementById('low-density-slider').addEventListener('input', function() {
-      document.getElementById('low-density-number').value = this.value;
-      document.getElementById('low-density-value').textContent = this.value;
-    });
-    document.getElementById('low-density-number').addEventListener('input', function() {
-      document.getElementById('low-density-slider').value = this.value;
-      document.getElementById('low-density-value').textContent = this.value;
-    });
+      // Enable/disable low density mapping sliders
+      document.getElementById('enable-low-density-mapping').addEventListener('change', function() {
+        const lowEnabled = this.checked;
+        document.getElementById('low-density-slider').disabled = !lowEnabled;
+        document.getElementById('low-density-number').disabled = !lowEnabled;
+        document.getElementById('low-tolerance-slider').disabled = !lowEnabled;
+        document.getElementById('low-density-grid-slider').disabled = !lowEnabled;
+        document.getElementById('low-density-grid-number').disabled = !lowEnabled;
+      });
 
-    // Sync high density slider and number input
-    document.getElementById('high-density-slider').addEventListener('input', function() {
-      document.getElementById('high-density-number').value = this.value;
-      document.getElementById('high-density-value').textContent = this.value;
-    });
-    document.getElementById('high-density-number').addEventListener('input', function() {
-      document.getElementById('high-density-slider').value = this.value;
-      document.getElementById('high-density-value').textContent = this.value;
-    });
+      // Enable/disable high density mapping sliders
+      document.getElementById('enable-high-density-mapping').addEventListener('change', function() {
+        const highEnabled = this.checked;
+        document.getElementById('high-density-slider').disabled = !highEnabled;
+        document.getElementById('high-density-number').disabled = !highEnabled;
+        document.getElementById('high-tolerance-slider').disabled = !highEnabled;
+        document.getElementById('high-density-grid-slider').disabled = !highEnabled;
+        document.getElementById('high-density-grid-number').disabled = !highEnabled;
+      });
 
-    // Sync low density grid slider and number input
-    document.getElementById('low-density-grid-slider').addEventListener('input', function() {
-      document.getElementById('low-density-grid-number').value = this.value;
-    });
-    document.getElementById('low-density-grid-number').addEventListener('input', function() {
-      document.getElementById('low-density-grid-slider').value = this.value;
-    });
+      // Sync low density slider and number input
+      document.getElementById('low-density-slider').addEventListener('input', function() {
+        document.getElementById('low-density-number').value = this.value;
+        document.getElementById('low-density-value').textContent = this.value;
+      });
+      document.getElementById('low-density-number').addEventListener('input', function() {
+        document.getElementById('low-density-slider').value = this.value;
+        document.getElementById('low-density-value').textContent = this.value;
+      });
 
-    // Sync high density grid slider and number input
-    document.getElementById('high-density-grid-slider').addEventListener('input', function() {
-      document.getElementById('high-density-grid-number').value = this.value;
-    });
-    document.getElementById('high-density-grid-number').addEventListener('input', function() {
-      document.getElementById('high-density-grid-slider').value = this.value;
-    });
+      // Sync high density slider and number input
+      document.getElementById('high-density-slider').addEventListener('input', function() {
+        document.getElementById('high-density-number').value = this.value;
+        document.getElementById('high-density-value').textContent = this.value;
+      });
+      document.getElementById('high-density-number').addEventListener('input', function() {
+        document.getElementById('high-density-slider').value = this.value;
+        document.getElementById('high-density-value').textContent = this.value;
+      });
 
-    // Fullscreen button listeners
-    document.querySelectorAll('.fullscreen-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const mapContainer = this.parentElement;
-        const canvas = mapContainer.querySelector('canvas');
-        if (document.fullscreenElement) {
-          document.exitFullscreen();
-        } else {
-          canvas.requestFullscreen().catch(err => {
-            console.error("Error attempting to enable full-screen mode:", err);
+      // Sync low density grid slider and number input
+      document.getElementById('low-density-grid-slider').addEventListener('input', function() {
+        document.getElementById('low-density-grid-number').value = this.value;
+      });
+      document.getElementById('low-density-grid-number').addEventListener('input', function() {
+        document.getElementById('low-density-grid-slider').value = this.value;
+      });
+
+      // Sync high density grid slider and number input
+      document.getElementById('high-density-grid-slider').addEventListener('input', function() {
+        document.getElementById('high-density-grid-number').value = this.value;
+      });
+      document.getElementById('high-density-grid-number').addEventListener('input', function() {
+        document.getElementById('high-density-grid-slider').value = this.value;
+      });
+
+      // Sync distance slider and number input for minimum distance
+      document.getElementById('min-distance-slider').addEventListener('input', function() {
+        document.getElementById('min-distance-number').value = this.value;
+      });
+      document.getElementById('min-distance-number').addEventListener('input', function() {
+        document.getElementById('min-distance-slider').value = this.value;
+      });
+      // Sync distance slider and number input for maximum distance
+      document.getElementById('max-distance-slider').addEventListener('input', function() {
+        document.getElementById('max-distance-number').value = this.value;
+      });
+      document.getElementById('max-distance-number').addEventListener('input', function() {
+        document.getElementById('max-distance-slider').value = this.value;
+      });
+
+      // Fullscreen button listeners
+      document.querySelectorAll('.fullscreen-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const mapContainer = this.parentElement;
+          const canvas = mapContainer.querySelector('canvas');
+          if (document.fullscreenElement) {
+            document.exitFullscreen();
+          } else {
+            canvas.requestFullscreen().catch(err => {
+              console.error("Error attempting to enable full-screen mode:", err);
+            });
+          }
+        });
+      });
+
+      // Adjust canvas on fullscreen exit
+      document.addEventListener("fullscreenchange", function() {
+        if (!document.fullscreenElement) {
+          document.querySelectorAll('.map-container canvas').forEach(canvas => {
+            canvas.style.width = "";
+            canvas.style.height = "";
           });
+          window.dispatchEvent(new Event('resize'));
         }
       });
-    });
-
-    // Adjust canvas on fullscreen exit
-    document.addEventListener("fullscreenchange", function() {
-      if (!document.fullscreenElement) {
-        document.querySelectorAll('.map-container canvas').forEach(canvas => {
-          canvas.style.width = "";
-          canvas.style.height = "";
-        });
-        window.dispatchEvent(new Event('resize'));
-      }
     });
   </script>
 </body>
