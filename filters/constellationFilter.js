@@ -81,7 +81,7 @@ export function getConstellationBoundaries() {
 
 /**
  * Creates constellation boundary line meshes for the Globe.
- * This updated version handles RA wrap‑around by adjusting RA values when needed.
+ * This updated version handles RA wrap‑around by adding 2π to the smaller RA when needed.
  */
 export function createConstellationBoundariesForGlobe() {
   const lines = [];
@@ -90,13 +90,12 @@ export function createConstellationBoundariesForGlobe() {
     // Copy RA values from data
     let ra1 = b.ra1;
     let ra2 = b.ra2;
-    // Check for wrap‑around: if the difference is greater than π,
-    // adjust one of the RA values so that the interpolation is correct.
+    // If the absolute difference exceeds π, add 2π to the smaller RA.
     if (Math.abs(ra1 - ra2) > Math.PI) {
-      if (ra1 > ra2) {
-        ra1 -= 2 * Math.PI;
+      if (ra1 < ra2) {
+        ra1 += 2 * Math.PI;
       } else {
-        ra2 -= 2 * Math.PI;
+        ra2 += 2 * Math.PI;
       }
     }
     const p1 = radToSphere(ra1, b.dec1, R);
