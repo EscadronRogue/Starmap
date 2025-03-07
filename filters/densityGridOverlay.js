@@ -52,6 +52,9 @@ function isPointInSphericalPolygon(point, vertices) {
   return Math.abs(angleSum - 2 * Math.PI) < 0.1;
 }
 
+/**
+ * Creates constellation overlay meshes for the Globe.
+ */
 export function createConstellationOverlayForGlobe() {
   const boundaries = getConstellationBoundaries();
   const groups = {};
@@ -163,6 +166,7 @@ export function createConstellationOverlayForGlobe() {
     });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.renderOrder = 1;
+    // Store 3D polygon and constellation name for later lookup.
     mesh.userData.polygon = ordered;
     mesh.userData.constellation = constellation;
     const orderedRADEC = ordered.map(p => vectorToRaDec(p));
@@ -172,6 +176,9 @@ export function createConstellationOverlayForGlobe() {
   return overlays;
 }
 
+/**
+ * Helper function to convert a sphere coordinate (THREE.Vector3) to RA/DEC in degrees.
+ */
 function vectorToRaDec(vector) {
   const R = 100;
   const dec = Math.asin(vector.y / R);
@@ -191,18 +198,22 @@ export function computeConstellationColorMapping() {
     if (seg.const2) allConsts.add(seg.const2.toUpperCase());
   });
   const constellations = Array.from(allConsts);
+  
   let maxDegree = 0;
   constellations.forEach(c => {
     const deg = neighbors[c] ? neighbors[c].length : 0;
     if (deg > maxDegree) maxDegree = deg;
   });
+  
   const palette = [
     "#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00",
     "#ffff33", "#a65628", "#f781bf", "#66c2a5", "#fc8d62",
     "#8da0cb", "#e78ac3", "#a6d854", "#ffd92f", "#e5c494",
     "#b3b3b3", "#1b9e77", "#d95f02", "#7570b3", "#e7298a"
   ];
+  
   const sorted = constellations.sort((a, b) => (neighbors[b] ? neighbors[b].length : 0) - (neighbors[a] ? neighbors[a].length : 0));
+  
   const colorMapping = {};
   for (const c of sorted) {
     const used = new Set();
@@ -219,7 +230,7 @@ export function computeConstellationColorMapping() {
 }
 
 function computeNeighborMap() {
-  const boundaries = getConstellationBoundaries();
+  const boundaries = getConstellationBoundaries(); // Each segment: {ra1, dec1, ra2, dec2, const1, const2}
   const neighbors = {};
   boundaries.forEach(seg => {
     if (seg.const1) {
@@ -239,13 +250,4 @@ function computeNeighborMap() {
     neighbors[key] = Array.from(neighbors[key]);
   });
   return neighbors;
-}
-
-function vectorToRaDec(vector) {
-  const R = 100;
-  const dec = Math.asin(vector.y / R);
-  let ra = Math.atan2(-vector.z, -vector.x);
-  let raDeg = ra * 180 / Math.PI;
-  if (raDeg < 0) raDeg += 360;
-  return { ra: raDeg, dec: dec * 180 / Math.PI };
 }
