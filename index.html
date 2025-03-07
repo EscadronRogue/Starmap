@@ -31,7 +31,7 @@
     <aside class="sidebar">
       <h2>Filters</h2>
       <form id="filters-form">
-        <!-- [Other fieldsets unchanged] -->
+        <!-- [Other fieldsets remain unchanged] -->
 
         <!-- LOW DENSITY MAPPING Filter -->
         <fieldset>
@@ -70,7 +70,7 @@
                 disabled
                 style="width: 200px;"
               />
-              <!-- Number input shows the effective subdivision factor (read-only) -->
+              <!-- Number input shows the effective subdivision factor -->
               <input 
                 type="number" 
                 id="low-density-grid-number" 
@@ -185,19 +185,17 @@
       return Math.round(gridVal) - 1;
     }
 
-    // Toggle sidebar menu on mobile
+    // Menu toggle
     document.getElementById('menu-toggle').addEventListener('click', function() {
       document.querySelector('.sidebar').classList.toggle('open');
     });
 
-    // Enable/disable connection slider based on checkbox state
+    // Connection filter
     document.getElementById('enable-connections').addEventListener('change', function() {
       const enabled = this.checked;
       document.getElementById('connection-slider').disabled = !enabled;
       document.getElementById('connection-number').disabled = !enabled;
     });
-
-    // Sync connection slider and number input
     document.getElementById('connection-slider').addEventListener('input', function() {
       document.getElementById('connection-number').value = this.value;
       document.getElementById('connection-value').textContent = this.value;
@@ -207,7 +205,7 @@
       document.getElementById('connection-value').textContent = this.value;
     });
 
-    // Enable/disable low density mapping sliders
+    // Low density mapping controls
     document.getElementById('enable-low-density-mapping').addEventListener('change', function() {
       const lowEnabled = this.checked;
       document.getElementById('low-density-slider').disabled = !lowEnabled;
@@ -220,7 +218,7 @@
       }
     });
 
-    // Enable/disable high density mapping sliders
+    // High density mapping controls
     document.getElementById('enable-high-density-mapping').addEventListener('change', function() {
       const highEnabled = this.checked;
       document.getElementById('high-density-slider').disabled = !highEnabled;
@@ -233,7 +231,7 @@
       }
     });
 
-    // Sync low density slider and number input
+    // Low density slider sync
     document.getElementById('low-density-slider').addEventListener('input', function() {
       document.getElementById('low-density-number').value = this.value;
       document.getElementById('low-density-value').textContent = this.value;
@@ -243,7 +241,7 @@
       document.getElementById('low-density-value').textContent = this.value;
     });
 
-    // Sync high density slider and number input
+    // High density slider sync
     document.getElementById('high-density-slider').addEventListener('input', function() {
       document.getElementById('high-density-number').value = this.value;
       document.getElementById('high-density-value').textContent = this.value;
@@ -253,7 +251,7 @@
       document.getElementById('high-density-value').textContent = this.value;
     });
 
-    // Sync low density grid slider and number input using discrete mapping
+    // Low density grid slider sync with discrete mapping
     document.getElementById('low-density-grid-slider').addEventListener('input', function() {
       const gridValue = sliderToGridValue(this.value);
       document.getElementById('low-density-grid-number').value = gridValue.toFixed(0);
@@ -263,7 +261,7 @@
       document.getElementById('low-density-grid-slider').value = sliderVal;
     });
 
-    // Sync high density grid slider and number input using discrete mapping
+    // High density grid slider sync with discrete mapping
     document.getElementById('high-density-grid-slider').addEventListener('input', function() {
       const gridValue = sliderToGridValue(this.value);
       document.getElementById('high-density-grid-number').value = gridValue.toFixed(0);
@@ -273,14 +271,13 @@
       document.getElementById('high-density-grid-slider').value = sliderVal;
     });
 
-    // Sync distance slider and number input for minimum distance
+    // Distance slider sync
     document.getElementById('min-distance-slider').addEventListener('input', function() {
       document.getElementById('min-distance-number').value = this.value;
     });
     document.getElementById('min-distance-number').addEventListener('input', function() {
       document.getElementById('min-distance-slider').value = this.value;
     });
-    // Sync distance slider and number input for maximum distance
     document.getElementById('max-distance-slider').addEventListener('input', function() {
       document.getElementById('max-distance-number').value = this.value;
     });
