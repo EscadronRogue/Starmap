@@ -4,7 +4,7 @@ import { cachedRadToSphere, getGreatCirclePoints, subdivideGeometry } from '../u
 import { getConstellationBoundaries } from './constellationFilter.js';
 
 const R = 100;
-const TOLERANCE = 0.1; // Tolerance for endpoint matching
+const TOLERANCE = 0.1; // Increased tolerance for matching endpoints
 const distinctPalette = [
   "#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00",
   "#ffff33", "#a65628", "#f781bf", "#66c2a5", "#fc8d62",
@@ -12,23 +12,72 @@ const distinctPalette = [
   "#b3b3b3", "#1b9e77", "#d95f02", "#7570b3", "#e7298a"
 ];
 
-/**
- * Old coloring logic: simply extract unique constellation names (from const1 field),
- * sort them alphabetically, and assign each one a color from a fixed palette.
- */
-export function computeConstellationColorMapping() {
+/* 
+  Compute a neighbor map: for each constellation, list the neighboring constellations 
+  (i.e. those sharing at least one boundary segment).
+*/
+function computeNeighborMap() {
   const boundaries = getConstellationBoundaries();
-  const constellationsSet = new Set();
+  const neighbors = {};
   boundaries.forEach(seg => {
     if (seg.const1) {
-      constellationsSet.add(seg.const1.toUpperCase());
+      const key1 = seg.const1.toUpperCase();
+      const key2 = seg.const2 ? seg.const2.toUpperCase() : null;
+      if (!neighbors[key1]) neighbors[key1] = new Set();
+      if (key2) neighbors[key1].add(key2);
+    }
+    if (seg.const2) {
+      const key2 = seg.const2.toUpperCase();
+      const key1 = seg.const1 ? seg.const1.toUpperCase() : null;
+      if (!neighbors[key2]) neighbors[key2] = new Set();
+      if (key1) neighbors[key2].add(key1);
     }
   });
-  const constellations = Array.from(constellationsSet).sort();
-  const colorMapping = {};
-  constellations.forEach((constName, index) => {
-    colorMapping[constName] = distinctPalette[index % distinctPalette.length];
+  Object.keys(neighbors).forEach(key => {
+    neighbors[key] = Array.from(neighbors[key]);
   });
+  return neighbors;
+}
+
+/* 
+  Compute a color mapping that assigns each constellation a color such that 
+  no two neighboring constellations share the same color. This is done via a greedy 
+  algorithm that orders constellations by neighbor count and assigns the first available color.
+*/
+export function computeConstellationColorMapping() {
+  const neighborMap = computeNeighborMap();
+  const boundaries = getConstellationBoundaries();
+  const allConsts = new Set();
+  // Add all constellations present in the neighbor map.
+  Object.keys(neighborMap).forEach(c => allConsts.add(c));
+  // Also add any constellation from boundary data.
+  boundaries.forEach(seg => {
+    if (seg.const1) allConsts.add(seg.const1.toUpperCase());
+    if (seg.const2) allConsts.add(seg.const2.toUpperCase());
+  });
+  const constellations = Array.from(allConsts);
+  
+  // Sort constellations in descending order by number of neighbors.
+  constellations.sort((a, b) => {
+    const degA = neighborMap[a] ? neighborMap[a].length : 0;
+    const degB = neighborMap[b] ? neighborMap[b].length : 0;
+    return degB - degA;
+  });
+  
+  const colorMapping = {};
+  const palette = distinctPalette;
+  for (const c of constellations) {
+    const usedColors = new Set();
+    if (neighborMap[c]) {
+      neighborMap[c].forEach(nb => {
+        if (colorMapping[nb]) usedColors.add(colorMapping[nb]);
+      });
+    }
+    // Find the first color in the palette not used by any neighbor.
+    let assigned = palette.find(color => !usedColors.has(color));
+    if (!assigned) assigned = palette[0]; // Fallback if all colors are used.
+    colorMapping[c] = assigned;
+  }
   return colorMapping;
 }
 
@@ -66,13 +115,15 @@ export function createConstellationOverlayForGlobe() {
       groups[key].push(seg);
     }
   });
+  
   const colorMapping = computeConstellationColorMapping();
   const overlays = [];
+  
   for (const constellation in groups) {
     const segs = groups[constellation];
     const ordered = [];
     const used = new Array(segs.length).fill(false);
-    // Convert segment endpoints using cached conversion.
+    // Convert a segment's endpoint using cached conversion.
     const convert = (seg, endpoint) =>
       cachedRadToSphere(endpoint === 0 ? seg.ra1 : seg.ra2, endpoint === 0 ? seg.dec1 : seg.dec2, R);
     if (segs.length === 0) continue;
@@ -90,6 +141,7 @@ export function createConstellationOverlayForGlobe() {
         const seg = segs[i];
         const p0 = convert(seg, 0);
         const p1 = convert(seg, 1);
+        // Use TOLERANCE (0.1) for matching endpoints
         if (p0.distanceTo(currentEnd) < TOLERANCE) {
           ordered.push(p1);
           currentEnd = p1;
@@ -127,7 +179,7 @@ export function createConstellationOverlayForGlobe() {
       geometry.setIndex(indices);
       geometry.computeVertexNormals();
     } else {
-      // Fallback: project to 2D and triangulate
+      // Fallback: Project points to 2D and triangulate
       const tangent = new THREE.Vector3();
       const bitangent = new THREE.Vector3();
       const tempCentroid = new THREE.Vector3(0, 0, 0);
