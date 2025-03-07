@@ -4,6 +4,7 @@ import { cachedRadToSphere, getGreatCirclePoints, subdivideGeometry } from '../u
 import { getConstellationBoundaries } from './constellationFilter.js';
 
 const R = 100;
+const TOLERANCE = 0.1; // Increased tolerance for matching endpoints
 const distinctPalette = [
   "#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00",
   "#ffff33", "#a65628", "#f781bf", "#66c2a5", "#fc8d62",
@@ -67,6 +68,7 @@ export function createConstellationOverlayForGlobe() {
     const segs = groups[constellation];
     const ordered = [];
     const used = new Array(segs.length).fill(false);
+    // Convert a segment's endpoint using cached conversion.
     const convert = (seg, endpoint) =>
       cachedRadToSphere(endpoint === 0 ? seg.ra1 : seg.ra2, endpoint === 0 ? seg.dec1 : seg.dec2, R);
     if (segs.length === 0) continue;
@@ -84,12 +86,13 @@ export function createConstellationOverlayForGlobe() {
         const seg = segs[i];
         const p0 = convert(seg, 0);
         const p1 = convert(seg, 1);
-        if (p0.distanceTo(currentEnd) < 0.001) {
+        // Use TOLERANCE (0.1) for matching endpoints
+        if (p0.distanceTo(currentEnd) < TOLERANCE) {
           ordered.push(p1);
           currentEnd = p1;
           used[i] = true;
           changed = true;
-        } else if (p1.distanceTo(currentEnd) < 0.001) {
+        } else if (p1.distanceTo(currentEnd) < TOLERANCE) {
           ordered.push(p0);
           currentEnd = p0;
           used[i] = true;
@@ -99,8 +102,8 @@ export function createConstellationOverlayForGlobe() {
       iteration++;
     }
     if (ordered.length < 3) continue;
-    if (ordered[0].distanceTo(ordered[ordered.length - 1]) > 0.01) continue;
-    if (ordered[0].distanceTo(ordered[ordered.length - 1]) < 0.001) {
+    if (ordered[0].distanceTo(ordered[ordered.length - 1]) > TOLERANCE) continue;
+    if (ordered[0].distanceTo(ordered[ordered.length - 1]) < TOLERANCE) {
       ordered.pop();
     }
     let geometry;
@@ -121,6 +124,7 @@ export function createConstellationOverlayForGlobe() {
       geometry.setIndex(indices);
       geometry.computeVertexNormals();
     } else {
+      // Fallback: Project points to 2D and triangulate
       const tangent = new THREE.Vector3();
       const bitangent = new THREE.Vector3();
       const tempCentroid = new THREE.Vector3(0, 0, 0);
