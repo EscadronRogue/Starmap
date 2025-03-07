@@ -7,8 +7,7 @@
   <title>Starmap Visualization</title>
   <link rel="stylesheet" href="styles.css" />
   <style>
-    /* Optional: you can adjust these styles in your CSS file if needed */
-    /* Ensure grid subdivision number inputs are sized similarly to the connection number input */
+    /* Ensure grid subdivision number inputs are sized similarly to other number inputs and are read-only */
     #low-density-grid-number,
     #high-density-grid-number {
       display: inline-block;
@@ -172,17 +171,20 @@
                 step="1" 
                 value="0" 
                 disabled
+                style="width: 200px;"
               />
-              <!-- Number input shows the actual grid subdivision value -->
+              <!-- Number input shows the actual grid subdivision value; made read-only -->
               <input 
                 type="number" 
                 id="low-density-grid-number" 
                 name="low-density-grid-size" 
-                min="0.01" 
+                min="0" 
                 max="100" 
-                step="any" 
+                step="1" 
                 value="1" 
                 disabled
+                readonly
+                style="width: 80px;"
               />
             </div>
           </div>
@@ -222,16 +224,19 @@
                 step="1" 
                 value="0" 
                 disabled
+                style="width: 200px;"
               />
               <input 
                 type="number" 
                 id="high-density-grid-number" 
                 name="high-density-grid-size" 
-                min="0.01" 
+                min="0" 
                 max="100" 
-                step="any" 
+                step="1" 
                 value="1" 
                 disabled
+                readonly
+                style="width: 80px;"
               />
             </div>
           </div>
@@ -315,6 +320,10 @@
       document.getElementById('low-tolerance-slider').disabled = !lowEnabled;
       document.getElementById('low-density-grid-slider').disabled = !lowEnabled;
       document.getElementById('low-density-grid-number').disabled = !lowEnabled;
+      // Trigger update so that the density mapping activates immediately
+      if(lowEnabled) {
+        document.getElementById('low-density-grid-slider').dispatchEvent(new Event('input'));
+      }
     });
 
     // Enable/disable high density mapping sliders
@@ -325,6 +334,9 @@
       document.getElementById('high-tolerance-slider').disabled = !highEnabled;
       document.getElementById('high-density-grid-slider').disabled = !highEnabled;
       document.getElementById('high-density-grid-number').disabled = !highEnabled;
+      if(highEnabled) {
+        document.getElementById('high-density-grid-slider').dispatchEvent(new Event('input'));
+      }
     });
 
     // Sync low density slider and number input
@@ -350,7 +362,7 @@
     // Sync low density grid slider and number input using discrete mapping
     document.getElementById('low-density-grid-slider').addEventListener('input', function() {
       const gridValue = sliderToGridValue(this.value);
-      document.getElementById('low-density-grid-number').value = gridValue.toFixed(3);
+      document.getElementById('low-density-grid-number').value = gridValue.toFixed(0);
     });
     document.getElementById('low-density-grid-number').addEventListener('input', function() {
       const sliderVal = gridValueToSlider(this.value);
@@ -360,7 +372,7 @@
     // Sync high density grid slider and number input using discrete mapping
     document.getElementById('high-density-grid-slider').addEventListener('input', function() {
       const gridValue = sliderToGridValue(this.value);
-      document.getElementById('high-density-grid-number').value = gridValue.toFixed(3);
+      document.getElementById('high-density-grid-number').value = gridValue.toFixed(0);
     });
     document.getElementById('high-density-grid-number').addEventListener('input', function() {
       const sliderVal = gridValueToSlider(this.value);
