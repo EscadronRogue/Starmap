@@ -132,3 +132,19 @@ export function vectorToRaDec(vector, R = 100) {
   if (raDeg < 0) raDeg += 360;
   return { ra: raDeg, dec: dec * 180 / Math.PI };
 }
+
+/**
+ * Caching mechanism for converting RA/DEC to sphere coordinates.
+ * Returns a THREE.Vector3 corresponding to the inputs.
+ */
+const radToSphereCache = new Map();
+export function cachedRadToSphere(ra, dec, R) {
+  const key = `${ra}_${dec}_${R}`;
+  if (radToSphereCache.has(key)) {
+    // Return a clone so that the cached vector is not accidentally mutated.
+    return radToSphereCache.get(key).clone();
+  }
+  const vec = radToSphere(ra, dec, R);
+  radToSphereCache.set(key, vec.clone());
+  return vec;
+}
