@@ -88,8 +88,12 @@ export function mergeConnectionLines(connectionObjs) {
   connectionObjs.forEach(pair => {
     const { starA, starB } = pair;
 
-    const posA = starA.truePosition ? starA.truePosition : new THREE.Vector3(starA.x_coordinate, starA.y_coordinate, starA.z_coordinate);
-    const posB = starB.truePosition ? starB.truePosition : new THREE.Vector3(starB.x_coordinate, starB.y_coordinate, starB.z_coordinate);
+    const posA = starA.truePosition
+      ? starA.truePosition
+      : new THREE.Vector3(starA.x_coordinate, starA.y_coordinate, starA.z_coordinate);
+    const posB = starB.truePosition
+      ? starB.truePosition
+      : new THREE.Vector3(starB.x_coordinate, starB.y_coordinate, starB.z_coordinate);
 
     positions.push(posA.x, posA.y, posA.z);
     positions.push(posB.x, posB.y, posB.z);
@@ -137,8 +141,12 @@ export function createConnectionLines(stars, pairs, mapType) {
       posA = new THREE.Vector3(starA.spherePosition.x, starA.spherePosition.y, starA.spherePosition.z);
       posB = new THREE.Vector3(starB.spherePosition.x, starB.spherePosition.y, starB.spherePosition.z);
     } else {
-      posA = starA.truePosition ? starA.truePosition.clone() : new THREE.Vector3(starA.x_coordinate, starA.y_coordinate, starA.z_coordinate);
-      posB = starB.truePosition ? starB.truePosition.clone() : new THREE.Vector3(starB.x_coordinate, starB.y_coordinate, starB.z_coordinate);
+      posA = starA.truePosition
+        ? starA.truePosition.clone()
+        : new THREE.Vector3(starA.x_coordinate, starA.y_coordinate, starA.z_coordinate);
+      posB = starB.truePosition
+        ? starB.truePosition.clone()
+        : new THREE.Vector3(starB.x_coordinate, starB.y_coordinate, starB.z_coordinate);
     }
 
     const c1 = new THREE.Color(starA.displayColor || '#ffffff');
