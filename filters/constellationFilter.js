@@ -1,11 +1,7 @@
-// filters/constellationFilter.js
+// /filters/constellationFilter.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-
-/**
- * This file manages constellation boundaries & labels for the Globe map.
- * We store the parsed data from your .txt files and build lines/labels.
- */
+import { radToSphere } from '../utils/geometryUtils.js';
 
 let boundaryData = [];
 let centerData = [];
@@ -67,7 +63,6 @@ export async function loadConstellationCenters() {
   }
 }
 
-// NEW: Export a getter for the loaded constellation centers.
 export function getConstellationCenters() {
   return centerData;
 }
@@ -94,74 +89,6 @@ export function createConstellationBoundariesForGlobe() {
   return lines;
 }
 
-/**
- * Creates constellation label meshes for the Globe.
- * The labels are rendered using a custom shader material (see LabelManager) so that
- * they are double-sided and always oriented with their up equal to the projection of global up.
- * Also, constellation labels use a very large base font size, lower opacity, and no background.
- */
-export function createConstellationLabelsForGlobe() {
-  const labels = [];
-  const R = 100;
-  centerData.forEach(c => {
-    const p = radToSphere(c.ra, c.dec, R);
-    const baseFontSize = 300; // Very large
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    ctx.font = `${baseFontSize}px Arial`;
-    const textWidth = ctx.measureText(c.name).width;
-    canvas.width = textWidth + 20;
-    canvas.height = baseFontSize * 1.2;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.font = `${baseFontSize}px Arial`;
-    ctx.fillStyle = '#888888';
-    ctx.fillText(c.name, 10, baseFontSize);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-    const material = new THREE.ShaderMaterial({
-      uniforms: {
-        map: { value: texture },
-        opacity: { value: 0.5 }
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform sampler2D map;
-        uniform float opacity;
-        varying vec2 vUv;
-        void main() {
-          vec2 uvCorrected = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);
-          vec4 color = texture2D(map, uvCorrected);
-          gl_FragColor = vec4(color.rgb, color.a * opacity);
-        }
-      `,
-      transparent: true,
-      side: THREE.DoubleSide
-    });
-    const planeGeom = new THREE.PlaneGeometry(canvas.width / 100, canvas.height / 100);
-    const label = new THREE.Mesh(planeGeom, material);
-    label.position.copy(p);
-    const normal = p.clone().normalize();
-    const globalUp = new THREE.Vector3(0, 1, 0);
-    let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
-    if (desiredUp.lengthSq() < 1e-6) desiredUp = new THREE.Vector3(0, 0, 1);
-    else desiredUp.normalize();
-    const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
-    const matrix = new THREE.Matrix4();
-    matrix.makeBasis(desiredRight, desiredUp, normal);
-    label.setRotationFromMatrix(matrix);
-    label.renderOrder = 1;
-    labels.push(label);
-  });
-  return labels;
-}
-
-// Helpers
 function parseRA(raStr) {
   const [hh, mm, ss] = raStr.split(':').map(x => parseFloat(x));
   const hours = hh + mm / 60 + ss / 3600;
@@ -181,60 +108,6 @@ function degToRad(d) {
   return d * Math.PI / 180;
 }
 
-/**
- * Converts RA and DEC (in radians) into a position on the sphere of radius R.
- * (The x and z coordinates are reversed so that the celestial north appears at (0,R,0))
- */
-function radToSphere(ra, dec, R) {
-  const x = -R * Math.cos(dec) * Math.cos(ra);
-  const y = R * Math.sin(dec);
-  const z = -R * Math.cos(dec) * Math.sin(ra);
-  return new THREE.Vector3(x, y, z);
-}
-
-/**
- * Generates points along the great‑circle path between two points on the sphere.
- */
-function getGreatCirclePoints(p1, p2, R, segments) {
-  const points = [];
-  const start = p1.clone().normalize().multiplyScalar(R);
-  const end = p2.clone().normalize().multiplyScalar(R);
-  const axis = new THREE.Vector3().crossVectors(start, end).normalize();
-  const angle = start.angleTo(end);
-  for (let i = 0; i <= segments; i++) {
-    const theta = (i / segments) * angle;
-    const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, theta);
-    const point = start.clone().applyQuaternion(quaternion);
-    points.push(point);
-  }
-  return points;
-}
-
-/**
- * (Legacy) Creates a text sprite.
- */
-function makeTextSprite(txt, opts) {
-  const fontSize = opts.fontSize || 100;
-  const color = opts.color || '#888888';
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  ctx.font = `${fontSize}px sans-serif`;
-  const w = ctx.measureText(txt).width;
-  canvas.width = w;
-  canvas.height = fontSize * 1.2;
-  ctx.font = `${fontSize}px sans-serif`;
-  ctx.fillStyle = color;
-  ctx.fillText(txt, 0, fontSize);
-  const tex = new THREE.Texture(canvas);
-  tex.needsUpdate = true;
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false });
-  const sprite = new THREE.Sprite(mat);
-  const scaleFactor = 0.02;
-  sprite.scale.set(canvas.width * scaleFactor, canvas.height * scaleFactor, 1);
-  return sprite;
-}
-
-// NEW: Export a getter for the loaded boundary data.
 export function getConstellationBoundaries() {
   return boundaryData;
 }
