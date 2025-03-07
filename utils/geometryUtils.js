@@ -76,11 +76,7 @@ export function subdivideGeometry(geometry, iterations) {
       if (midpointCache[key] !== undefined) return midpointCache[key];
       const v1 = newVertices[i1];
       const v2 = newVertices[i2];
-      const mid = new THREE.Vector3()
-        .addVectors(v1, v2)
-        .multiplyScalar(0.5)
-        .normalize()
-        .multiplyScalar(100);
+      const mid = new THREE.Vector3().addVectors(v1, v2).multiplyScalar(0.5).normalize().multiplyScalar(100);
       newVertices.push(mid);
       const idx = newVertices.length - 1;
       midpointCache[key] = idx;
