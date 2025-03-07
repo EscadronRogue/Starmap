@@ -1,6 +1,22 @@
 // ui/domHandlers.js
 
 export function initDomEventHandlers() {
+  // Initialize collapsible filter fieldsets (filter menu)
+  const filterForm = document.getElementById('filters-form');
+  if (filterForm) {
+    const mainLegends = filterForm.querySelectorAll('legend.collapsible');
+    mainLegends.forEach(legend => {
+      const fc = legend.nextElementSibling;
+      if (fc) fc.style.maxHeight = '0px';
+      legend.addEventListener('click', () => {
+        legend.classList.toggle('active');
+        const isActive = legend.classList.contains('active');
+        legend.setAttribute('aria-expanded', isActive);
+        if (fc) fc.style.maxHeight = isActive ? fc.scrollHeight + 'px' : '0px';
+      });
+    });
+  }
+
   // Toggle sidebar menu on mobile
   const menuToggle = document.getElementById('menu-toggle');
   if (menuToggle) {
