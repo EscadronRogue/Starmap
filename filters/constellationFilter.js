@@ -1,6 +1,7 @@
 // /filters/constellationFilter.js
+
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { radToSphere, getGreatCirclePoints, parseRA, parseDec } from '../utils/geometryUtils.js';
+import { radToSphere, getGreatCirclePoints } from '../utils/geometryUtils.js';
 
 let boundaryData = [];
 let centerData = [];
@@ -81,25 +82,13 @@ export function getConstellationBoundaries() {
 
 /**
  * Creates constellation boundary line meshes for the Globe.
- * This updated version handles RA wrap‑around by adding 2π to the smaller RA when needed.
  */
 export function createConstellationBoundariesForGlobe() {
   const lines = [];
   const R = 100;
   boundaryData.forEach(b => {
-    // Copy RA values from data
-    let ra1 = b.ra1;
-    let ra2 = b.ra2;
-    // If the absolute difference exceeds π, add 2π to the smaller RA.
-    if (Math.abs(ra1 - ra2) > Math.PI) {
-      if (ra1 < ra2) {
-        ra1 += 2 * Math.PI;
-      } else {
-        ra2 += 2 * Math.PI;
-      }
-    }
-    const p1 = radToSphere(ra1, b.dec1, R);
-    const p2 = radToSphere(ra2, b.dec2, R);
+    const p1 = radToSphere(b.ra1, b.dec1, R);
+    const p2 = radToSphere(b.ra2, b.dec2, R);
     // Create a smooth curved line using a CatmullRom curve
     const curve = new THREE.CatmullRomCurve3(
       getGreatCirclePoints(p1, p2, R, 32)
@@ -121,7 +110,7 @@ export function createConstellationBoundariesForGlobe() {
 
 /**
  * Creates constellation label meshes for the Globe.
- * The labels are rendered using a custom shader material so that they are double‑sided
+ * The labels are rendered using a custom shader material so that they are double-sided
  * and always oriented correctly.
  */
 export function createConstellationLabelsForGlobe() {
@@ -184,4 +173,32 @@ export function createConstellationLabelsForGlobe() {
     labels.push(label);
   });
   return labels;
+}
+
+/**
+ * Parses a Right Ascension string (e.g. "12:34:56") into radians.
+ */
+function parseRA(raStr) {
+  const [hh, mm, ss] = raStr.split(':').map(x => parseFloat(x));
+  const hours = hh + mm / 60 + ss / 3600;
+  const deg = hours * 15;
+  return degToRad(deg);
+}
+
+/**
+ * Parses a Declination string (e.g. "-12:34:56") into radians.
+ */
+function parseDec(decStr) {
+  const sign = decStr.startsWith('-') ? -1 : 1;
+  const stripped = decStr.replace('+', '').replace('-', '');
+  const [dd, mm, ss] = stripped.split(':').map(x => parseFloat(x));
+  const degVal = (dd + mm / 60 + ss / 3600) * sign;
+  return degToRad(degVal);
+}
+
+/**
+ * Converts degrees to radians.
+ */
+function degToRad(d) {
+  return d * Math.PI / 180;
 }
