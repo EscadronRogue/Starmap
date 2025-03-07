@@ -1,5 +1,45 @@
-// utils/geometryUtils.js
+// /utils/geometryUtils.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
+
+/**
+ * Converts degrees to radians.
+ */
+export function degToRad(deg) {
+  return deg * Math.PI / 180;
+}
+
+/**
+ * Parses a Right Ascension string (e.g. "12:34:56") and returns radians.
+ */
+export function parseRA(raStr) {
+  const parts = raStr.split(':').map(Number);
+  const hours = parts[0] + (parts[1] || 0) / 60 + (parts[2] || 0) / 3600;
+  return degToRad(hours * 15);
+}
+
+/**
+ * Parses a Declination string (e.g. "-12:34:56") and returns radians.
+ */
+export function parseDec(decStr) {
+  const sign = decStr.startsWith('-') ? -1 : 1;
+  const parts = decStr.replace('+', '').split(':').map(Number);
+  const degrees = parts[0] + (parts[1] || 0) / 60 + (parts[2] || 0) / 3600;
+  return degToRad(degrees * sign);
+}
+
+/**
+ * Given a vector on a sphere of radius R, returns the corresponding RA and DEC in degrees.
+ * @param {THREE.Vector3} vector - The vector on the sphere.
+ * @param {number} R - The sphere radius (default 100).
+ * @returns {Object} - An object with properties ra and dec (in degrees).
+ */
+export function vectorToRaDec(vector, R = 100) {
+  const dec = Math.asin(vector.y / R);
+  let ra = Math.atan2(-vector.z, -vector.x);
+  let raDeg = ra * 180 / Math.PI;
+  if (raDeg < 0) raDeg += 360;
+  return { ra: raDeg, dec: dec * 180 / Math.PI };
+}
 
 /**
  * Converts RA and DEC (in radians) to a THREE.Vector3 on a sphere of radius R.
