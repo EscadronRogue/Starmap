@@ -81,13 +81,26 @@ export function getConstellationBoundaries() {
 
 /**
  * Creates constellation boundary line meshes for the Globe.
+ * This updated version handles RA wrap‑around by adjusting RA values when needed.
  */
 export function createConstellationBoundariesForGlobe() {
   const lines = [];
   const R = 100;
   boundaryData.forEach(b => {
-    const p1 = radToSphere(b.ra1, b.dec1, R);
-    const p2 = radToSphere(b.ra2, b.dec2, R);
+    // Copy RA values from data
+    let ra1 = b.ra1;
+    let ra2 = b.ra2;
+    // Check for wrap‑around: if the difference is greater than π,
+    // adjust one of the RA values so that the interpolation is correct.
+    if (Math.abs(ra1 - ra2) > Math.PI) {
+      if (ra1 > ra2) {
+        ra1 -= 2 * Math.PI;
+      } else {
+        ra2 -= 2 * Math.PI;
+      }
+    }
+    const p1 = radToSphere(ra1, b.dec1, R);
+    const p2 = radToSphere(ra2, b.dec2, R);
     // Create a smooth curved line using a CatmullRom curve
     const curve = new THREE.CatmullRomCurve3(
       getGreatCirclePoints(p1, p2, R, 32)
@@ -109,7 +122,7 @@ export function createConstellationBoundariesForGlobe() {
 
 /**
  * Creates constellation label meshes for the Globe.
- * The labels are rendered using a custom shader material so that they are double-sided
+ * The labels are rendered using a custom shader material so that they are double‑sided
  * and always oriented correctly.
  */
 export function createConstellationLabelsForGlobe() {
@@ -163,15 +176,8 @@ export function createConstellationLabelsForGlobe() {
     const normal = p.clone().normalize();
     const globalUp = new THREE.Vector3(0, 1, 0);
     let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
-    if (desiredUp.lengthSq() < 1e-6) {
-      desiredUp = new THREE.Vector3(0, 0, 1);
-    } else {
-      desiredUp.normalize();
-    }
-    // Ensure the label remains upright relative to global up.
-    if (desiredUp.dot(globalUp) < 0) {
-      desiredUp.negate();
-    }
+    if (desiredUp.lengthSq() < 1e-6) desiredUp = new THREE.Vector3(0, 0, 1);
+    else desiredUp.normalize();
     const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
     const matrix = new THREE.Matrix4().makeBasis(desiredRight, desiredUp, normal);
     label.setRotationFromMatrix(matrix);
