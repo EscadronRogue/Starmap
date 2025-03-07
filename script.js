@@ -386,6 +386,9 @@ class MapManager {
     // Base sphere geometry with unit radius (0.2). Each instance will be scaled.
     const baseRadius = 0.2;
     const geometry = new THREE.SphereGeometry(baseRadius, 12, 12);
+    // Add a dummy color attribute so that instanceColor works.
+    const colorArray = new Float32Array(geometry.attributes.position.count * 3);
+    geometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
     // Material supports per-instance vertex colors.
     const material = new THREE.MeshBasicMaterial({
       vertexColors: true,
@@ -469,15 +472,31 @@ class MapManager {
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
+  
+  // Helper: get target objects for raycasting.
+  function getRaycastTargets() {
+    if (map.instancedStars) {
+      return [map.instancedStars];
+    } else {
+      return map.starGroup.children;
+    }
+  }
+  
   map.canvas.addEventListener('mousemove', (event) => {
     if (selectedStarData) return;
     const rect = map.canvas.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, map.camera);
-    const intersects = raycaster.intersectObjects(map.starGroup.children, true);
+    const intersects = raycaster.intersectObjects(getRaycastTargets(), true);
     if (intersects.length > 0) {
-      const index = map.starGroup.children.indexOf(intersects[0].object);
+      let index = -1;
+      // If intersecting an InstancedMesh, use instanceId.
+      if (intersects[0].object.isInstancedMesh && intersects[0].instanceId !== undefined) {
+        index = intersects[0].instanceId;
+      } else {
+        index = map.starGroup.children.indexOf(intersects[0].object);
+      }
       if (index >= 0 && map.starObjects[index]) {
         showTooltip(event.clientX, event.clientY, map.starObjects[index]);
       }
@@ -499,10 +518,15 @@ function initStarInteractions(map) {
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, map.camera);
-    const intersects = raycaster.intersectObjects(map.starGroup.children, true);
+    const intersects = raycaster.intersectObjects(getRaycastTargets(), true);
     let clickedStar = null;
     if (intersects.length > 0) {
-      const index = map.starGroup.children.indexOf(intersects[0].object);
+      let index = -1;
+      if (intersects[0].object.isInstancedMesh && intersects[0].instanceId !== undefined) {
+        index = intersects[0].instanceId;
+      } else {
+        index = map.starGroup.children.indexOf(intersects[0].object);
+      }
       if (index >= 0) {
         clickedStar = map.starObjects[index];
       }
@@ -569,6 +593,9 @@ async function main() {
     const globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
     buildAndApplyFilters();
+    // Initialize star interactions on both maps
+    initStarInteractions(trueCoordinatesMap);
+    initStarInteractions(globeMap);
     loader.classList.add('hidden');
   } catch (err) {
     console.error('Error initializing starmap:', err);
