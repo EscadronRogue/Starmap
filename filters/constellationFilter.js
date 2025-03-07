@@ -6,9 +6,9 @@ import { radToSphere } from '../utils/geometryUtils.js';
 let boundaryData = [];
 let centerData = [];
 
-export let globeConstellationLines = [];
-export let globeConstellationLabels = [];
-
+/**
+ * Loads constellation boundary data asynchronously.
+ */
 export async function loadConstellationBoundaries() {
   try {
     const resp = await fetch('constellation_boundaries.txt');
@@ -38,6 +38,9 @@ export async function loadConstellationBoundaries() {
   }
 }
 
+/**
+ * Loads constellation center data asynchronously.
+ */
 export async function loadConstellationCenters() {
   try {
     const resp = await fetch('constellation_center.txt');
@@ -63,17 +66,34 @@ export async function loadConstellationCenters() {
   }
 }
 
+/**
+ * Returns the loaded constellation centers.
+ */
 export function getConstellationCenters() {
   return centerData;
 }
 
+/**
+ * Returns the loaded constellation boundaries.
+ */
+export function getConstellationBoundaries() {
+  return boundaryData;
+}
+
+/**
+ * Creates constellation boundary line meshes for the Globe.
+ */
 export function createConstellationBoundariesForGlobe() {
   const lines = [];
   const R = 100;
   boundaryData.forEach(b => {
     const p1 = radToSphere(b.ra1, b.dec1, R);
     const p2 = radToSphere(b.ra2, b.dec2, R);
-    const curve = new THREE.CatmullRomCurve3(getGreatCirclePoints(p1, p2, R, 32));
+    // Create a smooth curved line using a CatmullRom curve.
+    const curve = new THREE.CatmullRomCurve3( 
+      // Here we generate 32 points along a great-circle arc.
+      getGreatCirclePoints(p1, p2, R, 32)
+    );
     const points = curve.getPoints(32);
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     const material = new THREE.LineDashedMaterial({
@@ -89,6 +109,76 @@ export function createConstellationBoundariesForGlobe() {
   return lines;
 }
 
+/**
+ * Creates constellation label meshes for the Globe.
+ * The labels are rendered using a custom shader material so that they are double-sided
+ * and always oriented correctly.
+ */
+export function createConstellationLabelsForGlobe() {
+  const labels = [];
+  const R = 100;
+  // For each center from the loaded centerData
+  centerData.forEach(c => {
+    const p = radToSphere(c.ra, c.dec, R);
+    const baseFontSize = 300; // Very large base font size
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.font = `${baseFontSize}px Arial`;
+    const textWidth = ctx.measureText(c.name).width;
+    canvas.width = textWidth + 20;
+    canvas.height = baseFontSize * 1.2;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = `${baseFontSize}px Arial`;
+    ctx.fillStyle = '#888888';
+    ctx.fillText(c.name, 10, baseFontSize);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        map: { value: texture },
+        opacity: { value: 0.5 }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D map;
+        uniform float opacity;
+        varying vec2 vUv;
+        void main() {
+          vec2 uvCorrected = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);
+          vec4 color = texture2D(map, uvCorrected);
+          gl_FragColor = vec4(color.rgb, color.a * opacity);
+        }
+      `,
+      transparent: true,
+      side: THREE.DoubleSide
+    });
+    const planeGeom = new THREE.PlaneGeometry(canvas.width / 100, canvas.height / 100);
+    const label = new THREE.Mesh(planeGeom, material);
+    label.position.copy(p);
+    // Orient the label so that its up vector is aligned with the projection of global up onto the tangent plane.
+    const normal = p.clone().normalize();
+    const globalUp = new THREE.Vector3(0, 1, 0);
+    let desiredUp = globalUp.clone().sub(normal.clone().multiplyScalar(globalUp.dot(normal)));
+    if (desiredUp.lengthSq() < 1e-6) desiredUp = new THREE.Vector3(0, 0, 1);
+    else desiredUp.normalize();
+    const desiredRight = new THREE.Vector3().crossVectors(desiredUp, normal).normalize();
+    const matrix = new THREE.Matrix4().makeBasis(desiredRight, desiredUp, normal);
+    label.setRotationFromMatrix(matrix);
+    label.renderOrder = 1;
+    labels.push(label);
+  });
+  return labels;
+}
+
+/**
+ * Parses a Right Ascension string (e.g. "12:34:56") into radians.
+ */
 function parseRA(raStr) {
   const [hh, mm, ss] = raStr.split(':').map(x => parseFloat(x));
   const hours = hh + mm / 60 + ss / 3600;
@@ -96,6 +186,9 @@ function parseRA(raStr) {
   return degToRad(deg);
 }
 
+/**
+ * Parses a Declination string (e.g. "-12:34:56") into radians.
+ */
 function parseDec(decStr) {
   const sign = decStr.startsWith('-') ? -1 : 1;
   const stripped = decStr.replace('+', '').replace('-', '');
@@ -104,10 +197,9 @@ function parseDec(decStr) {
   return degToRad(degVal);
 }
 
+/**
+ * Converts degrees to radians.
+ */
 function degToRad(d) {
   return d * Math.PI / 180;
-}
-
-export function getConstellationBoundaries() {
-  return boundaryData;
 }
