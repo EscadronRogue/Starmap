@@ -1,13 +1,9 @@
-// /filters/constellationOverlayFilter.js
-
+// filters/constellationOverlayFilter.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
+import { cachedRadToSphere, getGreatCirclePoints, subdivideGeometry } from '../utils/geometryUtils.js';
 import { getConstellationBoundaries } from './constellationFilter.js';
 
-const R = 100; // Globe radius
-
-// --- Graph Coloring Helpers (Non-recursive Greedy) ---
-
-// Use a predefined distinct palette with 20 colors.
+const R = 100;
 const distinctPalette = [
   "#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00",
   "#ffff33", "#a65628", "#f781bf", "#66c2a5", "#fc8d62",
@@ -16,7 +12,7 @@ const distinctPalette = [
 ];
 
 function computeNeighborMap() {
-  const boundaries = getConstellationBoundaries(); // Each segment: {ra1, dec1, ra2, dec2, const1, const2}
+  const boundaries = getConstellationBoundaries();
   const neighbors = {};
   boundaries.forEach(seg => {
     if (seg.const1) {
@@ -48,19 +44,13 @@ export function computeConstellationColorMapping() {
     if (seg.const2) allConsts.add(seg.const2.toUpperCase());
   });
   const constellations = Array.from(allConsts);
-  
-  // Determine maximum neighbor count (degree)
   let maxDegree = 0;
   constellations.forEach(c => {
     const deg = neighbors[c] ? neighbors[c].length : 0;
     if (deg > maxDegree) maxDegree = deg;
   });
-  // Ensure our palette is large enough; if not, we'll cycle.
   const palette = distinctPalette;
-  
-  // Sort constellations in descending order by neighbor count.
   constellations.sort((a, b) => (neighbors[b] ? neighbors[b].length : 0) - (neighbors[a] ? neighbors[a].length : 0));
-  
   const colorMapping = {};
   for (const c of constellations) {
     const used = new Set();
@@ -69,15 +59,12 @@ export function computeConstellationColorMapping() {
         if (colorMapping[nb]) used.add(colorMapping[nb]);
       }
     }
-    // Find the first color in the palette that is not used.
     let assigned = palette.find(color => !used.has(color));
     if (!assigned) assigned = palette[0];
     colorMapping[c] = assigned;
   }
   return colorMapping;
 }
-
-// --- Spherical Triangulation Helpers ---
 
 function computeSphericalCentroid(vertices) {
   const sum = new THREE.Vector3(0, 0, 0);
@@ -97,69 +84,6 @@ function isPointInSphericalPolygon(point, vertices) {
   }
   return Math.abs(angleSum - 2 * Math.PI) < 0.1;
 }
-
-function subdivideGeometry(geometry, iterations) {
-  let geo = geometry;
-  for (let iter = 0; iter < iterations; iter++) {
-    const posAttr = geo.getAttribute('position');
-    const oldPositions = [];
-    for (let i = 0; i < posAttr.count; i++) {
-      const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
-      oldPositions.push(v);
-    }
-    const oldIndices = geo.getIndex().array;
-    const newVertices = [...oldPositions];
-    const newIndices = [];
-    const midpointCache = {};
-    
-    function getMidpoint(i1, i2) {
-      const key = i1 < i2 ? `${i1}_${i2}` : `${i2}_${i1}`;
-      if (midpointCache[key] !== undefined) return midpointCache[key];
-      const v1 = newVertices[i1];
-      const v2 = newVertices[i2];
-      const mid = new THREE.Vector3().addVectors(v1, v2).multiplyScalar(0.5).normalize().multiplyScalar(R);
-      newVertices.push(mid);
-      const idx = newVertices.length - 1;
-      midpointCache[key] = idx;
-      return idx;
-    }
-    
-    for (let i = 0; i < oldIndices.length; i += 3) {
-      const i0 = oldIndices[i];
-      const i1 = oldIndices[i + 1];
-      const i2 = oldIndices[i + 2];
-      const m0 = getMidpoint(i0, i1);
-      const m1 = getMidpoint(i1, i2);
-      const m2 = getMidpoint(i2, i0);
-      newIndices.push(i0, m0, m2);
-      newIndices.push(m0, i1, m1);
-      newIndices.push(m0, m1, m2);
-      newIndices.push(m2, m1, i2);
-    }
-    
-    const positions = [];
-    newVertices.forEach(v => {
-      positions.push(v.x, v.y, v.z);
-    });
-    geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geo.setIndex(newIndices);
-    geo.computeVertexNormals();
-  }
-  return geo;
-}
-
-// --- Helper to convert a sphere point (THREE.Vector3) to RA/DEC in degrees ---
-// Updated so that RA is normalized into the 0–360° range.
-function vectorToRaDec(vector) {
-  const dec = Math.asin(vector.y / R);
-  let ra = Math.atan2(-vector.z, -vector.x);
-  let raDeg = ra * 180 / Math.PI;
-  if (raDeg < 0) raDeg += 360;
-  return { ra: raDeg, dec: dec * 180 / Math.PI };
-}
-
-// --- Overlay Creation ---
 
 export function createConstellationOverlayForGlobe() {
   const boundaries = getConstellationBoundaries();
@@ -183,7 +107,7 @@ export function createConstellationOverlayForGlobe() {
     const ordered = [];
     const used = new Array(segs.length).fill(false);
     const convert = (seg, endpoint) =>
-      radToSphere(endpoint === 0 ? seg.ra1 : seg.ra2, endpoint === 0 ? seg.dec1 : seg.dec2, R);
+      cachedRadToSphere(endpoint === 0 ? seg.ra1 : seg.ra2, endpoint === 0 ? seg.dec1 : seg.dec2, R);
     if (segs.length === 0) continue;
     let currentPoint = convert(segs[0], 0);
     ordered.push(currentPoint);
@@ -272,22 +196,10 @@ export function createConstellationOverlayForGlobe() {
     });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.renderOrder = 1;
-    // Store the 3D polygon and constellation name in userData for later lookup.
-    mesh.userData.polygon = ordered;
     mesh.userData.constellation = constellation;
-    
-    // --- NEW: Create RA/DEC polygon data using the updated conversion ---
-    const orderedRADEC = ordered.map(p => vectorToRaDec(p));
-    mesh.userData.raDecPolygon = orderedRADEC;
-    
     overlays.push(mesh);
   }
   return overlays;
 }
 
-function radToSphere(ra, dec, R) {
-  const x = -R * Math.cos(dec) * Math.cos(ra);
-  const y = R * Math.sin(dec);
-  const z = -R * Math.cos(dec) * Math.sin(ra);
-  return new THREE.Vector3(x, y, z);
-}
+export { computeConstellationColorMapping };
