@@ -5,16 +5,33 @@ export function initDomEventHandlers() {
   const filterForm = document.getElementById('filters-form');
   if (filterForm) {
     const mainLegends = filterForm.querySelectorAll('legend.collapsible');
+    if (!mainLegends.length) {
+      console.log("No collapsible legends found in the filter form.");
+    }
     mainLegends.forEach(legend => {
+      console.log("Attaching click listener to legend:", legend.textContent);
+      // Get the next sibling element (the filter content container)
       const fc = legend.nextElementSibling;
-      if (fc) fc.style.maxHeight = '0px';
-      legend.addEventListener('click', () => {
+      if (fc) {
+        fc.style.maxHeight = '0px';
+      }
+      legend.addEventListener('click', (event) => {
+        console.log("Legend clicked:", event.currentTarget.textContent);
         legend.classList.toggle('active');
         const isActive = legend.classList.contains('active');
         legend.setAttribute('aria-expanded', isActive);
-        if (fc) fc.style.maxHeight = isActive ? fc.scrollHeight + 'px' : '0px';
+        if (fc) {
+          // Compute height: use scrollHeight; if zero, try first child's offsetHeight with padding.
+          let newHeight = fc.scrollHeight;
+          if (newHeight === 0 && fc.firstElementChild) {
+            newHeight = fc.firstElementChild.offsetHeight + 20;
+          }
+          fc.style.maxHeight = isActive ? newHeight + 'px' : '0px';
+        }
       });
     });
+  } else {
+    console.log("Filter form (#filters-form) not found.");
   }
 
   // Toggle sidebar menu on mobile
