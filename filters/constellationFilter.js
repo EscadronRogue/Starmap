@@ -4,6 +4,7 @@ import { cachedRadToSphere, getGreatCirclePoints, subdivideGeometry } from '../u
 import { getConstellationBoundaries } from './constellationFilter.js';
 
 const R = 100;
+const TOLERANCE = 0.1; // Tolerance for endpoint matching
 const distinctPalette = [
   "#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00",
   "#ffff33", "#a65628", "#f781bf", "#66c2a5", "#fc8d62",
@@ -11,58 +12,23 @@ const distinctPalette = [
   "#b3b3b3", "#1b9e77", "#d95f02", "#7570b3", "#e7298a"
 ];
 
-function computeNeighborMap() {
+/**
+ * Old coloring logic: simply extract unique constellation names (from const1 field),
+ * sort them alphabetically, and assign each one a color from a fixed palette.
+ */
+export function computeConstellationColorMapping() {
   const boundaries = getConstellationBoundaries();
-  const neighbors = {};
+  const constellationsSet = new Set();
   boundaries.forEach(seg => {
     if (seg.const1) {
-      const key1 = seg.const1.toUpperCase();
-      const key2 = seg.const2 ? seg.const2.toUpperCase() : null;
-      if (!neighbors[key1]) neighbors[key1] = new Set();
-      if (key2) neighbors[key1].add(key2);
-    }
-    if (seg.const2) {
-      const key2 = seg.const2.toUpperCase();
-      const key1 = seg.const1 ? seg.const1.toUpperCase() : null;
-      if (!neighbors[key2]) neighbors[key2] = new Set();
-      if (key1) neighbors[key2].add(key1);
+      constellationsSet.add(seg.const1.toUpperCase());
     }
   });
-  Object.keys(neighbors).forEach(key => {
-    neighbors[key] = Array.from(neighbors[key]);
-  });
-  return neighbors;
-}
-
-export function computeConstellationColorMapping() {
-  const neighbors = computeNeighborMap();
-  const allConsts = new Set();
-  Object.keys(neighbors).forEach(c => allConsts.add(c));
-  const boundaries = getConstellationBoundaries();
-  boundaries.forEach(seg => {
-    if (seg.const1) allConsts.add(seg.const1.toUpperCase());
-    if (seg.const2) allConsts.add(seg.const2.toUpperCase());
-  });
-  const constellations = Array.from(allConsts);
-  let maxDegree = 0;
-  constellations.forEach(c => {
-    const deg = neighbors[c] ? neighbors[c].length : 0;
-    if (deg > maxDegree) maxDegree = deg;
-  });
-  const palette = distinctPalette;
-  constellations.sort((a, b) => (neighbors[b] ? neighbors[b].length : 0) - (neighbors[a] ? neighbors[a].length : 0));
+  const constellations = Array.from(constellationsSet).sort();
   const colorMapping = {};
-  for (const c of constellations) {
-    const used = new Set();
-    if (neighbors[c]) {
-      for (const nb of neighbors[c]) {
-        if (colorMapping[nb]) used.add(colorMapping[nb]);
-      }
-    }
-    let assigned = palette.find(color => !used.has(color));
-    if (!assigned) assigned = palette[0];
-    colorMapping[c] = assigned;
-  }
+  constellations.forEach((constName, index) => {
+    colorMapping[constName] = distinctPalette[index % distinctPalette.length];
+  });
   return colorMapping;
 }
 
@@ -106,6 +72,7 @@ export function createConstellationOverlayForGlobe() {
     const segs = groups[constellation];
     const ordered = [];
     const used = new Array(segs.length).fill(false);
+    // Convert segment endpoints using cached conversion.
     const convert = (seg, endpoint) =>
       cachedRadToSphere(endpoint === 0 ? seg.ra1 : seg.ra2, endpoint === 0 ? seg.dec1 : seg.dec2, R);
     if (segs.length === 0) continue;
@@ -123,12 +90,12 @@ export function createConstellationOverlayForGlobe() {
         const seg = segs[i];
         const p0 = convert(seg, 0);
         const p1 = convert(seg, 1);
-        if (p0.distanceTo(currentEnd) < 0.001) {
+        if (p0.distanceTo(currentEnd) < TOLERANCE) {
           ordered.push(p1);
           currentEnd = p1;
           used[i] = true;
           changed = true;
-        } else if (p1.distanceTo(currentEnd) < 0.001) {
+        } else if (p1.distanceTo(currentEnd) < TOLERANCE) {
           ordered.push(p0);
           currentEnd = p0;
           used[i] = true;
@@ -138,8 +105,8 @@ export function createConstellationOverlayForGlobe() {
       iteration++;
     }
     if (ordered.length < 3) continue;
-    if (ordered[0].distanceTo(ordered[ordered.length - 1]) > 0.01) continue;
-    if (ordered[0].distanceTo(ordered[ordered.length - 1]) < 0.001) {
+    if (ordered[0].distanceTo(ordered[ordered.length - 1]) > TOLERANCE) continue;
+    if (ordered[0].distanceTo(ordered[ordered.length - 1]) < TOLERANCE) {
       ordered.pop();
     }
     let geometry;
@@ -160,6 +127,7 @@ export function createConstellationOverlayForGlobe() {
       geometry.setIndex(indices);
       geometry.computeVertexNormals();
     } else {
+      // Fallback: project to 2D and triangulate
       const tangent = new THREE.Vector3();
       const bitangent = new THREE.Vector3();
       const tempCentroid = new THREE.Vector3(0, 0, 0);
@@ -201,5 +169,3 @@ export function createConstellationOverlayForGlobe() {
   }
   return overlays;
 }
-
-export { computeConstellationColorMapping };
