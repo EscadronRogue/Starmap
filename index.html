@@ -7,11 +7,12 @@
   <title>Starmap Visualization</title>
   <link rel="stylesheet" href="styles.css" />
   <style>
-    /* Ensure that grid subdivision number inputs are visible and sized appropriately */
+    /* Optional: you can adjust these styles in your CSS file if needed */
+    /* Ensure grid subdivision number inputs are sized similarly to the connection number input */
     #low-density-grid-number,
     #high-density-grid-number {
-      display: inline-block !important;
-      width: 60px !important;
+      display: inline-block;
+      max-width: 80px;
       vertical-align: middle;
     }
   </style>
@@ -171,7 +172,6 @@
                 step="1" 
                 value="0" 
                 disabled
-                style="width: 200px;"
               />
               <!-- Number input shows the actual grid subdivision value -->
               <input 
@@ -183,7 +183,6 @@
                 step="any" 
                 value="1" 
                 disabled
-                style="width: 60px;"
               />
             </div>
           </div>
@@ -223,7 +222,6 @@
                 step="1" 
                 value="0" 
                 disabled
-                style="width: 200px;"
               />
               <input 
                 type="number" 
@@ -234,7 +232,6 @@
                 step="any" 
                 value="1" 
                 disabled
-                style="width: 60px;"
               />
             </div>
           </div>
