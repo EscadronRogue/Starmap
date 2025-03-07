@@ -13,6 +13,11 @@ import { radToSphere, subdivideGeometry, getGreatCirclePoints } from '../utils/g
 import { computeInterconnectedCell, segmentOceanCandidate } from './densitySegmentation.js';
 import { loadConstellationCenters, getConstellationCenters, loadConstellationBoundaries, getConstellationBoundaries } from './constellationFilter.js';
 
+/**
+ * DensityGridOverlay
+ * 
+ * Constructs a grid overlay for density mapping.
+ */
 export class DensityGridOverlay {
   /**
    * @param {number} minDistance - Minimum distance (LY) to include grid cells.
@@ -98,9 +103,9 @@ export class DensityGridOverlay {
         }
       }
     }
-    // Use extended star set: include stars between (minDistance - 10) and (maxDistance + 10)
+    // Compute distances using an extended star set.
     const extendedStars = stars.filter(star => {
-      const d = star.distance !== undefined ? star.distance : star.Distance_from_the_Sun;
+      const d = star.Distance_from_the_Sun;
       return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
     });
     this.cubesData.forEach(cell => computeCellDistances(cell, extendedStars));
@@ -162,7 +167,7 @@ export class DensityGridOverlay {
 
   update(stars) {
     const extendedStars = stars.filter(star => {
-      const d = star.distance !== undefined ? star.distance : star.Distance_from_the_Sun;
+      const d = star.Distance_from_the_Sun;
       return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
     });
     this.cubesData.forEach(cell => {
@@ -235,6 +240,7 @@ export class DensityGridOverlay {
         console.warn("No constellation boundaries available!");
         return;
       }
+      // Helper functions
       function minAngularDistanceToSegment(cellPos, p1, p2) {
         const angleToP1 = cellPos.angleTo(p1);
         const angleToP2 = cellPos.angleTo(p2);
@@ -255,19 +261,20 @@ export class DensityGridOverlay {
         return { ra: raDeg, dec: dec * 180 / Math.PI };
       }
       const namesMapping = await loadConstellationFullNames();
+      
       this.cubesData.forEach(cell => {
         if (!cell.active) return;
         const cellPos = cell.globeMesh.position.clone();
         let nearestBoundary = null;
         let minBoundaryDist = Infinity;
         boundaries.forEach(boundary => {
-          const p1 = radToSphere(boundary.ra1, boundary.dec1, 100);
-          const p2 = radToSphere(boundary.ra2, boundary.dec2, 100);
-          const angDist = minAngularDistanceToSegment(cellPos, p1, p2);
-          if (angDist < minBoundaryDist) {
-            minBoundaryDist = angDist;
-            nearestBoundary = boundary;
-          }
+           const p1 = radToSphere(boundary.ra1, boundary.dec1, 100);
+           const p2 = radToSphere(boundary.ra2, boundary.dec2, 100);
+           const angDist = minAngularDistanceToSegment(cellPos, p1, p2);
+           if (angDist < minBoundaryDist) {
+             minBoundaryDist = angDist;
+             nearestBoundary = boundary;
+           }
         });
         if (!nearestBoundary) {
           cell.constellation = "Unknown";
@@ -277,6 +284,7 @@ export class DensityGridOverlay {
         const abbr2 = nearestBoundary.const2 ? nearestBoundary.const2.toUpperCase() : null;
         const fullName1 = namesMapping[abbr1] || toTitleCase(abbr1);
         const fullName2 = abbr2 ? (namesMapping[abbr2] || toTitleCase(abbr2)) : null;
+        
         const bp1 = radToSphere(nearestBoundary.ra1, nearestBoundary.dec1, 100);
         const bp2 = radToSphere(nearestBoundary.ra2, nearestBoundary.dec2, 100);
         let normal = bp1.clone().cross(bp2).normalize();
@@ -312,7 +320,7 @@ export class DensityGridOverlay {
           cell.constellation = bestConstellation;
         }
       });
-    } else { // High density mode: assign using best star's system name.
+    } else { // High density mode
       this.cubesData.forEach(cell => {
         if (cell.active) {
           cell.clusterLabel = this.getBestStarLabel([cell]);
@@ -381,7 +389,9 @@ export class DensityGridOverlay {
     this.updateRegionColors();
     const regions = this.classifyEmptyRegions();
     regions.forEach(region => {
-      let labelPos = region.bestCell ? region.bestCell.tcPos : this.computeCentroid(region.cells);
+      let labelPos = region.bestCell
+        ? region.bestCell.tcPos
+        : this.computeCentroid(region.cells);
       if (mapType === 'Globe') {
         labelPos = this.projectToGlobe(labelPos);
       }
@@ -610,12 +620,12 @@ export class DensityGridOverlay {
   }
 }
 
-// Helper: Computes distances from a cell to stars.
+/**
+ * Helper function to compute cell distances.
+ */
 function computeCellDistances(cell, stars) {
   const dArr = stars.map(star => {
-    let starPos = star.truePosition 
-      ? star.truePosition 
-      : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+    let starPos = star.truePosition ? star.truePosition : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
     const dx = cell.tcPos.x - starPos.x;
     const dy = cell.tcPos.y - starPos.y;
     const dz = cell.tcPos.z - starPos.z;
@@ -626,7 +636,9 @@ function computeCellDistances(cell, stars) {
   cell.nearestStar = dArr.length > 0 ? dArr[0].star : null;
 }
 
-// Helper function: Determines the best star label among cells.
+/**
+ * Helper function to get the best star label.
+ */
 function getBestStarLabel(cells) {
   let bestStar = null;
   let bestRank = -Infinity;
@@ -645,12 +657,12 @@ function getBestStarLabel(cells) {
       }
     }
   });
-  return bestStar 
-    ? (bestStar.Common_name_of_the_star_system || bestStar.Common_name_of_the_star || "Unknown") 
-    : "Unknown";
+  return bestStar ? (bestStar.Common_name_of_the_star_system || bestStar.Common_name_of_the_star || "Unknown") : "Unknown";
 }
 
-// Helper function: Provides a ranking for stellar classes.
+/**
+ * Helper function to get a ranking for stellar classes.
+ */
 function getStellarClassRank(star) {
   if (!star || !star.Stellar_class) return 0;
   const letter = star.Stellar_class.charAt(0).toUpperCase();
@@ -658,7 +670,9 @@ function getStellarClassRank(star) {
   return rankMap[letter] || 0;
 }
 
-// Helper: Converts a sphere coordinate to RA/DEC (in degrees).
+/**
+ * Helper: Converts a sphere coordinate to RA/DEC (in degrees).
+ */
 function vectorToRaDec(vector) {
   const R = 100;
   const dec = Math.asin(vector.y / R);
@@ -668,7 +682,9 @@ function vectorToRaDec(vector) {
   return { ra: raDeg, dec: dec * 180 / Math.PI };
 }
 
-// Helper: Converts a string to title case.
+/**
+ * Helper: Converts a string to title case.
+ */
 function toTitleCase(str) {
   if (!str || typeof str !== "string") return str;
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
