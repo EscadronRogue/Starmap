@@ -13,7 +13,6 @@ import { ThreeDControls } from './cameraControls.js';
 import { LabelManager } from './labelManager.js';
 import { showTooltip, hideTooltip } from './tooltips.js';
 import { radToSphere } from './utils/geometryUtils.js';
-import { normalizeStarData } from './data/starDataAdapter.js';
 
 let cachedStars = null;
 let currentFilteredStars = [];
@@ -38,14 +37,14 @@ let highDensityOverlay = null;
 function getStarTruePosition(star) {
   const R = star.distance !== undefined ? star.distance : star.Distance_from_the_Sun;
   let ra, dec;
-  if (star.ra !== undefined && star.dec !== undefined) {
-    ra = star.ra;
-    dec = star.dec;
+  if (star.RA_in_radian !== undefined && star.DEC_in_radian !== undefined) {
+    ra = star.RA_in_radian;
+    dec = star.DEC_in_radian;
   } else if (star.RA_in_degrees !== undefined && star.DEC_in_degrees !== undefined) {
     ra = THREE.Math.degToRad(star.RA_in_degrees);
     dec = THREE.Math.degToRad(star.DEC_in_degrees);
   } else {
-    ra = 0;
+    ra = 0; 
     dec = 0;
   }
   return radToSphere(ra, dec, R);
@@ -54,14 +53,14 @@ function getStarTruePosition(star) {
 function projectStarGlobe(star) {
   const R = 100;
   let ra, dec;
-  if (star.ra !== undefined && star.dec !== undefined) {
-    ra = star.ra;
-    dec = star.dec;
+  if (star.RA_in_radian !== undefined && star.DEC_in_radian !== undefined) {
+    ra = star.RA_in_radian;
+    dec = star.DEC_in_radian;
   } else if (star.RA_in_degrees !== undefined && star.DEC_in_degrees !== undefined) {
     ra = THREE.Math.degToRad(star.RA_in_degrees);
     dec = THREE.Math.degToRad(star.DEC_in_degrees);
   } else {
-    ra = 0;
+    ra = 0; 
     dec = 0;
   }
   return radToSphere(ra, dec, R);
@@ -78,7 +77,6 @@ function createGlobeGrid(R = 100, options = {}) {
     opacity: lineOpacity,
     linewidth: lineWidth
   });
-  // Draw meridians (constant RA)
   for (let raDeg = 0; raDeg < 360; raDeg += 30) {
     const ra = THREE.Math.degToRad(raDeg);
     const points = [];
@@ -90,7 +88,6 @@ function createGlobeGrid(R = 100, options = {}) {
     const line = new THREE.Line(geometry, material);
     gridGroup.add(line);
   }
-  // Draw parallels (constant DEC)
   for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
     const dec = THREE.Math.degToRad(decDeg);
     const points = [];
@@ -114,7 +111,7 @@ async function loadStarData() {
       console.warn(`Manifest file not found: ${manifestUrl}`);
       return [];
     }
-    const fileNames = await manifestResp.json(); // e.g., ["Stars1.json", "Stars2.json", ...]
+    const fileNames = await manifestResp.json();
     const dataPromises = fileNames.map(name =>
       fetch(`data/${name}`).then(resp => {
         if (!resp.ok) {
@@ -198,7 +195,114 @@ async function buildAndApplyFilters() {
     // Optional overlay handling.
   }
 
-  // ... (remaining density mapping code unchanged)
+  if (lowDensityMapping) {
+    const form = document.getElementById('filters-form');
+    const lowGridSliderValue = parseFloat(new FormData(form).get('low-density-grid-size') || '2');
+    const lowGridSize = 4 / lowGridSliderValue;
+    if (
+      !lowDensityOverlay ||
+      lowDensityOverlay.minDistance !== parseFloat(minDistance) ||
+      lowDensityOverlay.maxDistance !== parseFloat(maxDistance) ||
+      lowDensityOverlay.gridSize !== lowGridSize
+    ) {
+      if (lowDensityOverlay) {
+        lowDensityOverlay.cubesData.forEach(c => {
+          trueCoordinatesMap.scene.remove(c.tcMesh);
+        });
+        lowDensityOverlay.adjacentLines.forEach(obj => {
+          globeMap.scene.remove(obj.line);
+        });
+      }
+      lowDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "low", lowGridSize);
+      lowDensityOverlay.cubesData.forEach(c => {
+        trueCoordinatesMap.scene.add(c.tcMesh);
+      });
+      lowDensityOverlay.adjacentLines.forEach(obj => {
+        globeMap.scene.add(obj.line);
+      });
+    }
+    updateDensityMapping(cachedStars, lowDensityOverlay);
+    if (lowDensityLabeling) {
+      lowDensityOverlay.assignConstellationsToCells().then(() => {
+        lowDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
+        lowDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
+        console.log("=== DEBUG: Low Density cluster distribution ===");
+      });
+    } else {
+      if (lowDensityOverlay.regionLabelsGroupTC && lowDensityOverlay.regionLabelsGroupTC.parent) {
+        lowDensityOverlay.regionLabelsGroupTC.parent.remove(lowDensityOverlay.regionLabelsGroupTC);
+      }
+      if (lowDensityOverlay.regionLabelsGroupGlobe && lowDensityOverlay.regionLabelsGroupGlobe.parent) {
+        lowDensityOverlay.regionLabelsGroupGlobe.parent.remove(lowDensityOverlay.regionLabelsGroupGlobe);
+      }
+    }
+  } else {
+    if (lowDensityOverlay) {
+      lowDensityOverlay.cubesData.forEach(c => {
+        trueCoordinatesMap.scene.remove(c.tcMesh);
+        globeMap.scene.remove(c.globeMesh);
+      });
+      lowDensityOverlay.adjacentLines.forEach(obj => {
+        globeMap.scene.remove(obj.line);
+      });
+      lowDensityOverlay = null;
+    }
+  }
+
+  if (highDensityMapping) {
+    const form = document.getElementById('filters-form');
+    const highGridSliderValue = parseFloat(new FormData(form).get('high-density-grid-size') || '2');
+    const highGridSize = 4 / highGridSliderValue;
+    if (
+      !highDensityOverlay ||
+      highDensityOverlay.minDistance !== parseFloat(minDistance) ||
+      highDensityOverlay.maxDistance !== parseFloat(maxDistance) ||
+      highDensityOverlay.gridSize !== highGridSize
+    ) {
+      if (highDensityOverlay) {
+        highDensityOverlay.cubesData.forEach(c => {
+          trueCoordinatesMap.scene.remove(c.tcMesh);
+        });
+        highDensityOverlay.adjacentLines.forEach(obj => {
+          globeMap.scene.remove(obj.line);
+        });
+      }
+      highDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "high", highGridSize);
+      highDensityOverlay.cubesData.forEach(c => {
+        trueCoordinatesMap.scene.add(c.tcMesh);
+      });
+      highDensityOverlay.adjacentLines.forEach(obj => {
+        globeMap.scene.add(obj.line);
+      });
+    }
+    updateDensityMapping(cachedStars, highDensityOverlay);
+    if (highDensityLabeling) {
+      highDensityOverlay.assignConstellationsToCells().then(() => {
+        highDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
+        highDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
+        console.log("=== DEBUG: High Density cluster distribution ===");
+      });
+    } else {
+      if (highDensityOverlay.regionLabelsGroupTC && highDensityOverlay.regionLabelsGroupTC.parent) {
+        highDensityOverlay.regionLabelsGroupTC.parent.remove(highDensityOverlay.regionLabelsGroupTC);
+      }
+      if (highDensityOverlay.regionLabelsGroupGlobe && highDensityOverlay.regionLabelsGroupGlobe.parent) {
+        highDensityOverlay.regionLabelsGroupGlobe.parent.remove(highDensityOverlay.regionLabelsGroupGlobe);
+      }
+    }
+  } else {
+    if (highDensityOverlay) {
+      highDensityOverlay.cubesData.forEach(c => {
+        trueCoordinatesMap.scene.remove(c.tcMesh);
+        globeMap.scene.remove(c.globeMesh);
+      });
+      highDensityOverlay.adjacentLines.forEach(obj => {
+        globeMap.scene.remove(obj.line);
+      });
+      highDensityOverlay = null;
+    }
+  }
+
   applyGlobeSurface(globeOpaqueSurface);
 }
 
@@ -342,7 +446,24 @@ class MapManager {
 
   animate() {
     requestAnimationFrame(() => this.animate());
-    // Additional per-frame updates…
+    if (this.mapType === 'Globe' && window.constellationOverlayGlobe) {
+      window.constellationOverlayGlobe.forEach(mesh => {
+        if (this.camera.position.length() > 100) {
+          mesh.material.depthTest = false;
+          mesh.renderOrder = 2;
+        } else {
+          mesh.material.depthTest = true;
+          mesh.renderOrder = 0;
+        }
+      });
+    }
+    if (this.mapType === 'Globe') {
+      this.scene.traverse(child => {
+        if (child.material && child.material.uniforms && child.material.uniforms.cameraPos) {
+          child.material.uniforms.cameraPos.value.copy(this.camera.position);
+        }
+      });
+    }
     this.renderer.render(this.scene, this.camera);
   }
 }
@@ -440,11 +561,8 @@ async function main() {
   try {
     cachedStars = await loadStarData();
     if (!cachedStars.length) throw new Error('No star data available');
-    
-    // Normalize the star data for consistent property names.
-    cachedStars = normalizeStarData(cachedStars);
-    
     await setupFilterUI(cachedStars);
+
     const debouncedApplyFilters = debounce(buildAndApplyFilters, 150);
     const form = document.getElementById('filters-form');
     if (form) {
