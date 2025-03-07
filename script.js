@@ -12,6 +12,7 @@ import { applyGlobeSurfaceFilter } from './filters/globeSurfaceFilter.js';
 import { ThreeDControls } from './cameraControls.js';
 import { LabelManager } from './labelManager.js';
 import { showTooltip, hideTooltip } from './tooltips.js';
+import { radToSphere } from './utils/geometryUtils.js';
 
 let cachedStars = null;
 let currentFilteredStars = [];
@@ -20,7 +21,6 @@ let currentGlobeFilteredStars = [];
 let currentGlobeConnections = [];
 
 let selectedStarData = null;
-// Global variables for star highlight meshes
 let selectedHighlightTrue = null;
 let selectedHighlightGlobe = null;
 
@@ -34,21 +34,6 @@ let globeSurfaceSphere = null;
 let lowDensityOverlay = null;
 let highDensityOverlay = null;
 
-/**
- * Converts spherical coordinates (RA, DEC) to a THREE.Vector3 on a sphere of radius R.
- */
-function radToSphere(ra, dec, R) {
-  return new THREE.Vector3(
-    -R * Math.cos(dec) * Math.cos(ra),
-     R * Math.sin(dec),
-    -R * Math.cos(dec) * Math.sin(ra)
-  );
-}
-
-/**
- * Computes the true 3D position of a star using its RA/DEC and its distance.
- * It supports both the new "distance" property and the legacy "Distance_from_the_Sun" property.
- */
 function getStarTruePosition(star) {
   const R = star.distance !== undefined ? star.distance : star.Distance_from_the_Sun;
   let ra, dec;
@@ -65,9 +50,6 @@ function getStarTruePosition(star) {
   return radToSphere(ra, dec, R);
 }
 
-/**
- * Projects a star onto the Globe.
- */
 function projectStarGlobe(star) {
   const R = 100;
   let ra, dec;
@@ -84,10 +66,6 @@ function projectStarGlobe(star) {
   return radToSphere(ra, dec, R);
 }
 
-/**
- * Creates a grid for the Globe map.
- * This function builds a set of lines (using great-circle points) representing RA/DEC grid lines.
- */
 function createGlobeGrid(R = 100, options = {}) {
   const gridGroup = new THREE.Group();
   const gridColor = options.color || 0x444444;
@@ -99,7 +77,6 @@ function createGlobeGrid(R = 100, options = {}) {
     opacity: lineOpacity,
     linewidth: lineWidth
   });
-  // Draw meridians (constant RA)
   for (let raDeg = 0; raDeg < 360; raDeg += 30) {
     const ra = THREE.Math.degToRad(raDeg);
     const points = [];
@@ -111,7 +88,6 @@ function createGlobeGrid(R = 100, options = {}) {
     const line = new THREE.Line(geometry, material);
     gridGroup.add(line);
   }
-  // Draw parallels (constant DEC)
   for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
     const dec = THREE.Math.degToRad(decDeg);
     const points = [];
@@ -127,9 +103,6 @@ function createGlobeGrid(R = 100, options = {}) {
   return gridGroup;
 }
 
-/**
- * Loads star data by reading every JSON file listed in data/manifest.json.
- */
 async function loadStarData() {
   const manifestUrl = 'data/manifest.json';
   try {
@@ -138,8 +111,7 @@ async function loadStarData() {
       console.warn(`Manifest file not found: ${manifestUrl}`);
       return [];
     }
-    const fileNames = await manifestResp.json(); // e.g., ["Stars1.json", "Stars2.json", ...]
-    // Load each file in parallel
+    const fileNames = await manifestResp.json();
     const dataPromises = fileNames.map(name =>
       fetch(`data/${name}`).then(resp => {
         if (!resp.ok) {
@@ -150,7 +122,6 @@ async function loadStarData() {
       })
     );
     const filesData = await Promise.all(dataPromises);
-    // Flatten all arrays into one array
     const combinedData = filesData.flat();
     return combinedData;
   } catch (e) {
@@ -224,16 +195,10 @@ async function buildAndApplyFilters() {
     // Optional overlay handling.
   }
 
-  // LOW DENSITY MAPPING – use the complete star set (cachedStars) for density mapping
   if (lowDensityMapping) {
-    // We also read the "low-density-grid-size" from the form data
-    // We invert it so that a lower slider => bigger cells => larger gridSize
-    // For example, default slider=2 => gridSize=2 => matches current code
-    // If slider=1 => gridSize=4 => bigger cells, if slider=4 => gridSize=1 => smaller cells
     const form = document.getElementById('filters-form');
     const lowGridSliderValue = parseFloat(new FormData(form).get('low-density-grid-size') || '2');
-    const lowGridSize = 4 / lowGridSliderValue;  // invert relationship
-
+    const lowGridSize = 4 / lowGridSliderValue;
     if (
       !lowDensityOverlay ||
       lowDensityOverlay.minDistance !== parseFloat(minDistance) ||
@@ -284,13 +249,10 @@ async function buildAndApplyFilters() {
     }
   }
 
-  // HIGH DENSITY MAPPING – also use cachedStars
   if (highDensityMapping) {
-    // Similarly read the "high-density-grid-size"
     const form = document.getElementById('filters-form');
     const highGridSliderValue = parseFloat(new FormData(form).get('high-density-grid-size') || '2');
-    const highGridSize = 4 / highGridSliderValue;  // invert relationship
-
+    const highGridSize = 4 / highGridSliderValue;
     if (
       !highDensityOverlay ||
       highDensityOverlay.minDistance !== parseFloat(minDistance) ||
@@ -527,7 +489,6 @@ function initStarInteractions(map) {
   });
   
   map.canvas.addEventListener('click', (event) => {
-    // Check if the click occurred inside the tooltip's bounding box.
     const tooltip = document.getElementById('tooltip');
     if (tooltip) {
       const tRect = tooltip.getBoundingClientRect();
@@ -535,11 +496,9 @@ function initStarInteractions(map) {
         event.clientX >= tRect.left && event.clientX <= tRect.right &&
         event.clientY >= tRect.top && event.clientY <= tRect.bottom
       ) {
-        // Click occurred inside the tooltip; do nothing.
         return;
       }
     }
-    
     const rect = map.canvas.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -565,7 +524,6 @@ function initStarInteractions(map) {
 }
 
 function updateSelectedStarHighlight() {
-  // Remove existing highlights if any.
   if (selectedHighlightTrue) {
     trueCoordinatesMap.scene.remove(selectedHighlightTrue);
     selectedHighlightTrue = null;
@@ -575,7 +533,6 @@ function updateSelectedStarHighlight() {
     selectedHighlightGlobe = null;
   }
   if (selectedStarData) {
-    // Highlight in TrueCoordinates Map
     let posTrue = selectedStarData.truePosition 
       ? selectedStarData.truePosition 
       : new THREE.Vector3(selectedStarData.x_coordinate, selectedStarData.y_coordinate, selectedStarData.z_coordinate);
@@ -586,7 +543,6 @@ function updateSelectedStarHighlight() {
     selectedHighlightTrue.position.copy(posTrue);
     trueCoordinatesMap.scene.add(selectedHighlightTrue);
 
-    // Highlight in Globe Map
     let posGlobe = selectedStarData.spherePosition 
       ? selectedStarData.spherePosition 
       : projectStarGlobe(selectedStarData);
