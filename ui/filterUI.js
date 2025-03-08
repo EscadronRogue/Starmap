@@ -1,5 +1,6 @@
 // /ui/filterUI.js
 // Manages the UI for the filter form.
+
 export function initFilterUI() {
   // Toggle sidebar menu on mobile.
   document.getElementById('menu-toggle').addEventListener('click', function() {
@@ -63,6 +64,8 @@ export function initFilterUI() {
   const densityToleranceSlider = document.getElementById('density-tolerance-slider');
   const densityGridSlider = document.getElementById('density-grid-slider');
   const densityGridNumber = document.getElementById('density-grid-number');
+  const densitySubdivisionSlider = document.getElementById('density-subdivision-percent-slider');
+  const densitySubdivisionNumber = document.getElementById('density-subdivision-percent-number');
 
   enableDensityChk.addEventListener('change', function() {
     const enabled = this.checked;
@@ -71,6 +74,8 @@ export function initFilterUI() {
     densityToleranceSlider.disabled = !enabled;
     densityGridSlider.disabled = !enabled;
     densityGridNumber.disabled = !enabled;
+    densitySubdivisionSlider.disabled = !enabled;
+    densitySubdivisionNumber.disabled = !enabled;
   });
   densitySlider.addEventListener('input', function() {
     densityNumber.value = this.value;
@@ -88,6 +93,14 @@ export function initFilterUI() {
   });
   densityGridNumber.addEventListener('input', function() {
     densityGridSlider.value = this.value;
+  });
+  densitySubdivisionSlider.addEventListener('input', function() {
+    densitySubdivisionNumber.value = this.value;
+    document.getElementById('density-subdivision-percent-value').textContent = this.value;
+  });
+  densitySubdivisionNumber.addEventListener('input', function() {
+    densitySubdivisionSlider.value = this.value;
+    document.getElementById('density-subdivision-percent-value').textContent = this.value;
   });
 
   // Distance slider sync.
