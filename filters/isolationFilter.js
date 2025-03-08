@@ -1,12 +1,12 @@
 // /filters/isolationFilter.js
-// This module implements the Isolation Filter using a uniform grid (the former “low density” filter).
+// This module implements the Isolation Filter using a uniform grid (formerly the low density filter).
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { getDoubleSidedLabelMaterial, getBlueColor, lightenColor } from './densityColorUtils.js';
 import { radToSphere, getGreatCirclePoints } from '../utils/geometryUtils.js';
 import { loadConstellationCenters, getConstellationCenters, loadConstellationBoundaries, getConstellationBoundaries } from './constellationFilter.js';
 
-// The IsolationGridOverlay class encapsulates the original uniform grid logic.
-export class IsolationGridOverlay {
+// IsolationGridOverlay encapsulates the uniform grid logic for the Isolation Filter.
+class IsolationGridOverlay {
   /**
    * @param {number} minDistance - Minimum distance (LY) for cells.
    * @param {number} maxDistance - Maximum distance (LY) for cells.
@@ -235,7 +235,7 @@ export class IsolationGridOverlay {
       if (raDeg < 0) raDeg += 360;
       return { ra: raDeg, dec: dec * 180 / Math.PI };
     }
-    // Assume loadConstellationFullNames is available in context.
+    // Assumes loadConstellationFullNames is available.
     const namesMapping = await loadConstellationFullNames();
     
     this.cubesData.forEach(cell => {
@@ -299,7 +299,7 @@ export class IsolationGridOverlay {
   }
 }
 
-// Helper: compute cell distances for the uniform grid.
+// Helper function to compute cell distances for the uniform grid.
 function computeCellDistances(cell, stars) {
   const dArr = stars.map(star => {
     let starPos = star.truePosition ? star.truePosition : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
@@ -313,8 +313,20 @@ function computeCellDistances(cell, stars) {
   cell.nearestStar = dArr.length > 0 ? dArr[0].star : null;
 }
 
-// Helper: convert a string to title case.
+// Helper: Convert string to Title Case.
 function toTitleCase(str) {
   if (!str || typeof str !== "string") return str;
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+// Exported functions for external use.
+export function initIsolationFilter(minDistance, maxDistance, starArray, gridSize = 2) {
+  const overlay = new IsolationGridOverlay(minDistance, maxDistance, gridSize);
+  overlay.createGrid(starArray);
+  return overlay;
+}
+
+export function updateIsolationFilter(starArray, overlay) {
+  if (!overlay) return;
+  overlay.update(starArray);
 }
