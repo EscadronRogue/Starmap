@@ -28,46 +28,46 @@ export function initFilterUI() {
     connectionSlider.value = this.value;
   });
 
-  // Enable/disable isolation mapping sliders (formerly low density)
-  const enableIsolationChk = document.getElementById('enable-low-density-mapping');
-  const isolationSlider = document.getElementById('low-density-slider');
-  const isolationNumber = document.getElementById('low-density-number');
-  const isolationToleranceSlider = document.getElementById('low-tolerance-slider');
-  const isolationGridSlider = document.getElementById('low-density-grid-slider');
-  const isolationGridNumber = document.getElementById('low-density-grid-number');
+  // Enable/disable low density mapping sliders
+  const enableLowDensityChk = document.getElementById('enable-low-density-mapping');
+  const lowDensitySlider = document.getElementById('low-density-slider');
+  const lowDensityNumber = document.getElementById('low-density-number');
+  const lowToleranceSlider = document.getElementById('low-tolerance-slider');
+  const lowDensityGridSlider = document.getElementById('low-density-grid-slider');
+  const lowDensityGridNumber = document.getElementById('low-density-grid-number');
 
-  enableIsolationChk.addEventListener('change', function() {
-    const enabled = this.checked;
-    isolationSlider.disabled = !enabled;
-    isolationNumber.disabled = !enabled;
-    isolationToleranceSlider.disabled = !enabled;
-    isolationGridSlider.disabled = !enabled;
-    isolationGridNumber.disabled = !enabled;
+  enableLowDensityChk.addEventListener('change', function() {
+    const lowEnabled = this.checked;
+    lowDensitySlider.disabled = !lowEnabled;
+    lowDensityNumber.disabled = !lowEnabled;
+    lowToleranceSlider.disabled = !lowEnabled;
+    lowDensityGridSlider.disabled = !lowEnabled;
+    lowDensityGridNumber.disabled = !lowEnabled;
   });
 
-  // Enable/disable density mapping sliders (formerly high density)
-  const enableDensityChk = document.getElementById('enable-density-mapping');
-  const densitySlider = document.getElementById('density-slider');
-  const densityNumber = document.getElementById('density-number');
-  const densityToleranceSlider = document.getElementById('density-tolerance-slider');
-  const densityGridSlider = document.getElementById('density-grid-slider');
-  const densityGridNumber = document.getElementById('density-grid-number');
+  // Enable/disable high density mapping sliders
+  const enableHighDensityChk = document.getElementById('enable-high-density-mapping');
+  const highDensitySlider = document.getElementById('high-density-slider');
+  const highDensityNumber = document.getElementById('high-density-number');
+  const highToleranceSlider = document.getElementById('high-tolerance-slider');
+  const highDensityGridSlider = document.getElementById('high-density-grid-slider');
+  const highDensityGridNumber = document.getElementById('high-density-grid-number');
 
-  enableDensityChk.addEventListener('change', function() {
-    const enabled = this.checked;
-    densitySlider.disabled = !enabled;
-    densityNumber.disabled = !enabled;
-    densityToleranceSlider.disabled = !enabled;
-    densityGridSlider.disabled = !enabled;
-    densityGridNumber.disabled = !enabled;
+  enableHighDensityChk.addEventListener('change', function() {
+    const highEnabled = this.checked;
+    highDensitySlider.disabled = !highEnabled;
+    highDensityNumber.disabled = !highEnabled;
+    highToleranceSlider.disabled = !highEnabled;
+    highDensityGridSlider.disabled = !highEnabled;
+    highDensityGridNumber.disabled = !highEnabled;
   });
 
   // Update displayed slider values for tolerance sliders
-  isolationToleranceSlider.addEventListener('input', function() {
+  lowToleranceSlider.addEventListener('input', function() {
     document.getElementById('low-tolerance-value').textContent = this.value;
   });
-  densityToleranceSlider.addEventListener('input', function() {
-    document.getElementById('density-tolerance-value').textContent = this.value;
+  highToleranceSlider.addEventListener('input', function() {
+    document.getElementById('high-tolerance-value').textContent = this.value;
   });
 
   // Sync distance slider and number input for minimum distance
@@ -90,40 +90,40 @@ export function initFilterUI() {
     maxDistanceSlider.value = this.value;
   });
 
-  // Sync isolation mapping slider and number input
-  isolationSlider.addEventListener('input', function() {
-    isolationNumber.value = this.value;
+  // Sync low density slider and number input
+  lowDensitySlider.addEventListener('input', function() {
+    lowDensityNumber.value = this.value;
     document.getElementById('low-density-value').textContent = this.value;
   });
-  isolationNumber.addEventListener('input', function() {
-    isolationSlider.value = this.value;
+  lowDensityNumber.addEventListener('input', function() {
+    lowDensitySlider.value = this.value;
     document.getElementById('low-density-value').textContent = this.value;
   });
 
-  // Sync density mapping slider and number input
-  densitySlider.addEventListener('input', function() {
-    densityNumber.value = this.value;
-    document.getElementById('density-value').textContent = this.value;
+  // Sync high density slider and number input
+  highDensitySlider.addEventListener('input', function() {
+    highDensityNumber.value = this.value;
+    document.getElementById('high-density-value').textContent = this.value;
   });
-  densityNumber.addEventListener('input', function() {
-    densitySlider.value = this.value;
-    document.getElementById('density-value').textContent = this.value;
-  });
-
-  // Sync isolation grid slider and number input
-  isolationGridSlider.addEventListener('input', function() {
-    isolationGridNumber.value = this.value;
-  });
-  isolationGridNumber.addEventListener('input', function() {
-    isolationGridSlider.value = this.value;
+  highDensityNumber.addEventListener('input', function() {
+    highDensitySlider.value = this.value;
+    document.getElementById('high-density-value').textContent = this.value;
   });
 
-  // Sync density grid slider and number input
-  densityGridSlider.addEventListener('input', function() {
-    densityGridNumber.value = this.value;
+  // Sync low density grid slider and number input
+  lowDensityGridSlider.addEventListener('input', function() {
+    lowDensityGridNumber.value = this.value;
   });
-  densityGridNumber.addEventListener('input', function() {
-    densityGridSlider.value = this.value;
+  lowDensityGridNumber.addEventListener('input', function() {
+    lowDensityGridSlider.value = this.value;
+  });
+
+  // Sync high density grid slider and number input
+  highDensityGridSlider.addEventListener('input', function() {
+    highDensityGridNumber.value = this.value;
+  });
+  highDensityGridNumber.addEventListener('input', function() {
+    highDensityGridSlider.value = this.value;
   });
 
   // Fullscreen button listeners for each map container
