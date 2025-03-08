@@ -25,6 +25,7 @@ let globeMap;
 let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
 let constellationOverlayGlobe = [];
+let globeSurfaceSphere = null;
 // Rename overlays: isolationOverlay and densityOverlay.
 let isolationOverlay = null;
 let densityOverlay = null;
@@ -150,7 +151,7 @@ async function buildAndApplyFilters() {
     enableDensityFilter,
     isolation,
     isolationTolerance,
-    densityThresholdStars, // now absolute star count threshold
+    densitySubdivisionPercent,
     enableIsolationLabeling,
     enableDensityLabeling,
     minDistance,
@@ -256,11 +257,12 @@ async function buildAndApplyFilters() {
 
   // --- Density Filter ---
   if (enableDensityFilter) {
-    // When the density filter is enabled, we use the absolute star count threshold (1 to 100).
+    const densitySubdivisionPercent = parseFloat(new FormData(form).get('density-subdivision-percent')) || 5;
     if (
       !densityOverlay ||
       densityOverlay.minDistance !== parseFloat(minDistance) ||
-      densityOverlay.maxDistance !== parseFloat(maxDistance)
+      densityOverlay.maxDistance !== parseFloat(maxDistance) ||
+      densityOverlay.subdivisionThresholdPercent !== densitySubdivisionPercent
     ) {
       if (densityOverlay) {
         densityOverlay.cubesData.forEach(c => {
@@ -271,7 +273,7 @@ async function buildAndApplyFilters() {
           globeMap.scene.remove(obj.line);
         });
       }
-      densityOverlay = initDensityFilter(minDistance, maxDistance, cachedStars);
+      densityOverlay = initDensityFilter(minDistance, maxDistance, cachedStars, densitySubdivisionPercent);
       densityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.add(c.tcMesh);
       });
@@ -279,8 +281,7 @@ async function buildAndApplyFilters() {
         globeMap.scene.add(obj.line);
       });
     }
-    // IMPORTANT: updateDensityFilter now requires scene references
-    updateDensityFilter(cachedStars, densityOverlay, trueCoordinatesMap.scene, globeMap.scene);
+    updateDensityFilter(cachedStars, densityOverlay);
     if (enableDensityLabeling) {
       densityOverlay.assignConstellationsToCells().then(() => {
         densityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
