@@ -157,14 +157,14 @@ export function applyFilters(allStars) {
         showConstellationOverlay: false,
         globeOpaqueSurface: false,
         enableConnections: false,
-        isolationMapping: false,
-        densityMapping: false,
-        isolation: 7,
-        isolationTolerance: 0,
-        density: 1,
-        densityTolerance: 0,
-        isolationLabeling: false,
-        densityLabeling: false,
+        lowDensityMapping: false,
+        highDensityMapping: false,
+        lowDensity: 7,
+        lowTolerance: 0,
+        highDensity: 1,
+        highTolerance: 0,
+        lowDensityLabeling: false,
+        highDensityLabeling: false,
         minDistance: 0,
         maxDistance: 20
       };
@@ -182,14 +182,14 @@ export function applyFilters(allStars) {
     showConstellationOverlay: (formData.get('show-constellation-overlay') !== null),
     globeOpaqueSurface: (formData.get('globe-opaque-surface') !== null),
     enableConnections: (formData.get('enable-connections') !== null),
-    isolationMapping: (formData.get('enable-low-density-mapping') !== null),
-    densityMapping: (formData.get('enable-high-density-mapping') !== null),
-    isolation: parseFloat(formData.get('low-density')) || 7,
-    isolationTolerance: parseInt(formData.get('low-tolerance')) || 0,
-    density: parseFloat(formData.get('high-density')) || 1,
-    densityTolerance: parseInt(formData.get('high-tolerance')) || 0,
-    isolationLabeling: (formData.get('enable-low-density-labeling') !== null),
-    densityLabeling: (formData.get('enable-high-density-labeling') !== null),
+    lowDensityMapping: (formData.get('enable-low-density-mapping') !== null),
+    highDensityMapping: (formData.get('enable-high-density-mapping') !== null),
+    lowDensity: parseFloat(formData.get('low-density')) || 7,
+    lowTolerance: parseInt(formData.get('low-tolerance')) || 0,
+    highDensity: parseFloat(formData.get('high-density')) || 1,
+    highTolerance: parseInt(formData.get('high-tolerance')) || 0,
+    lowDensityLabeling: (formData.get('enable-low-density-labeling') !== null),
+    highDensityLabeling: (formData.get('enable-high-density-labeling') !== null),
     minDistance: formData.get('min-distance'),
     maxDistance: formData.get('max-distance')
   };
@@ -211,6 +211,7 @@ export function applyFilters(allStars) {
 
   applyGlobeSurfaceFilter(filters);
 
+  // NEW: Apply the constellation overlay filter if enabled.
   if (filters.showConstellationOverlay) {
     const constellationOverlay = createConstellationOverlayForGlobe();
     constellationOverlay.forEach(mesh => {
@@ -228,14 +229,14 @@ export function applyFilters(allStars) {
     showConstellationOverlay: filters.showConstellationOverlay,
     globeOpaqueSurface: filters.globeOpaqueSurface,
     enableConnections: filters.enableConnections,
-    isolationMapping: filters.isolationMapping,
-    densityMapping: filters.densityMapping,
-    isolation: filters.isolation,
-    isolationTolerance: filters.isolationTolerance,
-    density: filters.density,
-    densityTolerance: filters.densityTolerance,
-    isolationLabeling: filters.isolationLabeling,
-    densityLabeling: filters.densityLabeling,
+    lowDensityMapping: filters.lowDensityMapping,
+    highDensityMapping: filters.highDensityMapping,
+    lowDensity: filters.lowDensity,
+    lowTolerance: filters.lowTolerance,
+    highDensity: filters.highDensity,
+    highTolerance: filters.highTolerance,
+    lowDensityLabeling: filters.lowDensityLabeling,
+    highDensityLabeling: filters.highDensityLabeling,
     minDistance: filters.minDistance,
     maxDistance: filters.maxDistance
   };
