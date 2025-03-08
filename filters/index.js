@@ -1,4 +1,5 @@
 // /filters/index.js
+
 import { loadStellarClassData } from './stellarClassData.js';
 import { applySizeFilter } from './sizeFilter.js';
 import { applyColorFilter } from './colorFilter.js';
@@ -7,17 +8,17 @@ import { applyStarsShownFilter } from './starsShownFilter.js';
 import { computeConnectionPairs } from './connectionsFilter.js';
 import { applyStellarClassLogic, generateStellarClassFilters as scGenerate } from './stellarClassFilter.js';
 
-// For constellations
+// For constellations.
 import { loadConstellationBoundaries, loadConstellationCenters } from './constellationFilter.js';
-// Globe surface filter
+// Globe surface filter.
 import { applyGlobeSurfaceFilter } from './globeSurfaceFilter.js';
-// Constellation overlay filter
+// Constellation overlay filter.
 import { createConstellationOverlayForGlobe } from './constellationOverlayFilter.js';
 
-// Import the distance filter.
+// Distance filter.
 import { applyDistanceFilter } from './distanceFilter.js';
 
-// Import our new Isolation and Density filter modules.
+// Import new Isolation and Density Filter modules.
 import { initIsolationFilter, updateIsolationFilter } from './isolationFilter.js';
 import { initDensityFilter, updateDensityFilter } from './densityFilter.js';
 
@@ -165,6 +166,7 @@ export function applyFilters(allStars) {
         isolationTolerance: 0,
         density: 1,
         densityTolerance: 0,
+        densitySubdivisionPercent: 5,
         enableIsolationLabeling: false,
         enableDensityLabeling: false,
         minDistance: 0,
@@ -192,6 +194,7 @@ export function applyFilters(allStars) {
     isolationTolerance: parseInt(formData.get('isolation-tolerance')) || 0,
     density: parseFloat(formData.get('density')) || 1,
     densityTolerance: parseInt(formData.get('density-tolerance')) || 0,
+    densitySubdivisionPercent: parseFloat(formData.get('density-subdivision-percent')) || 5,
     enableIsolationLabeling: (formData.get('enable-isolation-labeling') !== null),
     enableDensityLabeling: (formData.get('enable-density-labeling') !== null),
     minDistance: formData.get('min-distance'),
@@ -240,6 +243,7 @@ export function applyFilters(allStars) {
     isolationTolerance: filters.isolationTolerance,
     density: filters.density,
     densityTolerance: filters.densityTolerance,
+    densitySubdivisionPercent: filters.densitySubdivisionPercent,
     enableIsolationLabeling: filters.enableIsolationLabeling,
     enableDensityLabeling: filters.enableDensityLabeling,
     minDistance: filters.minDistance,
