@@ -16,10 +16,10 @@ import { loadConstellationCenters, getConstellationCenters, loadConstellationBou
 /**
  * DensityGridOverlay
  * 
- * This class constructs a grid overlay used for density mapping.
+ * Constructs a grid overlay for density mapping.
  * 
- * For mode "low" (the isolation filter), a uniform grid is built as before.
- * For mode "high" (the new density filter), an adaptive KD tree–style subdivision is used.
+ * For mode "low" (isolation filter) a uniform grid is built (unchanged).
+ * For mode "high" (density filter) an adaptive KD tree–style subdivision is used.
  */
 export class DensityGridOverlay {
   /**
@@ -38,11 +38,13 @@ export class DensityGridOverlay {
     this.regionClusters = [];
     this.regionLabelsGroupTC = new THREE.Group();
     this.regionLabelsGroupGlobe = new THREE.Group();
+    // For adaptive grid mode, store global bounding volume.
+    this.globalVolume = 1;
   }
 
   /**
    * Creates the grid overlay.
-   * In low mode the original uniform grid method is used.
+   * In low mode the uniform grid method is used.
    * In high mode the grid is built adaptively using a KD tree–style subdivision.
    * @param {Array} stars - Array of star objects.
    */
@@ -129,8 +131,8 @@ export class DensityGridOverlay {
 
   /**
    * Computes adjacent lines between grid cells.
-   * In low mode the original neighbor lookup (via grid indices) is used.
-   * In high mode (adaptive grid), adjacent lines are computed by testing if cells’ bounding boxes touch.
+   * In low mode the original neighbor lookup via grid indices is used.
+   * In high mode (adaptive grid), adjacent lines are computed by testing if cells’ bounding boxes intersect.
    */
   computeAdjacentLines() {
     if (this.mode === "low") {
@@ -185,7 +187,7 @@ export class DensityGridOverlay {
         });
       });
     } else {
-      // For adaptive grid in high mode, use bounding-box intersection to determine neighbors.
+      // For adaptive grid in high mode, use bounding-box intersection.
       this.adjacentLines = [];
       const tol = 0.001;
       for (let i = 0; i < this.cubesData.length; i++) {
@@ -228,7 +230,7 @@ export class DensityGridOverlay {
    * Determines if two adaptive cells (with bounding boxes) are adjacent.
    * @param {Object} cell1 - A cell object with a bbox property.
    * @param {Object} cell2 - Another cell object with a bbox property.
-   * @param {number} tol - Tolerance for gap checking.
+   * @param {number} tol - Tolerance.
    * @returns {boolean} - True if the cells are adjacent or overlapping.
    */
   areCellsAdjacent(cell1, cell2, tol) {
@@ -242,15 +244,13 @@ export class DensityGridOverlay {
 
   /**
    * Builds an adaptive grid (via recursive subdivision) for high density mode.
-   * It uses the current star positions (filtered by distance) and subdivides
-   * the bounding box until each leaf contains fewer than 5% of the total stars.
-   * The resulting leaves are then used to create grid cells.
+   * Subdivides the bounding box until each leaf contains fewer than 5% of the total stars.
    * @param {Array} stars - Array of star objects.
    */
   buildAdaptiveGrid(stars) {
     // Clear previous data
     this.cubesData = [];
-    // Filter stars using an extended range (same as in uniform grid)
+    // Filter stars with an extended range (same as in uniform grid)
     const extendedStars = stars.filter(star => {
       const d = star.Distance_from_the_Sun;
       return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
@@ -265,11 +265,13 @@ export class DensityGridOverlay {
     });
     const totalCount = points.length;
     const thresholdCount = totalCount * 0.05;
-    // Compute the overall bounding box
+    // Compute the overall bounding box and store global volume.
     const bbox = this.computeBoundingBox(points);
+    this.globalBbox = bbox;
+    this.globalVolume = ((bbox.max.x - bbox.min.x) * (bbox.max.y - bbox.min.y) * (bbox.max.z - bbox.min.z)) || 1;
     // Recursively subdivide the points/box until each leaf has <= thresholdCount points.
     const leafCells = this.subdivide(points, bbox, thresholdCount);
-    // For each leaf cell, create a cell object with meshes and store in cubesData.
+    // For each leaf, create a cell object.
     leafCells.forEach(cell => {
       // Compute cell size as the maximum extent of the bbox.
       const sizeX = cell.bbox.max.x - cell.bbox.min.x;
@@ -279,7 +281,7 @@ export class DensityGridOverlay {
       // Create a cube mesh for the TrueCoordinates view.
       const geometry = new THREE.BoxGeometry(cellSize, cellSize, cellSize);
       const material = new THREE.MeshBasicMaterial({
-        color: 0x00ff00, // Green for density filter
+        color: 0x00ff00, // Base green (will be updated in update)
         transparent: true,
         opacity: 1.0,
         depthWrite: false
@@ -315,8 +317,8 @@ export class DensityGridOverlay {
         bbox: cell.bbox,
         count: cell.count,
         volume: cell.volume,
-        density: cell.count / cell.volume,
-        active: false,
+        // In adaptive mode all cells are shown (coloring is based on subdivision)
+        active: true,
         grid: { ix: 0, iy: 0, iz: 0 } // dummy for compatibility
       };
       this.cubesData.push(cellObj);
@@ -324,9 +326,9 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Computes the axis‑aligned bounding box for an array of THREE.Vector3 points.
+   * Computes the axis-aligned bounding box for an array of THREE.Vector3 points.
    * @param {Array} points - Array of THREE.Vector3.
-   * @returns {Object} - An object with properties { min, max }.
+   * @returns {Object} - { min, max }.
    */
   computeBoundingBox(points) {
     if (points.length === 0) return { min: new THREE.Vector3(), max: new THREE.Vector3() };
@@ -344,11 +346,11 @@ export class DensityGridOverlay {
   }
 
   /**
-   * Recursively subdivides an array of points within a bounding box until the number of points
-   * in a leaf is less than or equal to the threshold.
+   * Recursively subdivides an array of points within a bounding box until the number
+   * of points in a leaf is <= threshold.
    * @param {Array} points - Array of THREE.Vector3.
-   * @param {Object} bbox - Bounding box with { min, max }.
-   * @param {number} threshold - Maximum allowed number of points per leaf.
+   * @param {Object} bbox - { min, max }.
+   * @param {number} threshold - Maximum allowed points per leaf.
    * @returns {Array} - Array of leaf cell objects: { center, bbox, count, volume }.
    */
   subdivide(points, bbox, threshold) {
@@ -361,18 +363,18 @@ export class DensityGridOverlay {
       const volume = (bbox.max.x - bbox.min.x) * (bbox.max.y - bbox.min.y) * (bbox.max.z - bbox.min.z) || 1;
       return [{ center, bbox, count: points.length, volume }];
     }
-    // Determine the longest axis of the bbox
+    // Determine the longest axis of the bbox.
     const sizeX = bbox.max.x - bbox.min.x;
     const sizeY = bbox.max.y - bbox.min.y;
     const sizeZ = bbox.max.z - bbox.min.z;
     let axis = 'x';
     if (sizeY >= sizeX && sizeY >= sizeZ) axis = 'y';
     else if (sizeZ >= sizeX && sizeZ >= sizeY) axis = 'z';
-    // Sort the points along the chosen axis
+    // Sort the points along the chosen axis.
     points.sort((a, b) => a[axis] - b[axis]);
     const medianIndex = Math.floor(points.length / 2);
     const medianValue = points[medianIndex][axis];
-    // Create bounding boxes for the left and right halves
+    // Create bounding boxes for left and right halves.
     const leftBbox = {
       min: bbox.min.clone(),
       max: bbox.max.clone()
@@ -392,8 +394,8 @@ export class DensityGridOverlay {
 
   /**
    * Updates the grid overlay.
-   * In low mode the uniform grid cells are updated based on distance to stars.
-   * In high mode the adaptive grid is rebuilt from the updated star array.
+   * In low mode the uniform grid cells are updated as before.
+   * In high mode the adaptive grid is rebuilt and then cells are colored based on their subdivision.
    * @param {Array} stars - Array of star objects.
    */
   update(stars) {
@@ -406,9 +408,8 @@ export class DensityGridOverlay {
       this.cubesData.forEach(cell => {
         computeCellDistances(cell, extendedStars);
       });
-      let isolationVal, toleranceVal;
-      isolationVal = parseFloat(document.getElementById('low-density-slider').value) || 7;
-      toleranceVal = parseInt(document.getElementById('low-tolerance-slider').value) || 0;
+      let isolationVal = parseFloat(document.getElementById('low-density-slider').value) || 7;
+      let toleranceVal = parseInt(document.getElementById('low-tolerance-slider').value) || 0;
       this.cubesData.forEach(cell => {
         let isoDist = Infinity;
         if (cell.distances && cell.distances.length > toleranceVal) {
@@ -428,7 +429,7 @@ export class DensityGridOverlay {
       });
     } else {
       // === High mode update (density filter using adaptive grid) ===
-      // Remove previous cell meshes and adjacent lines from the scenes
+      // Remove previous cell meshes and adjacent lines from scenes.
       this.cubesData.forEach(cell => {
         if (cell.tcMesh && cell.tcMesh.parent) cell.tcMesh.parent.remove(cell.tcMesh);
         if (cell.globeMesh && cell.globeMesh.parent) cell.globeMesh.parent.remove(cell.globeMesh);
@@ -438,18 +439,25 @@ export class DensityGridOverlay {
       });
       // Rebuild the adaptive grid from the updated star array.
       this.buildAdaptiveGrid(stars);
-      // Use the high-density slider value as a threshold on computed density.
-      const densityThreshold = parseFloat(document.getElementById('high-density-slider').value) || 1;
+      // For high mode, we now compute a subdivision factor based on cell volume relative to the global volume.
+      // Cells that are much smaller (i.e. heavily subdivided) will get a higher factor.
       this.cubesData.forEach(cell => {
-        cell.density = cell.count / cell.volume;
-        cell.active = (cell.density > densityThreshold);
+        const factor = 1 - (cell.volume / this.globalVolume);
+        // Map factor to alpha: low factor -> 0.10 (light green), high factor -> 0.5 (dark green).
+        const alpha = THREE.MathUtils.lerp(0.10, 0.5, factor);
+        // Interpolate color between light green and dark green.
+        const lightGreen = new THREE.Color('#90EE90');
+        const darkGreen = new THREE.Color('#006400');
+        const cellColor = lightGreen.clone().lerp(darkGreen, factor);
+        cell.tcMesh.material.color.set(cellColor);
+        cell.globeMesh.material.color.set(cellColor);
+        cell.tcMesh.material.opacity = alpha;
+        cell.globeMesh.material.opacity = alpha;
+        cell.tcMesh.visible = true;
+        cell.globeMesh.visible = true;
+        // Optionally adjust scale based on distance from center.
         let ratio = cell.center.length() / this.maxDistance;
         if (ratio > 1) ratio = 1;
-        const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
-        cell.tcMesh.visible = cell.active;
-        cell.tcMesh.material.opacity = alpha;
-        cell.globeMesh.visible = cell.active;
-        cell.globeMesh.material.opacity = alpha;
         const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
         cell.globeMesh.scale.set(scale, scale, 1);
       });
@@ -876,8 +884,7 @@ export class DensityGridOverlay {
 }
 
 /**
- * Helper: Computes distances for a uniform grid cell.
- * (Used only in low mode.)
+ * Helper function to compute cell distances (used only in low mode).
  */
 function computeCellDistances(cell, stars) {
   const dArr = stars.map(star => {
@@ -893,8 +900,7 @@ function computeCellDistances(cell, stars) {
 }
 
 /**
- * (Placeholder) Helper to get the best star label.
- * In practice, this uses star properties to decide.
+ * Placeholder helper: returns the best star label based on stellar class ranking.
  */
 function getBestStarLabel(cells) {
   let bestStar = null;
@@ -918,7 +924,7 @@ function getBestStarLabel(cells) {
 }
 
 /**
- * (Placeholder) Helper to rank a star’s stellar class.
+ * Placeholder helper: ranks a star’s stellar class.
  */
 function getStellarClassRank(star) {
   if (!star || !star.Stellar_class) return 0;
@@ -928,7 +934,7 @@ function getStellarClassRank(star) {
 }
 
 /**
- * (Placeholder) Converts a string to title case.
+ * Helper: Converts a string to title case.
  */
 function toTitleCase(str) {
   if (!str || typeof str !== "string") return str;
