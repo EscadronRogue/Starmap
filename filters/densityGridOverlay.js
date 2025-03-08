@@ -123,7 +123,6 @@ export class DensityGridOverlay {
       const points = stars.map(star => ({ position: star.truePosition.clone(), star: star }));
       const threshold = 0.05 * this.totalStars; // 5% threshold
       this.cubesData = buildKDTree(points, 0, threshold, this);
-      // In density mode, we do not use adjacent lines.
       this.adjacentLines = [];
     }
   }
@@ -205,23 +204,50 @@ export class DensityGridOverlay {
 
   update(stars) {
     if (this.mode === "isolation") {
+      // For isolation mode, we now compute the condition for the globe map using projected (spherical) positions.
       const isolationVal = parseFloat(document.getElementById('low-density-slider').value) || 7;
       const toleranceVal = parseInt(document.getElementById('low-tolerance-slider').value) || 0;
+      // Build an extended list of stars for globe projection using their sphere positions.
+      const extendedStars = stars.filter(star => {
+        const d = star.Distance_from_the_Sun || star.distance;
+        return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
+      });
       this.cubesData.forEach(cell => {
-        let isoDist = Infinity;
+        // For true coordinates, use the precomputed distances.
+        let isoDistTrue = Infinity;
         if (cell.distances.length > toleranceVal) {
-          isoDist = cell.distances[toleranceVal];
+          isoDistTrue = cell.distances[toleranceVal];
         }
-        const showSquare = (isoDist >= isolationVal);
+        // For the globe, compute the angular (arc length) distances.
+        const projectedCenter = this.projectToGlobe(cell.tcPos);
+        let angularDistances = [];
+        extendedStars.forEach(star => {
+          let starProj = star.spherePosition;
+          if (!starProj) {
+            // Fallback if not defined.
+            starProj = this.projectToGlobe(getStarTruePosition(star));
+          }
+          const angle = projectedCenter.angleTo(starProj); // in radians
+          // Convert to arc length on a sphere of radius 100.
+          const arcLength = 100 * angle;
+          angularDistances.push(arcLength);
+        });
+        angularDistances.sort((a, b) => a - b);
+        let isoDistGlobe = Infinity;
+        if (angularDistances.length > toleranceVal) {
+          isoDistGlobe = angularDistances[toleranceVal];
+        }
+        // Decide activation based on the globe measure.
+        const showSquare = (isoDistGlobe >= isolationVal);
         cell.active = showSquare;
-        // Compute ratio based on the true coordinate distance.
+        // For true coordinates update:
         let ratio = cell.tcPos.length() / this.maxDistance;
         if (ratio > 1) ratio = 1;
         const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
         cell.tcMesh.visible = showSquare;
         cell.tcMesh.material.opacity = alpha;
-        // For the globe, update the position by re-projecting tcPos.
-        cell.globeMesh.position.copy(this.projectToGlobe(cell.tcPos));
+        // Update globe mesh using the projected center.
+        cell.globeMesh.position.copy(projectedCenter);
         cell.globeMesh.visible = showSquare;
         cell.globeMesh.material.opacity = alpha;
         const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
