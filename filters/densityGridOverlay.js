@@ -1,7 +1,14 @@
 // /filters/densityGridOverlay.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor, getBlueColor, getGreenColor } from './densityColorUtils.js';
+import { 
+  getDoubleSidedLabelMaterial, 
+  getBaseColor, 
+  lightenColor, 
+  darkenColor, 
+  getBlueColor,
+  getGreenColor
+} from './densityColorUtils.js';
 import { radToSphere, subdivideGeometry, getGreatCirclePoints } from '../utils/geometryUtils.js';
 import { computeInterconnectedCell, segmentOceanCandidate } from './densitySegmentation.js';
 import { loadConstellationCenters, getConstellationCenters, loadConstellationBoundaries, getConstellationBoundaries } from './constellationFilter.js';
@@ -11,9 +18,9 @@ import { loadConstellationCenters, getConstellationCenters, loadConstellationBou
  * 
  * Constructs an overlay for density mapping.
  *
- * In "isolation" mode (formerly low density), a fixed grid is used.
- * In "density" mode (formerly high density), a KD tree approach is used
- * that recursively subdivides the star positions until each cell contains less than 5% of the total stars.
+ * In "isolation" mode, a fixed grid is used.
+ * In "density" mode, a KD tree approach recursively subdivides the star positions 
+ * until each cell contains less than 5% of all plotted stars.
  */
 export class DensityGridOverlay {
   /**
@@ -32,13 +39,13 @@ export class DensityGridOverlay {
     this.regionClusters = [];
     this.regionLabelsGroupTC = new THREE.Group();
     this.regionLabelsGroupGlobe = new THREE.Group();
-    // For KD tree mode, totalStars will be set during grid creation.
+    // For KD tree mode, totalStars is set during grid creation.
     this.totalStars = 0;
   }
 
   createGrid(stars) {
     if (this.mode === "isolation") {
-      // Use the existing fixed‐grid method (renamed from "low" mode)
+      // Fixed-grid method for isolation mapping.
       const halfExt = Math.ceil(this.maxDistance / this.gridSize) * this.gridSize;
       this.cubesData = [];
       for (let x = -halfExt; x <= halfExt; x += this.gridSize) {
@@ -50,12 +57,11 @@ export class DensityGridOverlay {
               z + this.gridSize / 2
             );
             const distFromCenter = posTC.length();
-            // Only include cells whose center is between minDistance and maxDistance.
             if (distFromCenter < this.minDistance || distFromCenter > this.maxDistance) continue;
             
             const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
             const material = new THREE.MeshBasicMaterial({
-              color: 0x0000ff, // isolation mode: blue
+              color: 0x0000ff,
               transparent: true,
               opacity: 1.0,
               depthWrite: false
@@ -112,15 +118,12 @@ export class DensityGridOverlay {
       this.cubesData.forEach(cell => computeCellDistances(cell, extendedStars));
       this.computeAdjacentLines();
     } else if (this.mode === "density") {
-      // New KD tree method for density mapping.
+      // KD tree method for density mapping.
       this.totalStars = stars.length;
-      // Build an array of point objects using the star's truePosition.
-      const points = stars.map(star => {
-        return { position: star.truePosition.clone(), star: star };
-      });
+      const points = stars.map(star => ({ position: star.truePosition.clone(), star: star }));
       const threshold = 0.05 * this.totalStars; // 5% threshold
       this.cubesData = buildKDTree(points, 0, threshold, this);
-      // For density mode, we do not compute adjacent lines.
+      // In density mode, we do not use adjacent lines.
       this.adjacentLines = [];
     }
   }
@@ -184,14 +187,6 @@ export class DensityGridOverlay {
 
   update(stars) {
     if (this.mode === "isolation") {
-      const extendedStars = stars.filter(star => {
-        const d = star.Distance_from_the_Sun;
-        return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
-      });
-      this.cubesData.forEach(cell => {
-        computeCellDistances(cell, extendedStars);
-      });
-    
       const isolationVal = parseFloat(document.getElementById('low-density-slider').value) || 7;
       const toleranceVal = parseInt(document.getElementById('low-tolerance-slider').value) || 0;
       this.cubesData.forEach(cell => {
@@ -212,17 +207,23 @@ export class DensityGridOverlay {
         cell.globeMesh.scale.set(scale, scale, 1);
       });
     } else if (this.mode === "density") {
-      // In density mode, use the KD tree leaf cell count.
+      // For density mode, determine a normalized value based on cell.count.
       this.cubesData.forEach(cell => {
-         const ratio = cell.count / this.totalStars;
-         cell.active = true;
-         const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
-         cell.tcMesh.visible = true;
-         cell.tcMesh.material.opacity = alpha;
-         cell.globeMesh.visible = true;
-         cell.globeMesh.material.opacity = alpha;
-         const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
-         cell.globeMesh.scale.set(scale, scale, 1);
+        let normalized = THREE.MathUtils.clamp(cell.count / (0.05 * this.totalStars), 0, 1);
+        cell.active = true;
+        const alpha = THREE.MathUtils.lerp(0.10, 0.5, normalized);
+        // Interpolate between light green and dark green.
+        const lightGreen = new THREE.Color('#90ee90');
+        const darkGreen = new THREE.Color('#006400');
+        const color = lightGreen.clone().lerp(darkGreen, normalized);
+        cell.tcMesh.visible = true;
+        cell.tcMesh.material.opacity = alpha;
+        cell.tcMesh.material.color.set(color);
+        cell.globeMesh.visible = true;
+        cell.globeMesh.material.opacity = alpha;
+        cell.globeMesh.material.color.set(color);
+        const scale = THREE.MathUtils.lerp(20.0, 0.1, normalized);
+        cell.globeMesh.scale.set(scale, scale, 1);
       });
     }
   }
@@ -237,7 +238,6 @@ export class DensityGridOverlay {
         console.warn("No constellation boundaries available!");
         return;
       }
-      // Helper functions
       function minAngularDistanceToSegment(cellPos, p1, p2) {
         const angleToP1 = cellPos.angleTo(p1);
         const angleToP2 = cellPos.angleTo(p2);
@@ -317,7 +317,7 @@ export class DensityGridOverlay {
           cell.constellation = bestConstellation;
         }
       });
-    } else { // For density mode, simply assign a best star label per cell.
+    } else { // In density mode, assign a best star label per cell.
       this.cubesData.forEach(cell => {
         if (cell.active) {
           cell.clusterLabel = this.getBestStarLabel([cell]);
@@ -423,202 +423,10 @@ export class DensityGridOverlay {
       }
     });
   }
-
-  getMajorityConstellation(cells) {
-    const freq = {};
-    cells.forEach(cell => {
-      const cst = cell.constellation && cell.constellation !== "Unknown"
-        ? toTitleCase(cell.constellation)
-        : null;
-      if (cst) {
-        freq[cst] = (freq[cst] || 0) + 1;
-      }
-    });
-    let maxCount = 0;
-    let majority = "Unknown";
-    Object.keys(freq).forEach(key => {
-      if (freq[key] > maxCount) {
-        maxCount = freq[key];
-        majority = key;
-      }
-    });
-    return majority;
-  }
-
-  classifyEmptyRegions() {
-    this.regionClusters = [];
-    const activeCells = this.cubesData.filter(c => c.active);
-    const visited = new Set();
-    const clusters = [];
-    activeCells.forEach(cell => {
-      if (visited.has(cell.id)) return;
-      const stack = [cell];
-      const clusterCells = [];
-      while (stack.length > 0) {
-        const current = stack.pop();
-        if (visited.has(current.id)) continue;
-        visited.add(current.id);
-        clusterCells.push(current);
-        for (let dx = -1; dx <= 1; dx++) {
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dz = -1; dz <= 1; dz++) {
-              if (dx === 0 && dy === 0 && dz === 0) continue;
-              const nx = current.grid.ix + dx;
-              const ny = current.grid.iy + dy;
-              const nz = current.grid.iz + dz;
-              const neighbor = activeCells.find(c => c.grid.ix === nx && c.grid.iy === ny && c.grid.iz === nz);
-              if (neighbor && !visited.has(neighbor.id)) {
-                stack.push(neighbor);
-              }
-            }
-          }
-        }
-      }
-      clusters.push(clusterCells);
-    });
-    let V_max = 0;
-    clusters.forEach(c => {
-      if (c.length > V_max) V_max = c.length;
-    });
-    const allRegions = [];
-    clusters.forEach(c => {
-      let subRegions;
-      if (this.mode === "isolation") {
-        const majority = this.getMajorityConstellation(c);
-        subRegions = this.recursiveSegmentCluster(c, V_max, majority);
-      } else {
-        const bestLabel = this.getBestStarLabel(c);
-        subRegions = this.recursiveSegmentCluster(c, V_max, bestLabel);
-      }
-      subRegions.forEach(sr => allRegions.push(sr));
-    });
-    this.regionClusters = allRegions;
-    return allRegions;
-  }
-
-  recursiveSegmentCluster(cells, V_max, labelForCells) {
-    const size = cells.length;
-    if (this.mode === "isolation") {
-      if (size < 0.1 * V_max) {
-        return [{
-          cells,
-          volume: size,
-          constName: labelForCells,
-          type: "Lacus",
-          label: `Lacus ${labelForCells}`,
-          labelScale: 0.8,
-          bestCell: computeInterconnectedCell(cells)
-        }];
-      }
-      const segResult = segmentOceanCandidate(cells);
-      if (!segResult.segmented) {
-        if (size < 0.5 * V_max) {
-          return [{
-            cells,
-            volume: size,
-            constName: labelForCells,
-            type: "Mare",
-            label: `Mare ${labelForCells}`,
-            labelScale: 0.9,
-            bestCell: computeInterconnectedCell(cells)
-          }];
-        } else {
-          return [{
-            cells,
-            volume: size,
-            constName: labelForCells,
-            type: "Oceanus",
-            label: `Oceanus ${labelForCells}`,
-            labelScale: 1.0,
-            bestCell: computeInterconnectedCell(cells)
-          }];
-        }
-      }
-      const regions = [];
-      segResult.cores.forEach(core => {
-        const sub = this.recursiveSegmentCluster(core, V_max, this.getMajorityConstellation(core));
-        sub.forEach(r => regions.push(r));
-      });
-      if (segResult.neck && segResult.neck.length > 0) {
-        const neckLabel = this.getMajorityConstellation(segResult.neck);
-        regions.push({
-          cells: segResult.neck,
-          volume: segResult.neck.length,
-          constName: neckLabel,
-          type: "Fretum",
-          label: `Fretum ${neckLabel}`,
-          labelScale: 0.7,
-          bestCell: computeInterconnectedCell(segResult.neck),
-          color: lightenColor(getBlueColor(neckLabel), 0.1)
-        });
-      }
-      return regions;
-    } else {
-      if (size < 0.1 * V_max) {
-        return [{
-          cells,
-          volume: size,
-          constName: labelForCells,
-          type: "Insula",
-          label: `Insula ${labelForCells}`,
-          labelScale: 0.8,
-          bestCell: computeInterconnectedCell(cells)
-        }];
-      }
-      const segResult = segmentOceanCandidate(cells);
-      if (!segResult.segmented) {
-        return [{
-          cells,
-          volume: size,
-          constName: labelForCells,
-          type: "Continens",
-          label: `Continens ${labelForCells}`,
-          labelScale: 1.0,
-          bestCell: computeInterconnectedCell(cells)
-        }];
-      }
-      const regions = [];
-      segResult.cores.forEach(core => {
-        let sub = this.recursiveSegmentCluster(core, V_max, this.getBestStarLabel(core));
-        sub.forEach(r => {
-          r.type = "Peninsula";
-          r.label = `Peninsula ${r.constName}`;
-          regions.push(r);
-        });
-      });
-      if (segResult.neck && segResult.neck.length > 0) {
-        const neckLabel = this.getBestStarLabel(segResult.neck);
-        regions.push({
-          cells: segResult.neck,
-          volume: segResult.neck.length,
-          constName: neckLabel,
-          type: "Isthmus",
-          label: `Isthmus ${neckLabel}`,
-          labelScale: 0.7,
-          bestCell: computeInterconnectedCell(segResult.neck),
-          color: lightenColor(getGreenColor(neckLabel), 0.1)
-        });
-      }
-      return regions;
-    }
-  }
-
-  projectToGlobe(position) {
-    const dist = position.length();
-    if (dist < 1e-6) return new THREE.Vector3(0, 0, 0);
-    const ra = Math.atan2(-position.z, -position.x);
-    const dec = Math.asin(position.y / dist);
-    const radius = 100;
-    return new THREE.Vector3(
-      -radius * Math.cos(dec) * Math.cos(ra),
-       radius * Math.sin(dec),
-      -radius * Math.cos(dec) * Math.sin(ra)
-    );
-  }
 }
 
 // -------------------------------------------------------------------
-// Helper function: Compute cell distances (unchanged)
+// Helper function to compute cell distances.
 function computeCellDistances(cell, stars) {
   const dArr = stars.map(star => {
     let starPos = star.truePosition ? star.truePosition : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
@@ -712,8 +520,6 @@ function createCellFromPoints(points, overlay) {
   return cell;
 }
 
-// -------------------------------------------------------------------
-// Helper: Converts a sphere coordinate to RA/DEC (in degrees).
 function vectorToRaDec(vector) {
   const R = 100;
   const dec = Math.asin(vector.y / R);
@@ -723,8 +529,6 @@ function vectorToRaDec(vector) {
   return { ra: raDeg, dec: dec * 180 / Math.PI };
 }
 
-// -------------------------------------------------------------------
-// Helper: Converts a string to title case.
 function toTitleCase(str) {
   if (!str || typeof str !== "string") return str;
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
