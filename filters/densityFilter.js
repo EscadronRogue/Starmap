@@ -152,6 +152,16 @@ export class DensityGridOverlay {
     return leftLeaves.concat(rightLeaves);
   }
 
+  // Added missing helper method to check if two cells are adjacent based on their bounding boxes.
+  areCellsAdjacent(cell1, cell2, tol) {
+    const b1 = cell1.bbox;
+    const b2 = cell2.bbox;
+    const overlapX = !(b1.max.x < b2.min.x - tol || b1.min.x > b2.max.x + tol);
+    const overlapY = !(b1.max.y < b2.min.y - tol || b1.min.y > b2.max.y + tol);
+    const overlapZ = !(b1.max.z < b2.min.z - tol || b1.min.z > b2.max.z + tol);
+    return overlapX && overlapY && overlapZ;
+  }
+
   computeAdjacentLines() {
     this.adjacentLines = [];
     const tol = 0.001;
