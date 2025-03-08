@@ -183,6 +183,12 @@
               <input type="range" id="density-grid-slider" name="density-grid-size" min="-4" max="4" step="1" value="0" disabled />
               <input type="number" id="density-grid-number" name="density-grid-size" min="-4" max="4" step="1" value="0" disabled />
             </div>
+            <div class="filter-item">
+              <label for="density-subdivision-percent-slider">Subdivision Threshold (%)</label>
+              <input type="range" id="density-subdivision-percent-slider" name="density-subdivision-percent" min="1" max="20" step="1" value="5" disabled />
+              <input type="number" id="density-subdivision-percent-number" name="density-subdivision-percent" min="1" max="20" step="1" value="5" disabled />
+              <span id="density-subdivision-percent-value">5</span>%
+            </div>
           </div>
         </fieldset>
       </form>
@@ -190,14 +196,11 @@
 
     <!-- Maps Section -->
     <section class="maps-section">
-      <!-- True Coordinates Map -->
       <div class="map-container">
         <h2>True Coordinates Map</h2>
         <button class="fullscreen-btn" aria-label="Fullscreen True Coordinates Map">⤢</button>
         <canvas id="map3D"></canvas>
       </div>
-
-      <!-- Globe Map -->
       <div class="map-container">
         <h2>Globe Map</h2>
         <button class="fullscreen-btn" aria-label="Fullscreen Globe Map">⤢</button>
