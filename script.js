@@ -466,6 +466,7 @@ class MapManager {
   }
 }
 
+// UPDATED: Adjust interactive picking for instanced mesh objects.
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
@@ -477,8 +478,14 @@ function initStarInteractions(map) {
     raycaster.setFromCamera(mouse, map.camera);
     const intersects = raycaster.intersectObjects(map.starGroup.children, true);
     if (intersects.length > 0) {
-      const index = map.starGroup.children.indexOf(intersects[0].object);
-      if (index >= 0 && map.starObjects[index]) {
+      const intersect = intersects[0];
+      let index;
+      if (intersect.object instanceof THREE.InstancedMesh) {
+        index = intersect.instanceId;
+      } else {
+        index = map.starGroup.children.indexOf(intersect.object);
+      }
+      if (index !== undefined && map.starObjects[index]) {
         showTooltip(event.clientX, event.clientY, map.starObjects[index]);
       }
     } else {
@@ -502,8 +509,14 @@ function initStarInteractions(map) {
     const intersects = raycaster.intersectObjects(map.starGroup.children, true);
     let clickedStar = null;
     if (intersects.length > 0) {
-      const index = map.starGroup.children.indexOf(intersects[0].object);
-      if (index >= 0) {
+      const intersect = intersects[0];
+      let index;
+      if (intersect.object instanceof THREE.InstancedMesh) {
+        index = intersect.instanceId;
+      } else {
+        index = map.starGroup.children.indexOf(intersect.object);
+      }
+      if (index !== undefined && map.starObjects[index]) {
         clickedStar = map.starObjects[index];
       }
     }
@@ -569,6 +582,9 @@ async function main() {
     const globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
     buildAndApplyFilters();
+    // Initialize interactive picking for both maps
+    initStarInteractions(trueCoordinatesMap);
+    initStarInteractions(globeMap);
     loader.classList.add('hidden');
   } catch (err) {
     console.error('Error initializing starmap:', err);
