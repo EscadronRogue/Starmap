@@ -1,20 +1,24 @@
 // /filters/densityFilter.js
-// This module implements the Density Filter using an adaptive (KD tree–style) subdivision.
+// This module implements the Density Filter as a true KD tree.
+// Each leaf is colored in green: the root leaf is light green (opacity 0.1) and, as subdivision increases,
+// the leaves become darker and more opaque (up to 0.5). The subdivision is driven by a user‑adjustable threshold
+// (the percentage of currently plotted stars contained in a leaf).
+
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { getDoubleSidedLabelMaterial, getGreenColor, lightenColor } from './densityColorUtils.js';
-import { radToSphere, subdivideGeometry, getGreatCirclePoints } from '../utils/geometryUtils.js';
+import { getDoubleSidedLabelMaterial } from './densityColorUtils.js';
+import { radToSphere, getGreatCirclePoints } from '../utils/geometryUtils.js';
 import { segmentOceanCandidate } from './densitySegmentation.js';
 
 export class DensityGridOverlay {
   /**
-   * @param {number} minDistance - Minimum distance (LY).
-   * @param {number} maxDistance - Maximum distance (LY).
-   * @param {number} gridSize - Initial grid size value (used to compute a starting value).
+   * @param {number} minDistance - Minimum distance (LY) to include grid cells.
+   * @param {number} maxDistance - Maximum distance (LY) to include grid cells.
+   * @param {number} subdivisionThresholdPercent - Percentage of total stars in a cell to trigger subdivision (default is 5).
    */
-  constructor(minDistance, maxDistance, gridSize = 2) {
+  constructor(minDistance, maxDistance, subdivisionThresholdPercent = 5) {
     this.minDistance = parseFloat(minDistance);
     this.maxDistance = parseFloat(maxDistance);
-    this.gridSize = gridSize;
+    this.subdivisionThresholdPercent = subdivisionThresholdPercent;
     this.cubesData = [];
     this.adjacentLines = [];
     this.regionClusters = [];
@@ -24,6 +28,7 @@ export class DensityGridOverlay {
 
   createGrid(stars) {
     this.cubesData = [];
+    // Filter stars using an extended range.
     const extendedStars = stars.filter(star => {
       const d = star.Distance_from_the_Sun;
       return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
@@ -33,23 +38,39 @@ export class DensityGridOverlay {
       return new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
     });
     const totalCount = points.length;
-    const thresholdCount = totalCount * 0.05;
+    // Use the user‑defined threshold (as a percentage) for subdivision.
+    const thresholdCount = totalCount * (this.subdivisionThresholdPercent / 100);
     const bbox = this.computeBoundingBox(points);
-    const leafCells = this.subdivide(points, bbox, thresholdCount);
+    // Recursively subdivide the points using a KD tree–style approach.
+    const leafCells = this.subdivide(points, bbox, thresholdCount, 0);
+    // Determine the maximum depth reached.
+    let maxDepth = 0;
+    leafCells.forEach(cell => {
+      if (cell.depth > maxDepth) maxDepth = cell.depth;
+    });
+    // For each leaf cell, create a visual cell.
     leafCells.forEach(cell => {
       const sizeX = cell.bbox.max.x - cell.bbox.min.x;
       const sizeY = cell.bbox.max.y - cell.bbox.min.y;
       const sizeZ = cell.bbox.max.z - cell.bbox.min.z;
       const cellSize = Math.max(sizeX, sizeY, sizeZ);
       const geometry = new THREE.BoxGeometry(cellSize, cellSize, cellSize);
+      // Interpolate opacity from 0.1 (depth 0) to 0.5 (max depth).
+      const depthRatio = maxDepth > 0 ? cell.depth / maxDepth : 0;
+      const alpha = 0.1 + depthRatio * (0.5 - 0.1);
+      // Interpolate lightness: shallow leaves (depth=0) are light (L=0.8) and deep leaves are darker (L=0.4).
+      const L = 0.8 - depthRatio * (0.8 - 0.4);
+      // Create a green color using HSL (hue=120°, saturation=70%).
+      const color = new THREE.Color().setHSL(120 / 360, 0.7, L);
       const material = new THREE.MeshBasicMaterial({
-        color: 0x00ff00, // Green for Density Filter
+        color,
         transparent: true,
-        opacity: 1.0,
+        opacity: alpha,
         depthWrite: false
       });
       const cubeTC = new THREE.Mesh(geometry, material);
       cubeTC.position.copy(cell.center);
+      // For the Globe view, create a plane that is projected onto the sphere.
       const planeGeom = new THREE.PlaneGeometry(cellSize, cellSize);
       const material2 = material.clone();
       const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -70,6 +91,7 @@ export class DensityGridOverlay {
       squareGlobe.position.copy(projectedPos);
       const normal = projectedPos.clone().normalize();
       squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+      // Create cell object.
       const cellObj = {
         tcMesh: cubeTC,
         globeMesh: squareGlobe,
@@ -78,6 +100,7 @@ export class DensityGridOverlay {
         count: cell.count,
         volume: cell.volume,
         density: cell.count / cell.volume,
+        depth: cell.depth,
         active: false,
         grid: { ix: 0, iy: 0, iz: 0 }
       };
@@ -101,7 +124,9 @@ export class DensityGridOverlay {
     return { min, max };
   }
 
-  subdivide(points, bbox, threshold) {
+  // Recursively subdivide the set of points within bbox until the number of points is below threshold.
+  // The current recursion depth is passed as 'depth'.
+  subdivide(points, bbox, threshold, depth) {
     if (points.length <= threshold || points.length <= 1) {
       const center = new THREE.Vector3(
         (bbox.min.x + bbox.max.x) / 2,
@@ -109,25 +134,28 @@ export class DensityGridOverlay {
         (bbox.min.z + bbox.max.z) / 2
       );
       const volume = (bbox.max.x - bbox.min.x) * (bbox.max.y - bbox.min.y) * (bbox.max.z - bbox.min.z) || 1;
-      return [{ center, bbox, count: points.length, volume }];
+      return [{ center, bbox, count: points.length, volume, depth }];
     }
+    // Determine the longest axis.
     const sizeX = bbox.max.x - bbox.min.x;
     const sizeY = bbox.max.y - bbox.min.y;
     const sizeZ = bbox.max.z - bbox.min.z;
     let axis = 'x';
     if (sizeY >= sizeX && sizeY >= sizeZ) axis = 'y';
     else if (sizeZ >= sizeX && sizeZ >= sizeY) axis = 'z';
+    // Sort points along the chosen axis.
     points.sort((a, b) => a[axis] - b[axis]);
     const medianIndex = Math.floor(points.length / 2);
     const medianValue = points[medianIndex][axis];
+    // Define left and right bounding boxes.
     const leftBbox = { min: bbox.min.clone(), max: bbox.max.clone() };
     leftBbox.max[axis] = medianValue;
     const rightBbox = { min: bbox.min.clone(), max: bbox.max.clone() };
     rightBbox.min[axis] = medianValue;
     const leftPoints = points.slice(0, medianIndex);
     const rightPoints = points.slice(medianIndex);
-    const leftLeaves = this.subdivide(leftPoints, leftBbox, threshold);
-    const rightLeaves = this.subdivide(rightPoints, rightBbox, threshold);
+    const leftLeaves = this.subdivide(leftPoints, leftBbox, threshold, depth + 1);
+    const rightLeaves = this.subdivide(rightPoints, rightBbox, threshold, depth + 1);
     return leftLeaves.concat(rightLeaves);
   }
 
@@ -169,6 +197,7 @@ export class DensityGridOverlay {
     }
   }
 
+  // Simple adjacent check based on bounding boxes.
   areCellsAdjacent(cell1, cell2, tol) {
     const b1 = cell1.bbox;
     const b2 = cell2.bbox;
@@ -189,16 +218,25 @@ export class DensityGridOverlay {
     });
     this.buildAdaptiveGrid(stars);
     const densityThreshold = parseFloat(document.getElementById('density-slider').value) || 1;
+    // Determine max depth among current cells.
+    let maxDepth = 0;
+    this.cubesData.forEach(cell => {
+      if (cell.depth > maxDepth) maxDepth = cell.depth;
+    });
     this.cubesData.forEach(cell => {
       cell.density = cell.count / cell.volume;
       cell.active = (cell.density > densityThreshold);
       let ratio = cell.center.length() / this.maxDistance;
       if (ratio > 1) ratio = 1;
-      const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
-      cell.tcMesh.visible = cell.active;
+      const depthRatio = maxDepth > 0 ? cell.depth / maxDepth : 0;
+      const alpha = 0.1 + depthRatio * (0.5 - 0.1);
+      const L = 0.8 - depthRatio * (0.8 - 0.4);
+      cell.tcMesh.material.color.setHSL(120 / 360, 0.7, L);
       cell.tcMesh.material.opacity = alpha;
-      cell.globeMesh.visible = cell.active;
+      cell.globeMesh.material.color.setHSL(120 / 360, 0.7, L);
       cell.globeMesh.material.opacity = alpha;
+      cell.tcMesh.visible = cell.active;
+      cell.globeMesh.visible = cell.active;
       const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
       cell.globeMesh.scale.set(scale, scale, 1);
     });
@@ -243,19 +281,27 @@ export class DensityGridOverlay {
       return new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
     });
     const totalCount = points.length;
-    const thresholdCount = totalCount * 0.05;
+    const thresholdCount = totalCount * (this.subdivisionThresholdPercent / 100);
     const bbox = this.computeBoundingBox(points);
-    const leafCells = this.subdivide(points, bbox, thresholdCount);
+    const leafCells = this.subdivide(points, bbox, thresholdCount, 0);
     leafCells.forEach(cell => {
       const sizeX = cell.bbox.max.x - cell.bbox.min.x;
       const sizeY = cell.bbox.max.y - cell.bbox.min.y;
       const sizeZ = cell.bbox.max.z - cell.bbox.min.z;
       const cellSize = Math.max(sizeX, sizeY, sizeZ);
       const geometry = new THREE.BoxGeometry(cellSize, cellSize, cellSize);
+      // Compute color and opacity based on depth.
+      let maxDepth = 0;
+      leafCells.forEach(c => {
+        if (c.depth > maxDepth) maxDepth = c.depth;
+      });
+      const depthRatio = maxDepth > 0 ? cell.depth / maxDepth : 0;
+      const alpha = 0.1 + depthRatio * (0.5 - 0.1);
+      const L = 0.8 - depthRatio * (0.8 - 0.4);
       const material = new THREE.MeshBasicMaterial({
-        color: 0x00ff00,
+        color: new THREE.Color().setHSL(120 / 360, 0.7, L),
         transparent: true,
-        opacity: 1.0,
+        opacity: alpha,
         depthWrite: false
       });
       const cubeTC = new THREE.Mesh(geometry, material);
@@ -288,6 +334,7 @@ export class DensityGridOverlay {
         count: cell.count,
         volume: cell.volume,
         density: cell.count / cell.volume,
+        depth: cell.depth,
         active: false,
         grid: { ix: 0, iy: 0, iz: 0 }
       };
@@ -296,9 +343,8 @@ export class DensityGridOverlay {
   }
 }
 
-// Export functions for external use.
-export function initDensityFilter(minDistance, maxDistance, starArray, gridSize = 2) {
-  const overlay = new DensityGridOverlay(minDistance, maxDistance, gridSize);
+export function initDensityFilter(minDistance, maxDistance, starArray, subdivisionThresholdPercent = 5) {
+  const overlay = new DensityGridOverlay(minDistance, maxDistance, subdivisionThresholdPercent);
   overlay.createGrid(starArray);
   return overlay;
 }
