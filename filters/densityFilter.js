@@ -3,7 +3,7 @@
 // Each leaf cell is colored in green: the root cell (depth 0) is light green with opacity 0.1,
 // and deeper leaves become darker (lower HSL lightness) and more opaque (up to 0.5).
 // We now use an absolute star‑count threshold for filtering cells,
-// while the kd‑tree subdivision threshold is fixed (default 10 stars per cell).
+// and the kd‑tree subdivision uses a fixed threshold (default 10 stars per cell).
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { radToSphere, getGreatCirclePoints } from '../utils/geometryUtils.js';
@@ -18,8 +18,7 @@ export class DensityGridOverlay {
     this.minDistance = parseFloat(minDistance);
     this.maxDistance = parseFloat(maxDistance);
     // This value controls how many stars a cell can contain at most
-    // before no further subdivision. For density grouping, a higher number
-    // produces larger cells.
+    // before subdivision stops.
     this.kdSubdivisionThreshold = kdSubdivisionThreshold;
     this.cubesData = [];
     this.adjacentLines = [];
@@ -118,7 +117,7 @@ export class DensityGridOverlay {
     return { min, max };
   }
 
-  // Recursively subdivide the set of points until the number in the cell is <= threshold.
+  // Recursively subdivide the set of points until the count is <= threshold.
   subdivide(points, bbox, threshold, depth) {
     if (points.length <= threshold || points.length <= 1) {
       const center = new THREE.Vector3(
@@ -197,8 +196,10 @@ export class DensityGridOverlay {
     }
   }
 
-  // In update, we now use an absolute star count threshold for filtering.
-  update(stars) {
+  // The update method rebuilds the grid and then marks cells as active if their star count
+  // is greater than or equal to the filtering threshold read from the UI.
+  // It also re‑adds the new meshes to the scene via the provided sceneTC and sceneGlobe.
+  update(stars, sceneTC, sceneGlobe) {
     // Remove previous cell meshes and adjacent lines.
     this.cubesData.forEach(cell => {
       if (cell.tcMesh && cell.tcMesh.parent) cell.tcMesh.parent.remove(cell.tcMesh);
@@ -214,10 +215,8 @@ export class DensityGridOverlay {
     this.cubesData.forEach(cell => {
       if (cell.depth > maxDepth) maxDepth = cell.depth;
     });
-    // Log cell counts for debugging.
     console.log("Density Filter: cell counts =", this.cubesData.map(c => c.count));
     this.cubesData.forEach(cell => {
-      // Mark the cell active if its star count meets or exceeds the threshold.
       cell.active = (cell.count >= starThreshold);
       let ratio = cell.center.length() / this.maxDistance;
       if (ratio > 1) ratio = 1;
@@ -261,6 +260,16 @@ export class DensityGridOverlay {
         line.visible = false;
       }
     });
+    // Re‑add the new cell meshes to the scenes.
+    if (sceneTC && sceneGlobe) {
+      this.cubesData.forEach(cell => {
+        sceneTC.add(cell.tcMesh);
+        sceneGlobe.add(cell.globeMesh);
+      });
+      this.adjacentLines.forEach(obj => {
+        sceneGlobe.add(obj.line);
+      });
+    }
   }
 
   buildAdaptiveGrid(stars) {
@@ -339,7 +348,8 @@ export function initDensityFilter(minDistance, maxDistance, starArray, kdSubdivi
   return overlay;
 }
 
-export function updateDensityFilter(starArray, overlay) {
+// The updateDensityFilter function now accepts scene references so that new cell meshes are added.
+export function updateDensityFilter(starArray, overlay, sceneTC, sceneGlobe) {
   if (!overlay) return;
-  overlay.update(starArray);
+  overlay.update(starArray, sceneTC, sceneGlobe);
 }
