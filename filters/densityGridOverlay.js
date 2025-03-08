@@ -185,6 +185,24 @@ export class DensityGridOverlay {
     });
   }
 
+  /**
+   * Projects a position vector (in true coordinates) onto a sphere of radius 100.
+   * @param {THREE.Vector3} position 
+   * @returns {THREE.Vector3}
+   */
+  projectToGlobe(position) {
+    const dist = position.length();
+    if (dist < 1e-6) return new THREE.Vector3(0, 0, 0);
+    const ra = Math.atan2(-position.z, -position.x);
+    const dec = Math.asin(position.y / dist);
+    const radius = 100;
+    return new THREE.Vector3(
+      -radius * Math.cos(dec) * Math.cos(ra),
+       radius * Math.sin(dec),
+      -radius * Math.cos(dec) * Math.sin(ra)
+    );
+  }
+
   update(stars) {
     if (this.mode === "isolation") {
       const isolationVal = parseFloat(document.getElementById('low-density-slider').value) || 7;
@@ -196,23 +214,24 @@ export class DensityGridOverlay {
         }
         const showSquare = (isoDist >= isolationVal);
         cell.active = showSquare;
+        // Compute ratio based on the true coordinate distance.
         let ratio = cell.tcPos.length() / this.maxDistance;
         if (ratio > 1) ratio = 1;
         const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
         cell.tcMesh.visible = showSquare;
         cell.tcMesh.material.opacity = alpha;
+        // For the globe, update the position by re-projecting tcPos.
+        cell.globeMesh.position.copy(this.projectToGlobe(cell.tcPos));
         cell.globeMesh.visible = showSquare;
         cell.globeMesh.material.opacity = alpha;
         const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
         cell.globeMesh.scale.set(scale, scale, 1);
       });
     } else if (this.mode === "density") {
-      // For density mode, determine a normalized value based on cell.count.
       this.cubesData.forEach(cell => {
         let normalized = THREE.MathUtils.clamp(cell.count / (0.05 * this.totalStars), 0, 1);
         cell.active = true;
         const alpha = THREE.MathUtils.lerp(0.10, 0.5, normalized);
-        // Interpolate between light green and dark green.
         const lightGreen = new THREE.Color('#90ee90');
         const darkGreen = new THREE.Color('#006400');
         const color = lightGreen.clone().lerp(darkGreen, normalized);
@@ -317,7 +336,7 @@ export class DensityGridOverlay {
           cell.constellation = bestConstellation;
         }
       });
-    } else { // In density mode, assign a best star label per cell.
+    } else {
       this.cubesData.forEach(cell => {
         if (cell.active) {
           cell.clusterLabel = this.getBestStarLabel([cell]);
