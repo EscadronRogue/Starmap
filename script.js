@@ -3,7 +3,7 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 import { applyFilters, setupFilterUI } from './filters/index.js';
 import { createConnectionLines, mergeConnectionLines } from './filters/connectionsFilter.js';
 import { createConstellationBoundariesForGlobe, createConstellationLabelsForGlobe } from './filters/constellationFilter.js';
-// Updated: import the new density and isolation filter functions
+// Updated imports for the new Isolation and Density Filters.
 import { initIsolationFilter, updateIsolationFilter } from './filters/isolationFilter.js';
 import { initDensityFilter, updateDensityFilter } from './filters/densityFilter.js';
 import { applyGlobeSurfaceFilter } from './filters/globeSurfaceFilter.js';
@@ -26,8 +26,7 @@ let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
 let constellationOverlayGlobe = [];
 let globeSurfaceSphere = null;
-// Rename overlays: lowDensityOverlay becomes isolationOverlay,
-// highDensityOverlay becomes densityOverlay.
+// Rename overlays: isolationOverlay and densityOverlay.
 let isolationOverlay = null;
 let densityOverlay = null;
 
@@ -152,8 +151,7 @@ async function buildAndApplyFilters() {
     enableDensityFilter,
     isolation,
     isolationTolerance,
-    density,
-    densityTolerance,
+    densitySubdivisionPercent,
     enableIsolationLabeling,
     enableDensityLabeling,
     minDistance,
@@ -197,7 +195,7 @@ async function buildAndApplyFilters() {
     });
   }
 
-  // --- Isolation Filter (formerly low density) ---
+  // --- Isolation Filter ---
   const form = document.getElementById('filters-form');
   if (enableIsolationFilter) {
     const isoGridSliderValue = parseFloat(new FormData(form).get('isolation-grid-size') || '0');
@@ -257,20 +255,14 @@ async function buildAndApplyFilters() {
     }
   }
 
-  // --- Density Filter (new high density) ---
+  // --- Density Filter ---
   if (enableDensityFilter) {
-    const densGridSliderValue = parseFloat(new FormData(form).get('density-grid-size') || '0');
-    let densGridSize;
-    if (densGridSliderValue >= 0) {
-      densGridSize = 2 + densGridSliderValue;
-    } else {
-      densGridSize = 2 / (Math.abs(densGridSliderValue) + 1);
-    }
+    const densitySubdivisionPercent = parseFloat(new FormData(form).get('density-subdivision-percent')) || 5;
     if (
       !densityOverlay ||
       densityOverlay.minDistance !== parseFloat(minDistance) ||
       densityOverlay.maxDistance !== parseFloat(maxDistance) ||
-      densityOverlay.gridSize !== densGridSize
+      densityOverlay.subdivisionThresholdPercent !== densitySubdivisionPercent
     ) {
       if (densityOverlay) {
         densityOverlay.cubesData.forEach(c => {
@@ -281,7 +273,7 @@ async function buildAndApplyFilters() {
           globeMap.scene.remove(obj.line);
         });
       }
-      densityOverlay = initDensityFilter(minDistance, maxDistance, cachedStars, densGridSize);
+      densityOverlay = initDensityFilter(minDistance, maxDistance, cachedStars, densitySubdivisionPercent);
       densityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.add(c.tcMesh);
       });
