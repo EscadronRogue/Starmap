@@ -1,5 +1,4 @@
 // /filters/index.js
-
 import { loadStellarClassData } from './stellarClassData.js';
 import { applySizeFilter } from './sizeFilter.js';
 import { applyColorFilter } from './colorFilter.js';
@@ -17,6 +16,10 @@ import { createConstellationOverlayForGlobe } from './constellationOverlayFilter
 
 // Import the distance filter.
 import { applyDistanceFilter } from './distanceFilter.js';
+
+// Import our new Isolation and Density filter modules.
+import { initIsolationFilter, updateIsolationFilter } from './isolationFilter.js';
+import { initDensityFilter, updateDensityFilter } from './densityFilter.js';
 
 let filterForm = null;
 
@@ -92,7 +95,6 @@ function addConstellationsFieldset() {
   namesDiv.appendChild(namesLbl);
   contentDiv.appendChild(namesDiv);
 
-  // Constellation overlay checkbox
   const overlayDiv = document.createElement('div');
   overlayDiv.classList.add('filter-item');
   const overlayChk = document.createElement('input');
@@ -157,16 +159,18 @@ export function applyFilters(allStars) {
         showConstellationOverlay: false,
         globeOpaqueSurface: false,
         enableConnections: false,
-        lowDensityMapping: false,
-        highDensityMapping: false,
-        lowDensity: 7,
-        lowTolerance: 0,
-        highDensity: 1,
-        highTolerance: 0,
-        lowDensityLabeling: false,
-        highDensityLabeling: false,
+        enableIsolationFilter: false,
+        enableDensityFilter: false,
+        isolation: 7,
+        isolationTolerance: 0,
+        density: 1,
+        densityTolerance: 0,
+        enableIsolationLabeling: false,
+        enableDensityLabeling: false,
         minDistance: 0,
-        maxDistance: 20
+        maxDistance: 20,
+        isolationGridSize: 0,
+        densityGridSize: 0
       };
     }
   }
@@ -182,16 +186,18 @@ export function applyFilters(allStars) {
     showConstellationOverlay: (formData.get('show-constellation-overlay') !== null),
     globeOpaqueSurface: (formData.get('globe-opaque-surface') !== null),
     enableConnections: (formData.get('enable-connections') !== null),
-    lowDensityMapping: (formData.get('enable-low-density-mapping') !== null),
-    highDensityMapping: (formData.get('enable-high-density-mapping') !== null),
-    lowDensity: parseFloat(formData.get('low-density')) || 7,
-    lowTolerance: parseInt(formData.get('low-tolerance')) || 0,
-    highDensity: parseFloat(formData.get('high-density')) || 1,
-    highTolerance: parseInt(formData.get('high-tolerance')) || 0,
-    lowDensityLabeling: (formData.get('enable-low-density-labeling') !== null),
-    highDensityLabeling: (formData.get('enable-high-density-labeling') !== null),
+    enableIsolationFilter: (formData.get('enable-isolation-filter') !== null),
+    enableDensityFilter: (formData.get('enable-density-filter') !== null),
+    isolation: parseFloat(formData.get('isolation')) || 7,
+    isolationTolerance: parseInt(formData.get('isolation-tolerance')) || 0,
+    density: parseFloat(formData.get('density')) || 1,
+    densityTolerance: parseInt(formData.get('density-tolerance')) || 0,
+    enableIsolationLabeling: (formData.get('enable-isolation-labeling') !== null),
+    enableDensityLabeling: (formData.get('enable-density-labeling') !== null),
     minDistance: formData.get('min-distance'),
-    maxDistance: formData.get('max-distance')
+    maxDistance: formData.get('max-distance'),
+    isolationGridSize: parseFloat(formData.get('isolation-grid-size')) || 0,
+    densityGridSize: parseFloat(formData.get('density-grid-size')) || 0
   };
 
   let filteredStars = applyDistanceFilter(allStars, filters);
@@ -211,7 +217,6 @@ export function applyFilters(allStars) {
 
   applyGlobeSurfaceFilter(filters);
 
-  // NEW: Apply the constellation overlay filter if enabled.
   if (filters.showConstellationOverlay) {
     const constellationOverlay = createConstellationOverlayForGlobe();
     constellationOverlay.forEach(mesh => {
@@ -229,16 +234,18 @@ export function applyFilters(allStars) {
     showConstellationOverlay: filters.showConstellationOverlay,
     globeOpaqueSurface: filters.globeOpaqueSurface,
     enableConnections: filters.enableConnections,
-    lowDensityMapping: filters.lowDensityMapping,
-    highDensityMapping: filters.highDensityMapping,
-    lowDensity: filters.lowDensity,
-    lowTolerance: filters.lowTolerance,
-    highDensity: filters.highDensity,
-    highTolerance: filters.highTolerance,
-    lowDensityLabeling: filters.lowDensityLabeling,
-    highDensityLabeling: filters.highDensityLabeling,
+    enableIsolationFilter: filters.enableIsolationFilter,
+    enableDensityFilter: filters.enableDensityFilter,
+    isolation: filters.isolation,
+    isolationTolerance: filters.isolationTolerance,
+    density: filters.density,
+    densityTolerance: filters.densityTolerance,
+    enableIsolationLabeling: filters.enableIsolationLabeling,
+    enableDensityLabeling: filters.enableDensityLabeling,
     minDistance: filters.minDistance,
-    maxDistance: filters.maxDistance
+    maxDistance: filters.maxDistance,
+    isolationGridSize: filters.isolationGridSize,
+    densityGridSize: filters.densityGridSize
   };
 }
 
