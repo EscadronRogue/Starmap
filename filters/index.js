@@ -211,7 +211,6 @@ export function applyFilters(allStars) {
 
   applyGlobeSurfaceFilter(filters);
 
-  // NEW: Apply the constellation overlay filter if enabled.
   if (filters.showConstellationOverlay) {
     const constellationOverlay = createConstellationOverlayForGlobe();
     constellationOverlay.forEach(mesh => {
