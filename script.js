@@ -24,8 +24,8 @@ let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
 let constellationOverlayGlobe = [];
 let globeSurfaceSphere = null;
-let lowDensityOverlay = null;
-let highDensityOverlay = null;
+let isolationOverlay = null;
+let densityOverlay = null;
 
 function getStarTruePosition(star) {
   const R = star.distance !== undefined ? star.distance : star.Distance_from_the_Sun;
@@ -144,14 +144,14 @@ async function buildAndApplyFilters() {
     showConstellationOverlay,
     globeOpaqueSurface,
     enableConnections,
-    lowDensityMapping,
-    highDensityMapping,
-    lowDensity,
-    lowTolerance,
-    highDensity: highIsolation,
-    highTolerance,
-    lowDensityLabeling,
-    highDensityLabeling,
+    isolationMapping,
+    densityMapping,
+    isolation,
+    isolationTolerance,
+    density,
+    densityTolerance,
+    isolationLabeling,
+    densityLabeling,
     minDistance,
     maxDistance
   } = filters;
@@ -185,124 +185,124 @@ async function buildAndApplyFilters() {
     constellationLabelsGlobe.forEach(lbl => globeMap.scene.add(lbl));
   }
   if (showConstellationOverlay) {
-    // Overlay logic here if needed.
+    // Overlay logic if needed.
   }
 
-  if (lowDensityMapping) {
+  // Isolation mapping (formerly low density)
+  if (isolationMapping) {
     const form = document.getElementById('filters-form');
-    // Updated grid mapping logic for low density:
-    const lowGridSliderValue = parseFloat(new FormData(form).get('low-density-grid-size') || '0');
-    let lowGridSize;
-    if (lowGridSliderValue >= 0) {
-      lowGridSize = 2 + lowGridSliderValue;
+    const isolationGridSliderValue = parseFloat(new FormData(form).get('low-density-grid-size') || '0');
+    let isolationGridSize;
+    if (isolationGridSliderValue >= 0) {
+      isolationGridSize = 2 + isolationGridSliderValue;
     } else {
-      lowGridSize = 2 / (Math.abs(lowGridSliderValue) + 1);
+      isolationGridSize = 2 / (Math.abs(isolationGridSliderValue) + 1);
     }
     if (
-      !lowDensityOverlay ||
-      lowDensityOverlay.minDistance !== parseFloat(minDistance) ||
-      lowDensityOverlay.maxDistance !== parseFloat(maxDistance) ||
-      lowDensityOverlay.gridSize !== lowGridSize
+      !isolationOverlay ||
+      isolationOverlay.minDistance !== parseFloat(minDistance) ||
+      isolationOverlay.maxDistance !== parseFloat(maxDistance) ||
+      isolationOverlay.gridSize !== isolationGridSize
     ) {
-      if (lowDensityOverlay) {
-        lowDensityOverlay.cubesData.forEach(c => {
+      if (isolationOverlay) {
+        isolationOverlay.cubesData.forEach(c => {
           trueCoordinatesMap.scene.remove(c.tcMesh);
         });
-        lowDensityOverlay.adjacentLines.forEach(obj => {
+        isolationOverlay.adjacentLines.forEach(obj => {
           globeMap.scene.remove(obj.line);
         });
       }
-      lowDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "low", lowGridSize);
-      lowDensityOverlay.cubesData.forEach(c => {
+      isolationOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "isolation", isolationGridSize);
+      isolationOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.add(c.tcMesh);
       });
-      lowDensityOverlay.adjacentLines.forEach(obj => {
+      isolationOverlay.adjacentLines.forEach(obj => {
         globeMap.scene.add(obj.line);
       });
     }
-    updateDensityMapping(cachedStars, lowDensityOverlay);
-    if (lowDensityLabeling) {
-      lowDensityOverlay.assignConstellationsToCells().then(() => {
-        lowDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
-        lowDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
+    updateDensityMapping(cachedStars, isolationOverlay);
+    if (isolationLabeling) {
+      isolationOverlay.assignConstellationsToCells().then(() => {
+        isolationOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
+        isolationOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
       });
     } else {
-      if (lowDensityOverlay.regionLabelsGroupTC && lowDensityOverlay.regionLabelsGroupTC.parent) {
-        lowDensityOverlay.regionLabelsGroupTC.parent.remove(lowDensityOverlay.regionLabelsGroupTC);
+      if (isolationOverlay.regionLabelsGroupTC && isolationOverlay.regionLabelsGroupTC.parent) {
+        isolationOverlay.regionLabelsGroupTC.parent.remove(isolationOverlay.regionLabelsGroupTC);
       }
-      if (lowDensityOverlay.regionLabelsGroupGlobe && lowDensityOverlay.regionLabelsGroupGlobe.parent) {
-        lowDensityOverlay.regionLabelsGroupGlobe.parent.remove(lowDensityOverlay.regionLabelsGroupGlobe);
+      if (isolationOverlay.regionLabelsGroupGlobe && isolationOverlay.regionLabelsGroupGlobe.parent) {
+        isolationOverlay.regionLabelsGroupGlobe.parent.remove(isolationOverlay.regionLabelsGroupGlobe);
       }
     }
   } else {
-    if (lowDensityOverlay) {
-      lowDensityOverlay.cubesData.forEach(c => {
+    if (isolationOverlay) {
+      isolationOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.remove(c.tcMesh);
         globeMap.scene.remove(c.globeMesh);
       });
-      lowDensityOverlay.adjacentLines.forEach(obj => {
+      isolationOverlay.adjacentLines.forEach(obj => {
         globeMap.scene.remove(obj.line);
       });
-      lowDensityOverlay = null;
+      isolationOverlay = null;
     }
   }
 
-  if (highDensityMapping) {
+  // Density mapping (formerly high density)
+  if (densityMapping) {
     const form = document.getElementById('filters-form');
-    // Updated grid mapping logic for high density:
-    const highGridSliderValue = parseFloat(new FormData(form).get('high-density-grid-size') || '0');
-    let highGridSize;
-    if (highGridSliderValue >= 0) {
-      highGridSize = 2 + highGridSliderValue;
+    const densityGridSliderValue = parseFloat(new FormData(form).get('high-density-grid-size') || '0');
+    let densityGridSize;
+    if (densityGridSliderValue >= 0) {
+      densityGridSize = 2 + densityGridSliderValue;
     } else {
-      highGridSize = 2 / (Math.abs(highGridSliderValue) + 1);
+      densityGridSize = 2 / (Math.abs(densityGridSliderValue) + 1);
     }
     if (
-      !highDensityOverlay ||
-      highDensityOverlay.minDistance !== parseFloat(minDistance) ||
-      highDensityOverlay.maxDistance !== parseFloat(maxDistance) ||
-      highDensityOverlay.gridSize !== highGridSize
+      !densityOverlay ||
+      densityOverlay.minDistance !== parseFloat(minDistance) ||
+      densityOverlay.maxDistance !== parseFloat(maxDistance) ||
+      densityOverlay.gridSize !== densityGridSize
     ) {
-      if (highDensityOverlay) {
-        highDensityOverlay.cubesData.forEach(c => {
+      if (densityOverlay) {
+        densityOverlay.cubesData.forEach(c => {
           trueCoordinatesMap.scene.remove(c.tcMesh);
         });
-        highDensityOverlay.adjacentLines.forEach(obj => {
+        densityOverlay.adjacentLines.forEach(obj => {
           globeMap.scene.remove(obj.line);
         });
       }
-      highDensityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "high", highGridSize);
-      highDensityOverlay.cubesData.forEach(c => {
+      densityOverlay = initDensityOverlay(minDistance, maxDistance, cachedStars, "density", densityGridSize);
+      densityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.add(c.tcMesh);
       });
-      highDensityOverlay.adjacentLines.forEach(obj => {
+      densityOverlay.adjacentLines.forEach(obj => {
         globeMap.scene.add(obj.line);
       });
     }
-    updateDensityMapping(cachedStars, highDensityOverlay);
-    if (highDensityLabeling) {
-      highDensityOverlay.assignConstellationsToCells().then(() => {
-        highDensityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
-        highDensityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
+    updateDensityMapping(cachedStars, densityOverlay);
+    if (densityLabeling) {
+      densityOverlay.assignConstellationsToCells().then(() => {
+        densityOverlay.addRegionLabelsToScene(trueCoordinatesMap.scene, 'TrueCoordinates');
+        densityOverlay.addRegionLabelsToScene(globeMap.scene, 'Globe');
       });
     } else {
-      if (highDensityOverlay.regionLabelsGroupTC && highDensityOverlay.regionLabelsGroupTC.parent) {
-        highDensityOverlay.regionLabelsGroupTC.parent.remove(highDensityOverlay.regionLabelsGroupTC);
+      if (densityOverlay.regionLabelsGroupTC && densityOverlay.regionLabelsGroupTC.parent) {
+        densityOverlay.regionLabelsGroupTC.parent.remove(densityOverlay.regionLabelsGroupTC);
       }
-      if (highDensityOverlay.regionLabelsGroupGlobe && highDensityOverlay.regionLabelsGroupGlobe.parent) {
-        highDensityOverlay.regionLabelsGroupGlobe.parent.remove(highDensityOverlay.regionLabelsGroupGlobe);
+      if (densityOverlay.regionLabelsGroupGlobe && densityOverlay.regionLabelsGroupGlobe.parent) {
+        densityOverlay.regionLabelsGroupGlobe.parent.remove(densityOverlay.regionLabelsGroupGlobe);
       }
     }
   } else {
-    if (highDensityOverlay) {
-      highDensityOverlay.cubesData.forEach(c => {
+    if (densityOverlay) {
+      densityOverlay.cubesData.forEach(c => {
         trueCoordinatesMap.scene.remove(c.tcMesh);
         globeMap.scene.remove(c.globeMesh);
       });
-      highDensityOverlay.adjacentLines.forEach(obj => {
+      densityOverlay.adjacentLines.forEach(obj => {
         globeMap.scene.remove(obj.line);
       });
-      highDensityOverlay = null;
+      densityOverlay = null;
     }
   }
   applyGlobeSurface(globeOpaqueSurface);
@@ -377,15 +377,12 @@ class MapManager {
     this.labelManager = new LabelManager(mapType, this.scene);
     this.starGroup = new THREE.Group();
     this.scene.add(this.starGroup);
-    // Use a debounced resize handler to avoid repeated heavy updates
     this.debouncedResize = debounce(() => this.onResize(), 200);
     window.addEventListener('resize', this.debouncedResize, false);
     this.animate();
   }
 
-  // UPDATED: Use instanced rendering for stars with proper color setup
   addStars(stars) {
-    // Clear previous star objects
     while (this.starGroup.children.length > 0) {
       const child = this.starGroup.children[0];
       this.starGroup.remove(child);
@@ -394,9 +391,7 @@ class MapManager {
     }
     const count = stars.length;
     if (count === 0) return;
-    // Create a base sphere geometry (unit sphere)
     const baseGeometry = new THREE.SphereGeometry(1, 12, 12);
-    // Add a dummy "color" attribute so that vertexColors are enabled.
     const vertexCount = baseGeometry.attributes.position.count;
     const dummyColors = new Float32Array(vertexCount * 3);
     for (let i = 0; i < vertexCount; i++) {
@@ -405,8 +400,6 @@ class MapManager {
       dummyColors[i * 3 + 2] = 1;
     }
     baseGeometry.setAttribute('color', new THREE.BufferAttribute(dummyColors, 3));
-
-    // Create material with vertexColors enabled and base color white.
     const material = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       transparent: true,
@@ -430,7 +423,6 @@ class MapManager {
       dummy.scale.set(scale, scale, scale);
       dummy.updateMatrix();
       instancedMesh.setMatrixAt(i, dummy.matrix);
-
       const color = new THREE.Color(star.displayColor || '#ffffff');
       colors[i * 3] = color.r;
       colors[i * 3 + 1] = color.g;
@@ -478,7 +470,6 @@ class MapManager {
   }
 }
 
-// UPDATED: Adjust interactive picking for instanced mesh objects.
 function initStarInteractions(map) {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
@@ -594,7 +585,6 @@ async function main() {
     const globeGrid = createGlobeGrid(100, { color: 0x444444, opacity: 0.2, lineWidth: 1 });
     globeMap.scene.add(globeGrid);
     buildAndApplyFilters();
-    // Initialize interactive picking for both maps
     initStarInteractions(trueCoordinatesMap);
     initStarInteractions(globeMap);
     loader.classList.add('hidden');
