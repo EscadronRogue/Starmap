@@ -10,11 +10,22 @@ export function initFilterUI() {
     document.querySelector('.sidebar').classList.toggle('open');
   });
 
-  // Enable/disable connection slider based on checkbox state
+  // Enable/disable connection slider and number input based on checkbox state
   const enableConnectionsChk = document.getElementById('enable-connections');
   const connectionSlider = document.getElementById('connection-slider');
+  const connectionNumber = document.getElementById('connection-number');
   enableConnectionsChk.addEventListener('change', function() {
-    connectionSlider.disabled = !this.checked;
+    const enabled = this.checked;
+    connectionSlider.disabled = !enabled;
+    connectionNumber.disabled = !enabled;
+  });
+
+  // Sync connection slider and number input
+  connectionSlider.addEventListener('input', function() {
+    connectionNumber.value = this.value;
+  });
+  connectionNumber.addEventListener('input', function() {
+    connectionSlider.value = this.value;
   });
 
   // Enable/disable low density mapping sliders
