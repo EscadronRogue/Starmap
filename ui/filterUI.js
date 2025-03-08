@@ -7,7 +7,7 @@ export function initFilterUI() {
     document.querySelector('.sidebar').classList.toggle('open');
   });
 
-  // Enable/disable connection slider based on checkbox state.
+  // Enable/disable connection slider.
   const enableConnectionsChk = document.getElementById('enable-connections');
   const connectionSlider = document.getElementById('connection-slider');
   const connectionNumber = document.getElementById('connection-number');
@@ -30,7 +30,6 @@ export function initFilterUI() {
   const isolationToleranceSlider = document.getElementById('isolation-tolerance-slider');
   const isolationGridSlider = document.getElementById('isolation-grid-slider');
   const isolationGridNumber = document.getElementById('isolation-grid-number');
-
   enableIsolationChk.addEventListener('change', function() {
     const enabled = this.checked;
     isolationSlider.disabled = !enabled;
@@ -57,42 +56,14 @@ export function initFilterUI() {
     isolationGridSlider.value = this.value;
   });
 
-  // Density Filter UI controls.
+  // Density Filter UI controls – now only the Subdivision Threshold control.
   const enableDensityChk = document.getElementById('enable-density-filter');
-  const densitySlider = document.getElementById('density-slider');
-  const densityNumber = document.getElementById('density-number');
-  const densityToleranceSlider = document.getElementById('density-tolerance-slider');
-  const densityGridSlider = document.getElementById('density-grid-slider');
-  const densityGridNumber = document.getElementById('density-grid-number');
   const densitySubdivisionSlider = document.getElementById('density-subdivision-percent-slider');
   const densitySubdivisionNumber = document.getElementById('density-subdivision-percent-number');
-
   enableDensityChk.addEventListener('change', function() {
     const enabled = this.checked;
-    densitySlider.disabled = !enabled;
-    densityNumber.disabled = !enabled;
-    densityToleranceSlider.disabled = !enabled;
-    densityGridSlider.disabled = !enabled;
-    densityGridNumber.disabled = !enabled;
     densitySubdivisionSlider.disabled = !enabled;
     densitySubdivisionNumber.disabled = !enabled;
-  });
-  densitySlider.addEventListener('input', function() {
-    densityNumber.value = this.value;
-    document.getElementById('density-value').textContent = this.value;
-  });
-  densityNumber.addEventListener('input', function() {
-    densitySlider.value = this.value;
-    document.getElementById('density-value').textContent = this.value;
-  });
-  densityToleranceSlider.addEventListener('input', function() {
-    document.getElementById('density-tolerance-value').textContent = this.value;
-  });
-  densityGridSlider.addEventListener('input', function() {
-    densityGridNumber.value = this.value;
-  });
-  densityGridNumber.addEventListener('input', function() {
-    densityGridSlider.value = this.value;
   });
   densitySubdivisionSlider.addEventListener('input', function() {
     densitySubdivisionNumber.value = this.value;
