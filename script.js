@@ -190,8 +190,14 @@ async function buildAndApplyFilters() {
 
   if (lowDensityMapping) {
     const form = document.getElementById('filters-form');
-    const lowGridSliderValue = parseFloat(new FormData(form).get('low-density-grid-size') || '2');
-    const lowGridSize = 4 / lowGridSliderValue;
+    // Updated grid mapping logic for low density:
+    const lowGridSliderValue = parseFloat(new FormData(form).get('low-density-grid-size') || '0');
+    let lowGridSize;
+    if (lowGridSliderValue >= 0) {
+      lowGridSize = 2 + lowGridSliderValue;
+    } else {
+      lowGridSize = 2 / (Math.abs(lowGridSliderValue) + 1);
+    }
     if (
       !lowDensityOverlay ||
       lowDensityOverlay.minDistance !== parseFloat(minDistance) ||
@@ -243,8 +249,14 @@ async function buildAndApplyFilters() {
 
   if (highDensityMapping) {
     const form = document.getElementById('filters-form');
-    const highGridSliderValue = parseFloat(new FormData(form).get('high-density-grid-size') || '2');
-    const highGridSize = 4 / highGridSliderValue;
+    // Updated grid mapping logic for high density:
+    const highGridSliderValue = parseFloat(new FormData(form).get('high-density-grid-size') || '0');
+    let highGridSize;
+    if (highGridSliderValue >= 0) {
+      highGridSize = 2 + highGridSliderValue;
+    } else {
+      highGridSize = 2 / (Math.abs(highGridSliderValue) + 1);
+    }
     if (
       !highDensityOverlay ||
       highDensityOverlay.minDistance !== parseFloat(minDistance) ||
