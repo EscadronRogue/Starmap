@@ -7,18 +7,12 @@ import { applyOpacityFilter } from './opacityFilter.js';
 import { applyStarsShownFilter } from './starsShownFilter.js';
 import { computeConnectionPairs } from './connectionsFilter.js';
 import { applyStellarClassLogic, generateStellarClassFilters as scGenerate } from './stellarClassFilter.js';
-
-// For constellations.
 import { loadConstellationBoundaries, loadConstellationCenters } from './constellationFilter.js';
-// Globe surface filter.
 import { applyGlobeSurfaceFilter } from './globeSurfaceFilter.js';
-// Constellation overlay filter.
 import { createConstellationOverlayForGlobe } from './constellationOverlayFilter.js';
-
-// Distance filter.
 import { applyDistanceFilter } from './distanceFilter.js';
 
-// Import new Isolation and Density Filter modules.
+// Import the new Isolation and Density Filter modules.
 import { initIsolationFilter, updateIsolationFilter } from './isolationFilter.js';
 import { initDensityFilter, updateDensityFilter } from './densityFilter.js';
 
@@ -30,10 +24,8 @@ export async function setupFilterUI(allStars) {
     console.warn('[setupFilterUI] No #filters-form found in DOM!');
     return;
   }
-
   loadStellarClassData();
   scGenerate(allStars);
-
   const mainLegends = filterForm.querySelectorAll('legend.collapsible');
   mainLegends.forEach(legend => {
     const fc = legend.nextElementSibling;
@@ -45,7 +37,6 @@ export async function setupFilterUI(allStars) {
       if (fc) fc.style.maxHeight = isActive ? fc.scrollHeight + 'px' : '0px';
     });
   });
-
   addConstellationsFieldset();
   addGlobeSurfaceFieldset();
   await loadConstellationBoundaries();
@@ -67,7 +58,6 @@ function addConstellationsFieldset() {
     legend.setAttribute('aria-expanded', isActive);
     contentDiv.style.maxHeight = isActive ? contentDiv.scrollHeight + 'px' : '0px';
   });
-
   const boundaryDiv = document.createElement('div');
   boundaryDiv.classList.add('filter-item');
   const boundaryChk = document.createElement('input');
@@ -81,7 +71,6 @@ function addConstellationsFieldset() {
   boundaryDiv.appendChild(boundaryChk);
   boundaryDiv.appendChild(boundaryLbl);
   contentDiv.appendChild(boundaryDiv);
-
   const namesDiv = document.createElement('div');
   namesDiv.classList.add('filter-item');
   const namesChk = document.createElement('input');
@@ -95,7 +84,6 @@ function addConstellationsFieldset() {
   namesDiv.appendChild(namesChk);
   namesDiv.appendChild(namesLbl);
   contentDiv.appendChild(namesDiv);
-
   const overlayDiv = document.createElement('div');
   overlayDiv.classList.add('filter-item');
   const overlayChk = document.createElement('input');
@@ -109,7 +97,6 @@ function addConstellationsFieldset() {
   overlayDiv.appendChild(overlayChk);
   overlayDiv.appendChild(overlayLbl);
   contentDiv.appendChild(overlayDiv);
-
   fs.appendChild(contentDiv);
   filterForm.appendChild(fs);
 }
@@ -164,8 +151,6 @@ export function applyFilters(allStars) {
         enableDensityFilter: false,
         isolation: 7,
         isolationTolerance: 0,
-        density: 1,
-        densityTolerance: 0,
         densitySubdivisionPercent: 5,
         enableIsolationLabeling: false,
         enableDensityLabeling: false,
@@ -192,8 +177,6 @@ export function applyFilters(allStars) {
     enableDensityFilter: (formData.get('enable-density-filter') !== null),
     isolation: parseFloat(formData.get('isolation')) || 7,
     isolationTolerance: parseInt(formData.get('isolation-tolerance')) || 0,
-    density: parseFloat(formData.get('density')) || 1,
-    densityTolerance: parseInt(formData.get('density-tolerance')) || 0,
     densitySubdivisionPercent: parseFloat(formData.get('density-subdivision-percent')) || 5,
     enableIsolationLabeling: (formData.get('enable-isolation-labeling') !== null),
     enableDensityLabeling: (formData.get('enable-density-labeling') !== null),
@@ -241,8 +224,6 @@ export function applyFilters(allStars) {
     enableDensityFilter: filters.enableDensityFilter,
     isolation: filters.isolation,
     isolationTolerance: filters.isolationTolerance,
-    density: filters.density,
-    densityTolerance: filters.densityTolerance,
     densitySubdivisionPercent: filters.densitySubdivisionPercent,
     enableIsolationLabeling: filters.enableIsolationLabeling,
     enableDensityLabeling: filters.enableDensityLabeling,
