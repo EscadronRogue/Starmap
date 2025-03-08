@@ -16,36 +16,39 @@ import { loadConstellationCenters, getConstellationCenters, loadConstellationBou
 /**
  * DensityGridOverlay
  * 
- * Constructs an overlay for density mapping.
- *
- * In "isolation" mode, a fixed grid is used.
- * In "density" mode, a KD tree approach recursively subdivides the star positions 
- * until each cell contains less than 5% of all plotted stars.
+ * This class constructs a grid overlay used for density mapping.
+ * 
+ * For mode "low" (the isolation filter), a uniform grid is built as before.
+ * For mode "high" (the new density filter), an adaptive KD tree–style subdivision is used.
  */
 export class DensityGridOverlay {
   /**
-   * @param {number} minDistance - Minimum distance (LY) to include cells.
-   * @param {number} maxDistance - Maximum distance (LY) to include cells.
-   * @param {number} gridSize - Base grid size (or starting subdivision value).
-   * @param {string} mode - Either "isolation" or "density".
+   * @param {number} minDistance - Minimum distance (LY) to include grid cells.
+   * @param {number} maxDistance - Maximum distance (LY) to include grid cells.
+   * @param {number} gridSize - Size (in LY) of each grid cell (used only in low mode).
+   * @param {string} mode - "low" (isolation) or "high" (density).
    */
-  constructor(minDistance, maxDistance, gridSize = 2, mode = "isolation") {
+  constructor(minDistance, maxDistance, gridSize = 2, mode = "low") {
     this.minDistance = parseFloat(minDistance);
     this.maxDistance = parseFloat(maxDistance);
     this.gridSize = gridSize;
-    this.mode = mode; // "isolation" or "density"
+    this.mode = mode; // "low" (isolation) or "high" (density)
     this.cubesData = [];
     this.adjacentLines = [];
     this.regionClusters = [];
     this.regionLabelsGroupTC = new THREE.Group();
     this.regionLabelsGroupGlobe = new THREE.Group();
-    // For KD tree mode, totalStars is set during grid creation.
-    this.totalStars = 0;
   }
 
+  /**
+   * Creates the grid overlay.
+   * In low mode the original uniform grid method is used.
+   * In high mode the grid is built adaptively using a KD tree–style subdivision.
+   * @param {Array} stars - Array of star objects.
+   */
   createGrid(stars) {
-    if (this.mode === "isolation") {
-      // Fixed-grid method for isolation mapping.
+    if (this.mode === "low") {
+      // === Uniform grid for Isolation Filter (unchanged) ===
       const halfExt = Math.ceil(this.maxDistance / this.gridSize) * this.gridSize;
       this.cubesData = [];
       for (let x = -halfExt; x <= halfExt; x += this.gridSize) {
@@ -57,18 +60,19 @@ export class DensityGridOverlay {
               z + this.gridSize / 2
             );
             const distFromCenter = posTC.length();
+            // Only include grid cells whose center is between minDistance and maxDistance.
             if (distFromCenter < this.minDistance || distFromCenter > this.maxDistance) continue;
             
             const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
             const material = new THREE.MeshBasicMaterial({
-              color: 0x0000ff,
+              color: (this.mode === "low") ? 0x0000ff : 0x00ff00,
               transparent: true,
               opacity: 1.0,
               depthWrite: false
             });
             const cubeTC = new THREE.Mesh(geometry, material);
             cubeTC.position.copy(posTC);
-    
+
             const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
             const material2 = material.clone();
             const squareGlobe = new THREE.Mesh(planeGeom, material2);
@@ -88,7 +92,7 @@ export class DensityGridOverlay {
             squareGlobe.position.copy(projectedPos);
             const normal = projectedPos.clone().normalize();
             squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-    
+
             const cell = {
               tcMesh: cubeTC,
               globeMesh: squareGlobe,
@@ -100,7 +104,7 @@ export class DensityGridOverlay {
               },
               active: false
             };
-    
+
             const cellRa = ((posTC.x + halfExt) / (2 * halfExt)) * 360;
             const cellDec = ((posTC.y + halfExt) / (2 * halfExt)) * 180 - 90;
             cell.ra = cellRa;
@@ -116,165 +120,374 @@ export class DensityGridOverlay {
         return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
       });
       this.cubesData.forEach(cell => computeCellDistances(cell, extendedStars));
-      this.computeAdjacentLines();
-    } else if (this.mode === "density") {
-      // KD tree method for density mapping.
-      this.totalStars = stars.length;
-      const points = stars.map(star => ({ position: star.truePosition.clone(), star: star }));
-      const threshold = 0.05 * this.totalStars; // 5% threshold
-      this.cubesData = buildKDTree(points, 0, threshold, this);
-      this.adjacentLines = [];
+    } else {
+      // === Adaptive grid for Density Filter using KD tree–style subdivision ===
+      this.buildAdaptiveGrid(stars);
     }
+    this.computeAdjacentLines();
   }
 
+  /**
+   * Computes adjacent lines between grid cells.
+   * In low mode the original neighbor lookup (via grid indices) is used.
+   * In high mode (adaptive grid), adjacent lines are computed by testing if cells’ bounding boxes touch.
+   */
   computeAdjacentLines() {
-    if (this.mode === "density") {
+    if (this.mode === "low") {
       this.adjacentLines = [];
-      return;
-    }
-    this.adjacentLines = [];
-    const cellMap = new Map();
-    this.cubesData.forEach(cell => {
-      const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
-      cellMap.set(key, cell);
-    });
-    const directions = [];
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dz = -1; dz <= 1; dz++) {
-          if (dx === 0 && dy === 0 && dz === 0) continue;
-          if (dx > 0 || (dx === 0 && dy > 0) || (dx === 0 && dy === 0 && dz > 0)) {
-            directions.push({ dx, dy, dz });
+      const cellMap = new Map();
+      this.cubesData.forEach(cell => {
+        const key = `${cell.grid.ix},${cell.grid.iy},${cell.grid.iz}`;
+        cellMap.set(key, cell);
+      });
+      const directions = [];
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dz = -1; dz <= 1; dz++) {
+            if (dx === 0 && dy === 0 && dz === 0) continue;
+            if (dx > 0 || (dx === 0 && dy > 0) || (dx === 0 && dy === 0 && dz > 0)) {
+              directions.push({ dx, dy, dz });
+            }
+          }
+        }
+      }
+      directions.forEach(dir => {
+        this.cubesData.forEach(cell => {
+          const neighborKey = `${cell.grid.ix + dir.dx},${cell.grid.iy + dir.dy},${cell.grid.iz + dir.dz}`;
+          if (cellMap.has(neighborKey)) {
+            const neighbor = cellMap.get(neighborKey);
+            const points = getGreatCirclePoints(cell.globeMesh.position, neighbor.globeMesh.position, 100, 16);
+            const positions = [];
+            const colors = [];
+            const c1 = cell.globeMesh.material.color;
+            const c2 = neighbor.globeMesh.material.color;
+            for (let i = 0; i < points.length; i++) {
+              positions.push(points[i].x, points[i].y, points[i].z);
+              let t = i / (points.length - 1);
+              let r = THREE.MathUtils.lerp(c1.r, c2.r, t);
+              let g = THREE.MathUtils.lerp(c1.g, c2.g, t);
+              let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
+              colors.push(r, g, b);
+            }
+            const geom = new THREE.BufferGeometry();
+            geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            const mat = new THREE.LineBasicMaterial({
+              vertexColors: true,
+              transparent: true,
+              opacity: 0.3,
+              linewidth: 1
+            });
+            const line = new THREE.Line(geom, mat);
+            line.renderOrder = 1;
+            this.adjacentLines.push({ line, cell1: cell, cell2: neighbor });
+          }
+        });
+      });
+    } else {
+      // For adaptive grid in high mode, use bounding-box intersection to determine neighbors.
+      this.adjacentLines = [];
+      const tol = 0.001;
+      for (let i = 0; i < this.cubesData.length; i++) {
+        for (let j = i + 1; j < this.cubesData.length; j++) {
+          const cell1 = this.cubesData[i];
+          const cell2 = this.cubesData[j];
+          if (this.areCellsAdjacent(cell1, cell2, tol)) {
+            const points = getGreatCirclePoints(cell1.globeMesh.position, cell2.globeMesh.position, 100, 16);
+            const positions = [];
+            const colors = [];
+            const c1 = cell1.globeMesh.material.color;
+            const c2 = cell2.globeMesh.material.color;
+            for (let k = 0; k < points.length; k++) {
+              positions.push(points[k].x, points[k].y, points[k].z);
+              let t = k / (points.length - 1);
+              let r = THREE.MathUtils.lerp(c1.r, c2.r, t);
+              let g = THREE.MathUtils.lerp(c1.g, c2.g, t);
+              let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
+              colors.push(r, g, b);
+            }
+            const geom = new THREE.BufferGeometry();
+            geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            const mat = new THREE.LineBasicMaterial({
+              vertexColors: true,
+              transparent: true,
+              opacity: 0.3,
+              linewidth: 1
+            });
+            const line = new THREE.Line(geom, mat);
+            line.renderOrder = 1;
+            this.adjacentLines.push({ line, cell1, cell2 });
           }
         }
       }
     }
-    directions.forEach(dir => {
-      this.cubesData.forEach(cell => {
-        const neighborKey = `${cell.grid.ix + dir.dx},${cell.grid.iy + dir.dy},${cell.grid.iz + dir.dz}`;
-        if (cellMap.has(neighborKey)) {
-          const neighbor = cellMap.get(neighborKey);
-          const points = getGreatCirclePoints(cell.globeMesh.position, neighbor.globeMesh.position, 100, 16);
-          const positions = [];
-          const colors = [];
-          const c1 = cell.globeMesh.material.color;
-          const c2 = neighbor.globeMesh.material.color;
-          for (let i = 0; i < points.length; i++) {
-            positions.push(points[i].x, points[i].y, points[i].z);
-            let t = i / (points.length - 1);
-            let r = THREE.MathUtils.lerp(c1.r, c2.r, t);
-            let g = THREE.MathUtils.lerp(c1.g, c2.g, t);
-            let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
-            colors.push(r, g, b);
-          }
-          const geom = new THREE.BufferGeometry();
-          geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-          geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-          const mat = new THREE.LineBasicMaterial({
-            vertexColors: true,
-            transparent: true,
-            opacity: 0.3,
-            linewidth: 1
-          });
-          const line = new THREE.Line(geom, mat);
-          line.renderOrder = 1;
-          this.adjacentLines.push({ line, cell1: cell, cell2: neighbor });
-        }
+  }
+
+  /**
+   * Determines if two adaptive cells (with bounding boxes) are adjacent.
+   * @param {Object} cell1 - A cell object with a bbox property.
+   * @param {Object} cell2 - Another cell object with a bbox property.
+   * @param {number} tol - Tolerance for gap checking.
+   * @returns {boolean} - True if the cells are adjacent or overlapping.
+   */
+  areCellsAdjacent(cell1, cell2, tol) {
+    const b1 = cell1.bbox;
+    const b2 = cell2.bbox;
+    const overlapX = !(b1.max.x < b2.min.x - tol || b1.min.x > b2.max.x + tol);
+    const overlapY = !(b1.max.y < b2.min.y - tol || b1.min.y > b2.max.y + tol);
+    const overlapZ = !(b1.max.z < b2.min.z - tol || b1.min.z > b2.max.z + tol);
+    return overlapX && overlapY && overlapZ;
+  }
+
+  /**
+   * Builds an adaptive grid (via recursive subdivision) for high density mode.
+   * It uses the current star positions (filtered by distance) and subdivides
+   * the bounding box until each leaf contains fewer than 5% of the total stars.
+   * The resulting leaves are then used to create grid cells.
+   * @param {Array} stars - Array of star objects.
+   */
+  buildAdaptiveGrid(stars) {
+    // Clear previous data
+    this.cubesData = [];
+    // Filter stars using an extended range (same as in uniform grid)
+    const extendedStars = stars.filter(star => {
+      const d = star.Distance_from_the_Sun;
+      return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
+    });
+    // Build an array of positions from the star data
+    const points = extendedStars.map(star => {
+      if (star.truePosition) {
+        return star.truePosition.clone();
+      } else {
+        return new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
+      }
+    });
+    const totalCount = points.length;
+    const thresholdCount = totalCount * 0.05;
+    // Compute the overall bounding box
+    const bbox = this.computeBoundingBox(points);
+    // Recursively subdivide the points/box until each leaf has <= thresholdCount points.
+    const leafCells = this.subdivide(points, bbox, thresholdCount);
+    // For each leaf cell, create a cell object with meshes and store in cubesData.
+    leafCells.forEach(cell => {
+      // Compute cell size as the maximum extent of the bbox.
+      const sizeX = cell.bbox.max.x - cell.bbox.min.x;
+      const sizeY = cell.bbox.max.y - cell.bbox.min.y;
+      const sizeZ = cell.bbox.max.z - cell.bbox.min.z;
+      const cellSize = Math.max(sizeX, sizeY, sizeZ);
+      // Create a cube mesh for the TrueCoordinates view.
+      const geometry = new THREE.BoxGeometry(cellSize, cellSize, cellSize);
+      const material = new THREE.MeshBasicMaterial({
+        color: 0x00ff00, // Green for density filter
+        transparent: true,
+        opacity: 1.0,
+        depthWrite: false
       });
+      const cubeTC = new THREE.Mesh(geometry, material);
+      cubeTC.position.copy(cell.center);
+      // Create a plane mesh for the Globe view.
+      const planeGeom = new THREE.PlaneGeometry(cellSize, cellSize);
+      const material2 = material.clone();
+      const squareGlobe = new THREE.Mesh(planeGeom, material2);
+      let distFromCenter = cell.center.length();
+      let projectedPos;
+      if (distFromCenter < 1e-6) {
+        projectedPos = new THREE.Vector3(0, 0, 0);
+      } else {
+        const ra = Math.atan2(-cell.center.z, -cell.center.x);
+        const dec = Math.asin(cell.center.y / distFromCenter);
+        const radius = 100;
+        projectedPos = new THREE.Vector3(
+          -radius * Math.cos(dec) * Math.cos(ra),
+           radius * Math.sin(dec),
+          -radius * Math.cos(dec) * Math.sin(ra)
+        );
+      }
+      squareGlobe.position.copy(projectedPos);
+      const normal = projectedPos.clone().normalize();
+      squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+      // Create a cell object and store computed properties.
+      const cellObj = {
+        tcMesh: cubeTC,
+        globeMesh: squareGlobe,
+        center: cell.center,
+        bbox: cell.bbox,
+        count: cell.count,
+        volume: cell.volume,
+        density: cell.count / cell.volume,
+        active: false,
+        grid: { ix: 0, iy: 0, iz: 0 } // dummy for compatibility
+      };
+      this.cubesData.push(cellObj);
     });
   }
 
   /**
-   * Projects a position vector (in true coordinates) onto a sphere of radius 100.
-   * @param {THREE.Vector3} position 
-   * @returns {THREE.Vector3}
+   * Computes the axis‑aligned bounding box for an array of THREE.Vector3 points.
+   * @param {Array} points - Array of THREE.Vector3.
+   * @returns {Object} - An object with properties { min, max }.
    */
-  projectToGlobe(position) {
-    const dist = position.length();
-    if (dist < 1e-6) return new THREE.Vector3(0, 0, 0);
-    const ra = Math.atan2(-position.z, -position.x);
-    const dec = Math.asin(position.y / dist);
-    const radius = 100;
-    return new THREE.Vector3(
-      -radius * Math.cos(dec) * Math.cos(ra),
-       radius * Math.sin(dec),
-      -radius * Math.cos(dec) * Math.sin(ra)
-    );
+  computeBoundingBox(points) {
+    if (points.length === 0) return { min: new THREE.Vector3(), max: new THREE.Vector3() };
+    const min = points[0].clone();
+    const max = points[0].clone();
+    points.forEach(p => {
+      min.x = Math.min(min.x, p.x);
+      min.y = Math.min(min.y, p.y);
+      min.z = Math.min(min.z, p.z);
+      max.x = Math.max(max.x, p.x);
+      max.y = Math.max(max.y, p.y);
+      max.z = Math.max(max.z, p.z);
+    });
+    return { min, max };
   }
 
+  /**
+   * Recursively subdivides an array of points within a bounding box until the number of points
+   * in a leaf is less than or equal to the threshold.
+   * @param {Array} points - Array of THREE.Vector3.
+   * @param {Object} bbox - Bounding box with { min, max }.
+   * @param {number} threshold - Maximum allowed number of points per leaf.
+   * @returns {Array} - Array of leaf cell objects: { center, bbox, count, volume }.
+   */
+  subdivide(points, bbox, threshold) {
+    if (points.length <= threshold || points.length <= 1) {
+      const center = new THREE.Vector3(
+        (bbox.min.x + bbox.max.x) / 2,
+        (bbox.min.y + bbox.max.y) / 2,
+        (bbox.min.z + bbox.max.z) / 2
+      );
+      const volume = (bbox.max.x - bbox.min.x) * (bbox.max.y - bbox.min.y) * (bbox.max.z - bbox.min.z) || 1;
+      return [{ center, bbox, count: points.length, volume }];
+    }
+    // Determine the longest axis of the bbox
+    const sizeX = bbox.max.x - bbox.min.x;
+    const sizeY = bbox.max.y - bbox.min.y;
+    const sizeZ = bbox.max.z - bbox.min.z;
+    let axis = 'x';
+    if (sizeY >= sizeX && sizeY >= sizeZ) axis = 'y';
+    else if (sizeZ >= sizeX && sizeZ >= sizeY) axis = 'z';
+    // Sort the points along the chosen axis
+    points.sort((a, b) => a[axis] - b[axis]);
+    const medianIndex = Math.floor(points.length / 2);
+    const medianValue = points[medianIndex][axis];
+    // Create bounding boxes for the left and right halves
+    const leftBbox = {
+      min: bbox.min.clone(),
+      max: bbox.max.clone()
+    };
+    leftBbox.max[axis] = medianValue;
+    const rightBbox = {
+      min: bbox.min.clone(),
+      max: bbox.max.clone()
+    };
+    rightBbox.min[axis] = medianValue;
+    const leftPoints = points.slice(0, medianIndex);
+    const rightPoints = points.slice(medianIndex);
+    const leftLeaves = this.subdivide(leftPoints, leftBbox, threshold);
+    const rightLeaves = this.subdivide(rightPoints, rightBbox, threshold);
+    return leftLeaves.concat(rightLeaves);
+  }
+
+  /**
+   * Updates the grid overlay.
+   * In low mode the uniform grid cells are updated based on distance to stars.
+   * In high mode the adaptive grid is rebuilt from the updated star array.
+   * @param {Array} stars - Array of star objects.
+   */
   update(stars) {
-    if (this.mode === "isolation") {
-      // For isolation mode, we now compute the condition for the globe map using projected (spherical) positions.
-      const isolationVal = parseFloat(document.getElementById('low-density-slider').value) || 7;
-      const toleranceVal = parseInt(document.getElementById('low-tolerance-slider').value) || 0;
-      // Build an extended list of stars for globe projection using their sphere positions.
+    if (this.mode === "low") {
+      // === Low mode update (isolation filter) remains unchanged ===
       const extendedStars = stars.filter(star => {
-        const d = star.Distance_from_the_Sun || star.distance;
+        const d = star.Distance_from_the_Sun;
         return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
       });
       this.cubesData.forEach(cell => {
-        // For true coordinates, use the precomputed distances.
-        let isoDistTrue = Infinity;
-        if (cell.distances.length > toleranceVal) {
-          isoDistTrue = cell.distances[toleranceVal];
+        computeCellDistances(cell, extendedStars);
+      });
+      let isolationVal, toleranceVal;
+      isolationVal = parseFloat(document.getElementById('low-density-slider').value) || 7;
+      toleranceVal = parseInt(document.getElementById('low-tolerance-slider').value) || 0;
+      this.cubesData.forEach(cell => {
+        let isoDist = Infinity;
+        if (cell.distances && cell.distances.length > toleranceVal) {
+          isoDist = cell.distances[toleranceVal];
         }
-        // For the globe, compute the angular (arc length) distances.
-        const projectedCenter = this.projectToGlobe(cell.tcPos);
-        let angularDistances = [];
-        extendedStars.forEach(star => {
-          let starProj = star.spherePosition;
-          if (!starProj) {
-            // Fallback if not defined.
-            starProj = this.projectToGlobe(getStarTruePosition(star));
-          }
-          const angle = projectedCenter.angleTo(starProj); // in radians
-          // Convert to arc length on a sphere of radius 100.
-          const arcLength = 100 * angle;
-          angularDistances.push(arcLength);
-        });
-        angularDistances.sort((a, b) => a - b);
-        let isoDistGlobe = Infinity;
-        if (angularDistances.length > toleranceVal) {
-          isoDistGlobe = angularDistances[toleranceVal];
-        }
-        // Decide activation based on the globe measure.
-        const showSquare = (isoDistGlobe >= isolationVal);
+        let showSquare = (isoDist >= isolationVal);
         cell.active = showSquare;
-        // For true coordinates update:
         let ratio = cell.tcPos.length() / this.maxDistance;
         if (ratio > 1) ratio = 1;
         const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
-        cell.tcMesh.visible = showSquare;
+        cell.tcMesh.visible = cell.active;
         cell.tcMesh.material.opacity = alpha;
-        // Update globe mesh using the projected center.
-        cell.globeMesh.position.copy(projectedCenter);
-        cell.globeMesh.visible = showSquare;
+        cell.globeMesh.visible = cell.active;
         cell.globeMesh.material.opacity = alpha;
         const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
         cell.globeMesh.scale.set(scale, scale, 1);
       });
-    } else if (this.mode === "density") {
+    } else {
+      // === High mode update (density filter using adaptive grid) ===
+      // Remove previous cell meshes and adjacent lines from the scenes
       this.cubesData.forEach(cell => {
-        let normalized = THREE.MathUtils.clamp(cell.count / (0.05 * this.totalStars), 0, 1);
-        cell.active = true;
-        const alpha = THREE.MathUtils.lerp(0.10, 0.5, normalized);
-        const lightGreen = new THREE.Color('#90ee90');
-        const darkGreen = new THREE.Color('#006400');
-        const color = lightGreen.clone().lerp(darkGreen, normalized);
-        cell.tcMesh.visible = true;
+        if (cell.tcMesh && cell.tcMesh.parent) cell.tcMesh.parent.remove(cell.tcMesh);
+        if (cell.globeMesh && cell.globeMesh.parent) cell.globeMesh.parent.remove(cell.globeMesh);
+      });
+      this.adjacentLines.forEach(obj => {
+        if (obj.line && obj.line.parent) obj.line.parent.remove(obj.line);
+      });
+      // Rebuild the adaptive grid from the updated star array.
+      this.buildAdaptiveGrid(stars);
+      // Use the high-density slider value as a threshold on computed density.
+      const densityThreshold = parseFloat(document.getElementById('high-density-slider').value) || 1;
+      this.cubesData.forEach(cell => {
+        cell.density = cell.count / cell.volume;
+        cell.active = (cell.density > densityThreshold);
+        let ratio = cell.center.length() / this.maxDistance;
+        if (ratio > 1) ratio = 1;
+        const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
+        cell.tcMesh.visible = cell.active;
         cell.tcMesh.material.opacity = alpha;
-        cell.tcMesh.material.color.set(color);
-        cell.globeMesh.visible = true;
+        cell.globeMesh.visible = cell.active;
         cell.globeMesh.material.opacity = alpha;
-        cell.globeMesh.material.color.set(color);
-        const scale = THREE.MathUtils.lerp(20.0, 0.1, normalized);
+        const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
         cell.globeMesh.scale.set(scale, scale, 1);
       });
+      // Recompute adjacent lines for the adaptive grid.
+      this.computeAdjacentLines();
     }
+    // In both modes, update adjacent line geometries.
+    this.adjacentLines.forEach(obj => {
+      const { line, cell1, cell2 } = obj;
+      if (cell1.globeMesh.visible && cell2.globeMesh.visible) {
+        const points = getGreatCirclePoints(cell1.globeMesh.position, cell2.globeMesh.position, 100, 16);
+        const positions = [];
+        const colors = [];
+        const c1 = cell1.globeMesh.material.color;
+        const c2 = cell2.globeMesh.material.color;
+        for (let i = 0; i < points.length; i++) {
+          positions.push(points[i].x, points[i].y, points[i].z);
+          let t = i / (points.length - 1);
+          let r = THREE.MathUtils.lerp(c1.r, c2.r, t);
+          let g = THREE.MathUtils.lerp(c1.g, c2.g, t);
+          let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
+          colors.push(r, g, b);
+        }
+        line.geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        line.geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        line.geometry.attributes.position.needsUpdate = true;
+        line.geometry.attributes.color.needsUpdate = true;
+        const avgScale = (cell1.globeMesh.scale.x + cell2.globeMesh.scale.x) / 2;
+        line.material.linewidth = avgScale;
+        line.visible = true;
+      } else {
+        line.visible = false;
+      }
+    });
   }
 
   async assignConstellationsToCells() {
-    if (this.mode === "isolation") {
+    if (this.mode === "low") {
       await loadConstellationCenters();
       await loadConstellationBoundaries();
       const centers = getConstellationCenters();
@@ -362,7 +575,7 @@ export class DensityGridOverlay {
           cell.constellation = bestConstellation;
         }
       });
-    } else {
+    } else { // High density mode
       this.cubesData.forEach(cell => {
         if (cell.active) {
           cell.clusterLabel = this.getBestStarLabel([cell]);
@@ -453,13 +666,13 @@ export class DensityGridOverlay {
     regions.forEach(region => {
       if (region.type === 'Oceanus' || region.type === 'Mare' || region.type === 'Lacus' ||
           region.type === 'Continens' || region.type === 'Peninsula' || region.type === 'Insula') {
-        let baseColor = (this.mode === "isolation") ? getBlueColor(region.constName) : getGreenColor(region.constName);
+        let baseColor = (this.mode === "low") ? getBlueColor(region.constName) : getGreenColor(region.constName);
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color || baseColor);
           cell.globeMesh.material.color.set(region.color || baseColor);
         });
       } else if (region.type === 'Fretum' || region.type === 'Isthmus') {
-        let baseColor = (this.mode === "isolation") ? getBlueColor(region.constName) : getGreenColor(region.constName);
+        let baseColor = (this.mode === "low") ? getBlueColor(region.constName) : getGreenColor(region.constName);
         region.color = lightenColor(baseColor, 0.1);
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color);
@@ -468,10 +681,204 @@ export class DensityGridOverlay {
       }
     });
   }
+
+  getMajorityConstellation(cells) {
+    const freq = {};
+    cells.forEach(cell => {
+      const cst = cell.constellation && cell.constellation !== "Unknown"
+        ? toTitleCase(cell.constellation)
+        : null;
+      if (cst) {
+        freq[cst] = (freq[cst] || 0) + 1;
+      }
+    });
+    let maxCount = 0;
+    let majority = "Unknown";
+    Object.keys(freq).forEach(key => {
+      if (freq[key] > maxCount) {
+        maxCount = freq[key];
+        majority = key;
+      }
+    });
+    return majority;
+  }
+
+  classifyEmptyRegions() {
+    this.regionClusters = [];
+    const activeCells = this.cubesData.filter(c => c.active);
+    const visited = new Set();
+    const clusters = [];
+    activeCells.forEach(cell => {
+      if (visited.has(cell.id)) return;
+      const stack = [cell];
+      const clusterCells = [];
+      while (stack.length > 0) {
+        const current = stack.pop();
+        if (visited.has(current.id)) continue;
+        visited.add(current.id);
+        clusterCells.push(current);
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dz = -1; dz <= 1; dz++) {
+              if (dx === 0 && dy === 0 && dz === 0) continue;
+              const nx = current.grid.ix + dx;
+              const ny = current.grid.iy + dy;
+              const nz = current.grid.iz + dz;
+              const neighbor = activeCells.find(c => c.grid.ix === nx && c.grid.iy === ny && c.grid.iz === nz);
+              if (neighbor && !visited.has(neighbor.id)) {
+                stack.push(neighbor);
+              }
+            }
+          }
+        }
+      }
+      clusters.push(clusterCells);
+    });
+    let V_max = 0;
+    clusters.forEach(c => {
+      if (c.length > V_max) V_max = c.length;
+    });
+    const allRegions = [];
+    clusters.forEach(c => {
+      let subRegions;
+      if (this.mode === "low") {
+        const majority = this.getMajorityConstellation(c);
+        subRegions = this.recursiveSegmentCluster(c, V_max, majority);
+      } else {
+        const bestLabel = this.getBestStarLabel(c);
+        subRegions = this.recursiveSegmentCluster(c, V_max, bestLabel);
+      }
+      subRegions.forEach(sr => allRegions.push(sr));
+    });
+    this.regionClusters = allRegions;
+    return allRegions;
+  }
+
+  recursiveSegmentCluster(cells, V_max, labelForCells) {
+    const size = cells.length;
+    if (this.mode === "low") {
+      if (size < 0.1 * V_max) {
+        return [{
+          cells,
+          volume: size,
+          constName: labelForCells,
+          type: "Lacus",
+          label: `Lacus ${labelForCells}`,
+          labelScale: 0.8,
+          bestCell: computeInterconnectedCell(cells)
+        }];
+      }
+      const segResult = segmentOceanCandidate(cells);
+      if (!segResult.segmented) {
+        if (size < 0.5 * V_max) {
+          return [{
+            cells,
+            volume: size,
+            constName: labelForCells,
+            type: "Mare",
+            label: `Mare ${labelForCells}`,
+            labelScale: 0.9,
+            bestCell: computeInterconnectedCell(cells)
+          }];
+        } else {
+          return [{
+            cells,
+            volume: size,
+            constName: labelForCells,
+            type: "Oceanus",
+            label: `Oceanus ${labelForCells}`,
+            labelScale: 1.0,
+            bestCell: computeInterconnectedCell(cells)
+          }];
+        }
+      }
+      const regions = [];
+      segResult.cores.forEach(core => {
+        const sub = this.recursiveSegmentCluster(core, V_max, this.getMajorityConstellation(core));
+        sub.forEach(r => regions.push(r));
+      });
+      if (segResult.neck && segResult.neck.length > 0) {
+        const neckLabel = this.getMajorityConstellation(segResult.neck);
+        regions.push({
+          cells: segResult.neck,
+          volume: segResult.neck.length,
+          constName: neckLabel,
+          type: "Fretum",
+          label: `Fretum ${neckLabel}`,
+          labelScale: 0.7,
+          bestCell: computeInterconnectedCell(segResult.neck),
+          color: lightenColor(getBlueColor(neckLabel), 0.1)
+        });
+      }
+      return regions;
+    } else {
+      if (size < 0.1 * V_max) {
+        return [{
+          cells,
+          volume: size,
+          constName: labelForCells,
+          type: "Insula",
+          label: `Insula ${labelForCells}`,
+          labelScale: 0.8,
+          bestCell: computeInterconnectedCell(cells)
+        }];
+      }
+      const segResult = segmentOceanCandidate(cells);
+      if (!segResult.segmented) {
+        return [{
+          cells,
+          volume: size,
+          constName: labelForCells,
+          type: "Continens",
+          label: `Continens ${labelForCells}`,
+          labelScale: 1.0,
+          bestCell: computeInterconnectedCell(cells)
+        }];
+      }
+      const regions = [];
+      segResult.cores.forEach(core => {
+        let sub = this.recursiveSegmentCluster(core, V_max, this.getBestStarLabel(core));
+        sub.forEach(r => {
+          r.type = "Peninsula";
+          r.label = `Peninsula ${r.constName}`;
+          regions.push(r);
+        });
+      });
+      if (segResult.neck && segResult.neck.length > 0) {
+        const neckLabel = this.getBestStarLabel(segResult.neck);
+        regions.push({
+          cells: segResult.neck,
+          volume: segResult.neck.length,
+          constName: neckLabel,
+          type: "Isthmus",
+          label: `Isthmus ${neckLabel}`,
+          labelScale: 0.7,
+          bestCell: computeInterconnectedCell(segResult.neck),
+          color: lightenColor(getGreenColor(neckLabel), 0.1)
+        });
+      }
+      return regions;
+    }
+  }
+
+  projectToGlobe(position) {
+    const dist = position.length();
+    if (dist < 1e-6) return new THREE.Vector3(0, 0, 0);
+    const ra = Math.atan2(-position.z, -position.x);
+    const dec = Math.asin(position.y / dist);
+    const radius = 100;
+    return new THREE.Vector3(
+      -radius * Math.cos(dec) * Math.cos(ra),
+       radius * Math.sin(dec),
+      -radius * Math.cos(dec) * Math.sin(ra)
+    );
+  }
 }
 
-// -------------------------------------------------------------------
-// Helper function to compute cell distances.
+/**
+ * Helper: Computes distances for a uniform grid cell.
+ * (Used only in low mode.)
+ */
 function computeCellDistances(cell, stars) {
   const dArr = stars.map(star => {
     let starPos = star.truePosition ? star.truePosition : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
@@ -485,95 +892,44 @@ function computeCellDistances(cell, stars) {
   cell.nearestStar = dArr.length > 0 ? dArr[0].star : null;
 }
 
-// -------------------------------------------------------------------
-// KD Tree Helpers for Density Mode
-
-function buildKDTree(points, depth, threshold, overlay) {
-  if (points.length <= threshold) {
-    return [createCellFromPoints(points, overlay)];
-  }
-  const axis = depth % 3;
-  points.sort((a, b) => a.position.getComponent(axis) - b.position.getComponent(axis));
-  const medianIndex = Math.floor(points.length / 2);
-  const leftPoints = points.slice(0, medianIndex);
-  const rightPoints = points.slice(medianIndex);
-  let cells = [];
-  cells = cells.concat(buildKDTree(leftPoints, depth + 1, threshold, overlay));
-  cells = cells.concat(buildKDTree(rightPoints, depth + 1, threshold, overlay));
-  return cells;
-}
-
-function createCellFromPoints(points, overlay) {
-  let minX = Infinity, minY = Infinity, minZ = Infinity;
-  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
-  points.forEach(pt => {
-    const pos = pt.position;
-    if (pos.x < minX) minX = pos.x;
-    if (pos.y < minY) minY = pos.y;
-    if (pos.z < minZ) minZ = pos.z;
-    if (pos.x > maxX) maxX = pos.x;
-    if (pos.y > maxY) maxY = pos.y;
-    if (pos.z > maxZ) maxZ = pos.z;
+/**
+ * (Placeholder) Helper to get the best star label.
+ * In practice, this uses star properties to decide.
+ */
+function getBestStarLabel(cells) {
+  let bestStar = null;
+  let bestRank = -Infinity;
+  cells.forEach(cell => {
+    if (cell.nearestStar) {
+      const rank = getStellarClassRank(cell.nearestStar);
+      if (rank > bestRank) {
+        bestRank = rank;
+        bestStar = cell.nearestStar;
+      } else if (rank === bestRank && bestStar) {
+        if (cell.nearestStar.Absolute_magnitude !== undefined && bestStar.Absolute_magnitude !== undefined) {
+          if (cell.nearestStar.Absolute_magnitude < bestStar.Absolute_magnitude) {
+            bestStar = cell.nearestStar;
+          }
+        }
+      }
+    }
   });
-  const minVec = new THREE.Vector3(minX, minY, minZ);
-  const maxVec = new THREE.Vector3(maxX, maxY, maxZ);
-  const center = new THREE.Vector3().addVectors(minVec, maxVec).multiplyScalar(0.5);
-  const boxSize = new THREE.Vector3().subVectors(maxVec, minVec);
-  const sizeX = boxSize.x || overlay.gridSize;
-  const sizeY = boxSize.y || overlay.gridSize;
-  const sizeZ = boxSize.z || overlay.gridSize;
-  const geometry = new THREE.BoxGeometry(sizeX, sizeY, sizeZ);
-  const materialColor = (overlay.mode === "isolation") ? 0x0000ff : 0x00ff00;
-  const material = new THREE.MeshBasicMaterial({
-    color: materialColor,
-    transparent: true,
-    opacity: 1.0,
-    depthWrite: false
-  });
-  const cubeTC = new THREE.Mesh(geometry, material);
-  cubeTC.position.copy(center);
-  
-  const planeGeom = new THREE.PlaneGeometry(sizeX, sizeY);
-  const material2 = material.clone();
-  const squareGlobe = new THREE.Mesh(planeGeom, material2);
-  let projectedPos;
-  const distFromCenter = center.length();
-  if (distFromCenter < 1e-6) {
-    projectedPos = new THREE.Vector3(0, 0, 0);
-  } else {
-    const ra = Math.atan2(-center.z, -center.x);
-    const dec = Math.asin(center.y / distFromCenter);
-    const radius = 100;
-    projectedPos = new THREE.Vector3(
-      -radius * Math.cos(dec) * Math.cos(ra),
-       radius * Math.sin(dec),
-      -radius * Math.cos(dec) * Math.sin(ra)
-    );
-  }
-  squareGlobe.position.copy(projectedPos);
-  const normal = projectedPos.clone().normalize();
-  squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-  
-  const cell = {
-    tcMesh: cubeTC,
-    globeMesh: squareGlobe,
-    tcPos: center,
-    count: points.length,
-    active: true
-  };
-  cell.id = overlay.cubesData ? overlay.cubesData.length : 0;
-  return cell;
+  return bestStar ? (bestStar.Common_name_of_the_star_system || bestStar.Common_name_of_the_star || "Unknown") : "Unknown";
 }
 
-function vectorToRaDec(vector) {
-  const R = 100;
-  const dec = Math.asin(vector.y / R);
-  let ra = Math.atan2(-vector.z, -vector.x);
-  let raDeg = ra * 180 / Math.PI;
-  if (raDeg < 0) raDeg += 360;
-  return { ra: raDeg, dec: dec * 180 / Math.PI };
+/**
+ * (Placeholder) Helper to rank a star’s stellar class.
+ */
+function getStellarClassRank(star) {
+  if (!star || !star.Stellar_class) return 0;
+  const letter = star.Stellar_class.charAt(0).toUpperCase();
+  const rankMap = { 'O': 7, 'B': 6, 'A': 5, 'F': 4, 'G': 3, 'K': 2, 'M': 1 };
+  return rankMap[letter] || 0;
 }
 
+/**
+ * (Placeholder) Converts a string to title case.
+ */
 function toTitleCase(str) {
   if (!str || typeof str !== "string") return str;
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
