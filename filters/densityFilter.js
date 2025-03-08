@@ -1,8 +1,8 @@
 // /filters/densityFilter.js
 // This module implements the Density Filter as a true KD tree.
-// Each leaf is colored in green: the root cell (depth 0) is light green with opacity 0.1,
+// Each leaf cell is colored in green: the root cell (depth 0) is light green with opacity 0.1,
 // and deeper leaves become darker (lower HSL lightness) and more opaque (up to 0.5).
-// The subdivision threshold is user‑adjustable (in percentage of the total plotted stars).
+// The subdivision threshold is now an absolute star‑count value.
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { radToSphere, getGreatCirclePoints } from '../utils/geometryUtils.js';
@@ -11,12 +11,12 @@ export class DensityGridOverlay {
   /**
    * @param {number} minDistance - Minimum distance (LY) to include grid cells.
    * @param {number} maxDistance - Maximum distance (LY) to include grid cells.
-   * @param {number} subdivisionThresholdPercent - Percentage threshold for subdivision (default 5).
+   * @param {number} subdivisionThresholdStars - Star count threshold for subdivision (default 5).
    */
-  constructor(minDistance, maxDistance, subdivisionThresholdPercent = 5) {
+  constructor(minDistance, maxDistance, subdivisionThresholdStars = 5) {
     this.minDistance = parseFloat(minDistance);
     this.maxDistance = parseFloat(maxDistance);
-    this.subdivisionThresholdPercent = subdivisionThresholdPercent;
+    this.subdivisionThresholdStars = subdivisionThresholdStars;
     this.cubesData = [];
     this.adjacentLines = [];
     this.regionClusters = [];
@@ -35,10 +35,10 @@ export class DensityGridOverlay {
       if (star.truePosition) return star.truePosition.clone();
       return new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
     });
-    const totalCount = points.length;
-    const thresholdCount = totalCount * (this.subdivisionThresholdPercent / 100);
+    // Use the absolute star count threshold directly.
+    const thresholdCount = this.subdivisionThresholdStars;
     const bbox = this.computeBoundingBox(points);
-    // Recursively subdivide points (true KD tree–style) and pass along the current depth.
+    // Recursively subdivide points (true KD tree–style) passing along the current depth.
     const leafCells = this.subdivide(points, bbox, thresholdCount, 0);
     // Determine maximum depth reached.
     let maxDepth = 0;
@@ -94,7 +94,6 @@ export class DensityGridOverlay {
         bbox: cell.bbox,
         count: cell.count,
         volume: cell.volume,
-        density: cell.count / cell.volume,
         depth: cell.depth,
         active: false,
         grid: { ix: 0, iy: 0, iz: 0 }
@@ -191,16 +190,7 @@ export class DensityGridOverlay {
     }
   }
 
-  // Simple check based on bounding box intersection.
-  areCellsAdjacent(cell1, cell2, tol) {
-    const b1 = cell1.bbox;
-    const b2 = cell2.bbox;
-    const overlapX = !(b1.max.x < b2.min.x - tol || b1.min.x > b2.max.x + tol);
-    const overlapY = !(b1.max.y < b2.min.y - tol || b1.min.y > b2.max.y + tol);
-    const overlapZ = !(b1.max.z < b2.min.z - tol || b1.min.z > b2.max.z + tol);
-    return overlapX && overlapY && overlapZ;
-  }
-
+  // In update, we now use an absolute star count threshold instead of density.
   update(stars) {
     // Remove previous cell meshes and adjacent lines.
     this.cubesData.forEach(cell => {
@@ -211,15 +201,15 @@ export class DensityGridOverlay {
       if (obj.line && obj.line.parent) obj.line.parent.remove(obj.line);
     });
     this.buildAdaptiveGrid(stars);
-    // FIX: Use the correct element id for the density slider.
-    const densityThreshold = parseFloat(document.getElementById('density-subdivision-percent-slider').value) || 1;
+    // Read the absolute star threshold from the slider (values between 1 and 100).
+    const starThreshold = parseFloat(document.getElementById('density-subdivision-percent-slider').value) || 1;
     let maxDepth = 0;
     this.cubesData.forEach(cell => {
       if (cell.depth > maxDepth) maxDepth = cell.depth;
     });
     this.cubesData.forEach(cell => {
-      cell.density = cell.count / cell.volume;
-      cell.active = (cell.density > densityThreshold);
+      // Now use the raw star count in the cell.
+      cell.active = (cell.count >= starThreshold);
       let ratio = cell.center.length() / this.maxDistance;
       if (ratio > 1) ratio = 1;
       const depthRatio = maxDepth > 0 ? cell.depth / maxDepth : 0;
@@ -274,8 +264,7 @@ export class DensityGridOverlay {
       if (star.truePosition) return star.truePosition.clone();
       return new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
     });
-    const totalCount = points.length;
-    const thresholdCount = totalCount * (this.subdivisionThresholdPercent / 100);
+    const thresholdCount = this.subdivisionThresholdStars;
     const bbox = this.computeBoundingBox(points);
     const leafCells = this.subdivide(points, bbox, thresholdCount, 0);
     leafCells.forEach(cell => {
@@ -326,7 +315,6 @@ export class DensityGridOverlay {
         bbox: cell.bbox,
         count: cell.count,
         volume: cell.volume,
-        density: cell.count / cell.volume,
         depth: cell.depth,
         active: false,
         grid: { ix: 0, iy: 0, iz: 0 }
@@ -336,8 +324,8 @@ export class DensityGridOverlay {
   }
 }
 
-export function initDensityFilter(minDistance, maxDistance, starArray, subdivisionThresholdPercent = 5) {
-  const overlay = new DensityGridOverlay(minDistance, maxDistance, subdivisionThresholdPercent);
+export function initDensityFilter(minDistance, maxDistance, starArray, subdivisionThresholdStars = 5) {
+  const overlay = new DensityGridOverlay(minDistance, maxDistance, subdivisionThresholdStars);
   overlay.createGrid(starArray);
   return overlay;
 }
