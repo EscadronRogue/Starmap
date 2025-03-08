@@ -126,13 +126,13 @@
           </div>
         </fieldset>
 
-        <!-- LOW DENSITY MAPPING Filter -->
+        <!-- ISOLATION MAPPING Filter (formerly Low Density Mapping) -->
         <fieldset>
-          <legend class="collapsible" aria-expanded="false">Low Density Mapping</legend>
+          <legend class="collapsible" aria-expanded="false">Isolation Mapping</legend>
           <div class="filter-content">
             <div class="filter-item">
               <input type="checkbox" id="enable-low-density-mapping" name="enable-low-density-mapping" />
-              <label for="enable-low-density-mapping">Enable Low Density Mapping</label>
+              <label for="enable-low-density-mapping">Enable Isolation Mapping</label>
             </div>
             <div class="filter-item">
               <label for="low-density-slider">Isolation Distance (LY):</label>
@@ -146,11 +146,10 @@
             </div>
             <div class="filter-item">
               <input type="checkbox" id="enable-low-density-labeling" name="enable-low-density-labeling" />
-              <label for="enable-low-density-labeling">Enable Low Density Cluster Labeling &amp; Segmentation</label>
+              <label for="enable-low-density-labeling">Enable Isolation Cluster Labeling &amp; Segmentation</label>
             </div>
             <div class="filter-item">
               <label for="low-density-grid-slider">Grid Subdivision:</label>
-              <!-- Updated slider: now from -4 to 4 with step 1 and default 0 -->
               <input 
                 type="range" 
                 id="low-density-grid-slider" 
@@ -175,34 +174,33 @@
           </div>
         </fieldset>
 
-        <!-- HIGH DENSITY MAPPING Filter -->
+        <!-- DENSITY MAPPING Filter (formerly High Density Mapping) -->
         <fieldset>
-          <legend class="collapsible" aria-expanded="false">High Density Mapping</legend>
+          <legend class="collapsible" aria-expanded="false">Density Mapping</legend>
           <div class="filter-content">
             <div class="filter-item">
-              <input type="checkbox" id="enable-high-density-mapping" name="enable-high-density-mapping" />
-              <label for="enable-high-density-mapping">Enable High Density Mapping</label>
+              <input type="checkbox" id="enable-density-mapping" name="enable-high-density-mapping" />
+              <label for="enable-density-mapping">Enable Density Mapping</label>
             </div>
             <div class="filter-item">
-              <label for="high-density-slider">Clustering Distance (LY):</label>
-              <input type="range" id="high-density-slider" name="high-density" min="1" max="20" value="1" disabled />
-              <input type="number" id="high-density-number" name="high-density" min="1" max="20" value="1" disabled />
-              <span id="high-density-value">1</span> LY
+              <label for="density-slider">Clustering Distance (LY):</label>
+              <input type="range" id="density-slider" name="high-density" min="1" max="20" value="1" disabled />
+              <input type="number" id="density-number" name="high-density" min="1" max="20" value="1" disabled />
+              <span id="density-value">1</span> LY
             </div>
             <div class="filter-item">
-              <label>Ignore this many closest stars: <span id="high-tolerance-value">0</span></label>
-              <input type="range" id="high-tolerance-slider" name="high-tolerance" min="0" max="10" value="0" disabled />
+              <label>Ignore this many closest stars: <span id="density-tolerance-value">0</span></label>
+              <input type="range" id="density-tolerance-slider" name="high-tolerance" min="0" max="10" value="0" disabled />
             </div>
             <div class="filter-item">
-              <input type="checkbox" id="enable-high-density-labeling" name="enable-high-density-labeling" />
-              <label for="enable-high-density-labeling">Enable High Density Cluster Labeling &amp; Segmentation</label>
+              <input type="checkbox" id="enable-density-labeling" name="enable-high-density-labeling" />
+              <label for="enable-density-labeling">Enable Density Cluster Labeling &amp; Segmentation</label>
             </div>
             <div class="filter-item">
-              <label for="high-density-grid-slider">Grid Subdivision:</label>
-              <!-- Updated slider: now from -4 to 4 with step 1 and default 0 -->
+              <label for="density-grid-slider">Grid Subdivision:</label>
               <input 
                 type="range" 
-                id="high-density-grid-slider" 
+                id="density-grid-slider" 
                 name="high-density-grid-size" 
                 min="-4" 
                 max="4" 
@@ -212,7 +210,7 @@
               />
               <input 
                 type="number" 
-                id="high-density-grid-number" 
+                id="density-grid-number" 
                 name="high-density-grid-size" 
                 min="-4" 
                 max="4" 
