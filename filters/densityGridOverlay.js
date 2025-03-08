@@ -1,14 +1,7 @@
 // /filters/densityGridOverlay.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { 
-  getDoubleSidedLabelMaterial, 
-  getBaseColor, 
-  lightenColor, 
-  darkenColor, 
-  getBlueColor,
-  getGreenColor
-} from './densityColorUtils.js';
+import { getDoubleSidedLabelMaterial, getBaseColor, lightenColor, darkenColor, getBlueColor, getGreenColor } from './densityColorUtils.js';
 import { radToSphere, subdivideGeometry, getGreatCirclePoints } from '../utils/geometryUtils.js';
 import { computeInterconnectedCell, segmentOceanCandidate } from './densitySegmentation.js';
 import { loadConstellationCenters, getConstellationCenters, loadConstellationBoundaries, getConstellationBoundaries } from './constellationFilter.js';
@@ -16,103 +9,127 @@ import { loadConstellationCenters, getConstellationCenters, loadConstellationBou
 /**
  * DensityGridOverlay
  * 
- * Constructs a grid overlay for density mapping.
+ * Constructs an overlay for density mapping.
+ *
+ * In "isolation" mode (formerly low density), a fixed grid is used.
+ * In "density" mode (formerly high density), a KD tree approach is used
+ * that recursively subdivides the star positions until each cell contains less than 5% of the total stars.
  */
 export class DensityGridOverlay {
   /**
-   * @param {number} minDistance - Minimum distance (LY) to include grid cells.
-   * @param {number} maxDistance - Maximum distance (LY) to include grid cells.
-   * @param {number} gridSize - Size (in LY) of each grid cell.
-   * @param {string} mode - "low" or "high".
+   * @param {number} minDistance - Minimum distance (LY) to include cells.
+   * @param {number} maxDistance - Maximum distance (LY) to include cells.
+   * @param {number} gridSize - Base grid size (or starting subdivision value).
+   * @param {string} mode - Either "isolation" or "density".
    */
-  constructor(minDistance, maxDistance, gridSize = 2, mode = "low") {
+  constructor(minDistance, maxDistance, gridSize = 2, mode = "isolation") {
     this.minDistance = parseFloat(minDistance);
     this.maxDistance = parseFloat(maxDistance);
     this.gridSize = gridSize;
-    this.mode = mode; // "low" or "high"
+    this.mode = mode; // "isolation" or "density"
     this.cubesData = [];
     this.adjacentLines = [];
     this.regionClusters = [];
     this.regionLabelsGroupTC = new THREE.Group();
     this.regionLabelsGroupGlobe = new THREE.Group();
+    // For KD tree mode, totalStars will be set during grid creation.
+    this.totalStars = 0;
   }
 
   createGrid(stars) {
-    const halfExt = Math.ceil(this.maxDistance / this.gridSize) * this.gridSize;
-    this.cubesData = [];
-    for (let x = -halfExt; x <= halfExt; x += this.gridSize) {
-      for (let y = -halfExt; y <= halfExt; y += this.gridSize) {
-        for (let z = -halfExt; z <= halfExt; z += this.gridSize) {
-          const posTC = new THREE.Vector3(
-            x + this.gridSize / 2,
-            y + this.gridSize / 2,
-            z + this.gridSize / 2
-          );
-          const distFromCenter = posTC.length();
-          // Only include grid cells whose center is between minDistance and maxDistance.
-          if (distFromCenter < this.minDistance || distFromCenter > this.maxDistance) continue;
-          
-          const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
-          const material = new THREE.MeshBasicMaterial({
-            color: (this.mode === "low") ? 0x0000ff : 0x00ff00,
-            transparent: true,
-            opacity: 1.0,
-            depthWrite: false
-          });
-          const cubeTC = new THREE.Mesh(geometry, material);
-          cubeTC.position.copy(posTC);
-
-          const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
-          const material2 = material.clone();
-          const squareGlobe = new THREE.Mesh(planeGeom, material2);
-          let projectedPos;
-          if (distFromCenter < 1e-6) {
-            projectedPos = new THREE.Vector3(0, 0, 0);
-          } else {
-            const ra = Math.atan2(-posTC.z, -posTC.x);
-            const dec = Math.asin(posTC.y / distFromCenter);
-            const radius = 100;
-            projectedPos = new THREE.Vector3(
-              -radius * Math.cos(dec) * Math.cos(ra),
-               radius * Math.sin(dec),
-              -radius * Math.cos(dec) * Math.sin(ra)
+    if (this.mode === "isolation") {
+      // Use the existing fixed‐grid method (renamed from "low" mode)
+      const halfExt = Math.ceil(this.maxDistance / this.gridSize) * this.gridSize;
+      this.cubesData = [];
+      for (let x = -halfExt; x <= halfExt; x += this.gridSize) {
+        for (let y = -halfExt; y <= halfExt; y += this.gridSize) {
+          for (let z = -halfExt; z <= halfExt; z += this.gridSize) {
+            const posTC = new THREE.Vector3(
+              x + this.gridSize / 2,
+              y + this.gridSize / 2,
+              z + this.gridSize / 2
             );
+            const distFromCenter = posTC.length();
+            // Only include cells whose center is between minDistance and maxDistance.
+            if (distFromCenter < this.minDistance || distFromCenter > this.maxDistance) continue;
+            
+            const geometry = new THREE.BoxGeometry(this.gridSize, this.gridSize, this.gridSize);
+            const material = new THREE.MeshBasicMaterial({
+              color: 0x0000ff, // isolation mode: blue
+              transparent: true,
+              opacity: 1.0,
+              depthWrite: false
+            });
+            const cubeTC = new THREE.Mesh(geometry, material);
+            cubeTC.position.copy(posTC);
+    
+            const planeGeom = new THREE.PlaneGeometry(this.gridSize, this.gridSize);
+            const material2 = material.clone();
+            const squareGlobe = new THREE.Mesh(planeGeom, material2);
+            let projectedPos;
+            if (distFromCenter < 1e-6) {
+              projectedPos = new THREE.Vector3(0, 0, 0);
+            } else {
+              const ra = Math.atan2(-posTC.z, -posTC.x);
+              const dec = Math.asin(posTC.y / distFromCenter);
+              const radius = 100;
+              projectedPos = new THREE.Vector3(
+                -radius * Math.cos(dec) * Math.cos(ra),
+                 radius * Math.sin(dec),
+                -radius * Math.cos(dec) * Math.sin(ra)
+              );
+            }
+            squareGlobe.position.copy(projectedPos);
+            const normal = projectedPos.clone().normalize();
+            squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+    
+            const cell = {
+              tcMesh: cubeTC,
+              globeMesh: squareGlobe,
+              tcPos: posTC,
+              grid: {
+                ix: Math.round(x / this.gridSize),
+                iy: Math.round(y / this.gridSize),
+                iz: Math.round(z / this.gridSize)
+              },
+              active: false
+            };
+    
+            const cellRa = ((posTC.x + halfExt) / (2 * halfExt)) * 360;
+            const cellDec = ((posTC.y + halfExt) / (2 * halfExt)) * 180 - 90;
+            cell.ra = cellRa;
+            cell.dec = cellDec;
+            cell.id = this.cubesData.length;
+            this.cubesData.push(cell);
           }
-          squareGlobe.position.copy(projectedPos);
-          const normal = projectedPos.clone().normalize();
-          squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-
-          const cell = {
-            tcMesh: cubeTC,
-            globeMesh: squareGlobe,
-            tcPos: posTC,
-            grid: {
-              ix: Math.round(x / this.gridSize),
-              iy: Math.round(y / this.gridSize),
-              iz: Math.round(z / this.gridSize)
-            },
-            active: false
-          };
-
-          const cellRa = ((posTC.x + halfExt) / (2 * halfExt)) * 360;
-          const cellDec = ((posTC.y + halfExt) / (2 * halfExt)) * 180 - 90;
-          cell.ra = cellRa;
-          cell.dec = cellDec;
-          cell.id = this.cubesData.length;
-          this.cubesData.push(cell);
         }
       }
+      // Compute distances using an extended star set.
+      const extendedStars = stars.filter(star => {
+        const d = star.Distance_from_the_Sun;
+        return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
+      });
+      this.cubesData.forEach(cell => computeCellDistances(cell, extendedStars));
+      this.computeAdjacentLines();
+    } else if (this.mode === "density") {
+      // New KD tree method for density mapping.
+      this.totalStars = stars.length;
+      // Build an array of point objects using the star's truePosition.
+      const points = stars.map(star => {
+        return { position: star.truePosition.clone(), star: star };
+      });
+      const threshold = 0.05 * this.totalStars; // 5% threshold
+      this.cubesData = buildKDTree(points, 0, threshold, this);
+      // For density mode, we do not compute adjacent lines.
+      this.adjacentLines = [];
     }
-    // Compute distances using an extended star set.
-    const extendedStars = stars.filter(star => {
-      const d = star.Distance_from_the_Sun;
-      return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
-    });
-    this.cubesData.forEach(cell => computeCellDistances(cell, extendedStars));
-    this.computeAdjacentLines();
   }
 
   computeAdjacentLines() {
+    if (this.mode === "density") {
+      this.adjacentLines = [];
+      return;
+    }
     this.adjacentLines = [];
     const cellMap = new Map();
     this.cubesData.forEach(cell => {
@@ -166,72 +183,52 @@ export class DensityGridOverlay {
   }
 
   update(stars) {
-    const extendedStars = stars.filter(star => {
-      const d = star.Distance_from_the_Sun;
-      return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
-    });
-    this.cubesData.forEach(cell => {
-      computeCellDistances(cell, extendedStars);
-    });
-
-    let isolationVal, toleranceVal;
-    if (this.mode === "low") {
-      isolationVal = parseFloat(document.getElementById('low-density-slider').value) || 7;
-      toleranceVal = parseInt(document.getElementById('low-tolerance-slider').value) || 0;
-    } else {
-      isolationVal = parseFloat(document.getElementById('high-density-slider').value) || 1;
-      toleranceVal = parseInt(document.getElementById('high-tolerance-slider').value) || 0;
-    }
-    this.cubesData.forEach(cell => {
-      let isoDist = Infinity;
-      if (cell.distances.length > toleranceVal) {
-        isoDist = cell.distances[toleranceVal];
-      }
-      let showSquare = (this.mode === "low")
-        ? (isoDist >= isolationVal)
-        : (isoDist < isolationVal);
-      cell.active = showSquare;
-      let ratio = cell.tcPos.length() / this.maxDistance;
-      if (ratio > 1) ratio = 1;
-      const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
-      cell.tcMesh.visible = showSquare;
-      cell.tcMesh.material.opacity = alpha;
-      cell.globeMesh.visible = showSquare;
-      cell.globeMesh.material.opacity = alpha;
-      const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
-      cell.globeMesh.scale.set(scale, scale, 1);
-    });
-    this.adjacentLines.forEach(obj => {
-      const { line, cell1, cell2 } = obj;
-      if (cell1.globeMesh.visible && cell2.globeMesh.visible) {
-        const points = getGreatCirclePoints(cell1.globeMesh.position, cell2.globeMesh.position, 100, 16);
-        const positions = [];
-        const colors = [];
-        const c1 = cell1.globeMesh.material.color;
-        const c2 = cell2.globeMesh.material.color;
-        for (let i = 0; i < points.length; i++) {
-          positions.push(points[i].x, points[i].y, points[i].z);
-          let t = i / (points.length - 1);
-          let r = THREE.MathUtils.lerp(c1.r, c2.r, t);
-          let g = THREE.MathUtils.lerp(c1.g, c2.g, t);
-          let b = THREE.MathUtils.lerp(c1.b, c2.b, t);
-          colors.push(r, g, b);
+    if (this.mode === "isolation") {
+      const extendedStars = stars.filter(star => {
+        const d = star.Distance_from_the_Sun;
+        return d >= Math.max(0, this.minDistance - 10) && d <= this.maxDistance + 10;
+      });
+      this.cubesData.forEach(cell => {
+        computeCellDistances(cell, extendedStars);
+      });
+    
+      const isolationVal = parseFloat(document.getElementById('low-density-slider').value) || 7;
+      const toleranceVal = parseInt(document.getElementById('low-tolerance-slider').value) || 0;
+      this.cubesData.forEach(cell => {
+        let isoDist = Infinity;
+        if (cell.distances.length > toleranceVal) {
+          isoDist = cell.distances[toleranceVal];
         }
-        line.geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        line.geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-        line.geometry.attributes.position.needsUpdate = true;
-        line.geometry.attributes.color.needsUpdate = true;
-        const avgScale = (cell1.globeMesh.scale.x + cell2.globeMesh.scale.x) / 2;
-        line.material.linewidth = avgScale;
-        line.visible = true;
-      } else {
-        line.visible = false;
-      }
-    });
+        const showSquare = (isoDist >= isolationVal);
+        cell.active = showSquare;
+        let ratio = cell.tcPos.length() / this.maxDistance;
+        if (ratio > 1) ratio = 1;
+        const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
+        cell.tcMesh.visible = showSquare;
+        cell.tcMesh.material.opacity = alpha;
+        cell.globeMesh.visible = showSquare;
+        cell.globeMesh.material.opacity = alpha;
+        const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
+        cell.globeMesh.scale.set(scale, scale, 1);
+      });
+    } else if (this.mode === "density") {
+      // In density mode, use the KD tree leaf cell count.
+      this.cubesData.forEach(cell => {
+         const ratio = cell.count / this.totalStars;
+         cell.active = true;
+         const alpha = THREE.MathUtils.lerp(0.1, 0.3, ratio);
+         cell.tcMesh.visible = true;
+         cell.tcMesh.material.opacity = alpha;
+         cell.globeMesh.visible = true;
+         cell.globeMesh.material.opacity = alpha;
+         const scale = THREE.MathUtils.lerp(20.0, 0.1, ratio);
+         cell.globeMesh.scale.set(scale, scale, 1);
+      });
+    }
   }
 
   async assignConstellationsToCells() {
-    if (this.mode === "low") {
+    if (this.mode === "isolation") {
       await loadConstellationCenters();
       await loadConstellationBoundaries();
       const centers = getConstellationCenters();
@@ -320,7 +317,7 @@ export class DensityGridOverlay {
           cell.constellation = bestConstellation;
         }
       });
-    } else { // High density mode
+    } else { // For density mode, simply assign a best star label per cell.
       this.cubesData.forEach(cell => {
         if (cell.active) {
           cell.clusterLabel = this.getBestStarLabel([cell]);
@@ -411,13 +408,13 @@ export class DensityGridOverlay {
     regions.forEach(region => {
       if (region.type === 'Oceanus' || region.type === 'Mare' || region.type === 'Lacus' ||
           region.type === 'Continens' || region.type === 'Peninsula' || region.type === 'Insula') {
-        let baseColor = (this.mode === "low") ? getBlueColor(region.constName) : getGreenColor(region.constName);
+        let baseColor = (this.mode === "isolation") ? getBlueColor(region.constName) : getGreenColor(region.constName);
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color || baseColor);
           cell.globeMesh.material.color.set(region.color || baseColor);
         });
       } else if (region.type === 'Fretum' || region.type === 'Isthmus') {
-        let baseColor = (this.mode === "low") ? getBlueColor(region.constName) : getGreenColor(region.constName);
+        let baseColor = (this.mode === "isolation") ? getBlueColor(region.constName) : getGreenColor(region.constName);
         region.color = lightenColor(baseColor, 0.1);
         region.cells.forEach(cell => {
           cell.tcMesh.material.color.set(region.color);
@@ -486,7 +483,7 @@ export class DensityGridOverlay {
     const allRegions = [];
     clusters.forEach(c => {
       let subRegions;
-      if (this.mode === "low") {
+      if (this.mode === "isolation") {
         const majority = this.getMajorityConstellation(c);
         subRegions = this.recursiveSegmentCluster(c, V_max, majority);
       } else {
@@ -501,7 +498,7 @@ export class DensityGridOverlay {
 
   recursiveSegmentCluster(cells, V_max, labelForCells) {
     const size = cells.length;
-    if (this.mode === "low") {
+    if (this.mode === "isolation") {
       if (size < 0.1 * V_max) {
         return [{
           cells,
@@ -620,9 +617,8 @@ export class DensityGridOverlay {
   }
 }
 
-/**
- * Helper function to compute cell distances.
- */
+// -------------------------------------------------------------------
+// Helper function: Compute cell distances (unchanged)
 function computeCellDistances(cell, stars) {
   const dArr = stars.map(star => {
     let starPos = star.truePosition ? star.truePosition : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
@@ -636,43 +632,88 @@ function computeCellDistances(cell, stars) {
   cell.nearestStar = dArr.length > 0 ? dArr[0].star : null;
 }
 
-/**
- * Helper function to get the best star label.
- */
-function getBestStarLabel(cells) {
-  let bestStar = null;
-  let bestRank = -Infinity;
-  cells.forEach(cell => {
-    if (cell.nearestStar) {
-      const rank = getStellarClassRank(cell.nearestStar);
-      if (rank > bestRank) {
-        bestRank = rank;
-        bestStar = cell.nearestStar;
-      } else if (rank === bestRank && bestStar) {
-        if (cell.nearestStar.Absolute_magnitude !== undefined && bestStar.Absolute_magnitude !== undefined) {
-          if (cell.nearestStar.Absolute_magnitude < bestStar.Absolute_magnitude) {
-            bestStar = cell.nearestStar;
-          }
-        }
-      }
-    }
+// -------------------------------------------------------------------
+// KD Tree Helpers for Density Mode
+
+function buildKDTree(points, depth, threshold, overlay) {
+  if (points.length <= threshold) {
+    return [createCellFromPoints(points, overlay)];
+  }
+  const axis = depth % 3;
+  points.sort((a, b) => a.position.getComponent(axis) - b.position.getComponent(axis));
+  const medianIndex = Math.floor(points.length / 2);
+  const leftPoints = points.slice(0, medianIndex);
+  const rightPoints = points.slice(medianIndex);
+  let cells = [];
+  cells = cells.concat(buildKDTree(leftPoints, depth + 1, threshold, overlay));
+  cells = cells.concat(buildKDTree(rightPoints, depth + 1, threshold, overlay));
+  return cells;
+}
+
+function createCellFromPoints(points, overlay) {
+  let minX = Infinity, minY = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  points.forEach(pt => {
+    const pos = pt.position;
+    if (pos.x < minX) minX = pos.x;
+    if (pos.y < minY) minY = pos.y;
+    if (pos.z < minZ) minZ = pos.z;
+    if (pos.x > maxX) maxX = pos.x;
+    if (pos.y > maxY) maxY = pos.y;
+    if (pos.z > maxZ) maxZ = pos.z;
   });
-  return bestStar ? (bestStar.Common_name_of_the_star_system || bestStar.Common_name_of_the_star || "Unknown") : "Unknown";
+  const minVec = new THREE.Vector3(minX, minY, minZ);
+  const maxVec = new THREE.Vector3(maxX, maxY, maxZ);
+  const center = new THREE.Vector3().addVectors(minVec, maxVec).multiplyScalar(0.5);
+  const boxSize = new THREE.Vector3().subVectors(maxVec, minVec);
+  const sizeX = boxSize.x || overlay.gridSize;
+  const sizeY = boxSize.y || overlay.gridSize;
+  const sizeZ = boxSize.z || overlay.gridSize;
+  const geometry = new THREE.BoxGeometry(sizeX, sizeY, sizeZ);
+  const materialColor = (overlay.mode === "isolation") ? 0x0000ff : 0x00ff00;
+  const material = new THREE.MeshBasicMaterial({
+    color: materialColor,
+    transparent: true,
+    opacity: 1.0,
+    depthWrite: false
+  });
+  const cubeTC = new THREE.Mesh(geometry, material);
+  cubeTC.position.copy(center);
+  
+  const planeGeom = new THREE.PlaneGeometry(sizeX, sizeY);
+  const material2 = material.clone();
+  const squareGlobe = new THREE.Mesh(planeGeom, material2);
+  let projectedPos;
+  const distFromCenter = center.length();
+  if (distFromCenter < 1e-6) {
+    projectedPos = new THREE.Vector3(0, 0, 0);
+  } else {
+    const ra = Math.atan2(-center.z, -center.x);
+    const dec = Math.asin(center.y / distFromCenter);
+    const radius = 100;
+    projectedPos = new THREE.Vector3(
+      -radius * Math.cos(dec) * Math.cos(ra),
+       radius * Math.sin(dec),
+      -radius * Math.cos(dec) * Math.sin(ra)
+    );
+  }
+  squareGlobe.position.copy(projectedPos);
+  const normal = projectedPos.clone().normalize();
+  squareGlobe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+  
+  const cell = {
+    tcMesh: cubeTC,
+    globeMesh: squareGlobe,
+    tcPos: center,
+    count: points.length,
+    active: true
+  };
+  cell.id = overlay.cubesData ? overlay.cubesData.length : 0;
+  return cell;
 }
 
-/**
- * Helper function to get a ranking for stellar classes.
- */
-function getStellarClassRank(star) {
-  if (!star || !star.Stellar_class) return 0;
-  const letter = star.Stellar_class.charAt(0).toUpperCase();
-  const rankMap = { 'O': 7, 'B': 6, 'A': 5, 'F': 4, 'G': 3, 'K': 2, 'M': 1 };
-  return rankMap[letter] || 0;
-}
-
-/**
- * Helper: Converts a sphere coordinate to RA/DEC (in degrees).
- */
+// -------------------------------------------------------------------
+// Helper: Converts a sphere coordinate to RA/DEC (in degrees).
 function vectorToRaDec(vector) {
   const R = 100;
   const dec = Math.asin(vector.y / R);
@@ -682,9 +723,8 @@ function vectorToRaDec(vector) {
   return { ra: raDeg, dec: dec * 180 / Math.PI };
 }
 
-/**
- * Helper: Converts a string to title case.
- */
+// -------------------------------------------------------------------
+// Helper: Converts a string to title case.
 function toTitleCase(str) {
   if (!str || typeof str !== "string") return str;
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
