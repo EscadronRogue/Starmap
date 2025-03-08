@@ -211,7 +211,8 @@ export class DensityGridOverlay {
       if (obj.line && obj.line.parent) obj.line.parent.remove(obj.line);
     });
     this.buildAdaptiveGrid(stars);
-    const densityThreshold = parseFloat(document.getElementById('density-slider').value) || 1;
+    // FIX: Use the correct element id for the density slider.
+    const densityThreshold = parseFloat(document.getElementById('density-subdivision-percent-slider').value) || 1;
     let maxDepth = 0;
     this.cubesData.forEach(cell => {
       if (cell.depth > maxDepth) maxDepth = cell.depth;
