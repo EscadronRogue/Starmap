@@ -371,7 +371,7 @@ class MapManager {
     this.animate();
   }
 
-  // UPDATED: Use instanced rendering for stars
+  // UPDATED: Use instanced rendering for stars with proper color setup
   addStars(stars) {
     // Clear previous star objects
     while (this.starGroup.children.length > 0) {
@@ -382,40 +382,50 @@ class MapManager {
     }
     const count = stars.length;
     if (count === 0) return;
-    // Create a base sphere geometry (unit sphere; we'll scale per star)
+    // Create a base sphere geometry (unit sphere)
     const baseGeometry = new THREE.SphereGeometry(1, 12, 12);
+    // Add a dummy "color" attribute so that vertexColors are enabled.
+    const vertexCount = baseGeometry.attributes.position.count;
+    const dummyColors = new Float32Array(vertexCount * 3);
+    for (let i = 0; i < vertexCount; i++) {
+      dummyColors[i * 3] = 1;
+      dummyColors[i * 3 + 1] = 1;
+      dummyColors[i * 3 + 2] = 1;
+    }
+    baseGeometry.setAttribute('color', new THREE.BufferAttribute(dummyColors, 3));
+
+    // Create material with vertexColors enabled and base color white.
     const material = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
       transparent: true,
       opacity: 1.0,
-      vertexColors: true, // enable instance colors
+      vertexColors: true
     });
     const instancedMesh = new THREE.InstancedMesh(baseGeometry, material, count);
     const dummy = new THREE.Object3D();
     const colors = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
       const star = stars[i];
-      // Determine star position based on map type
       let pos;
       if (this.mapType === 'TrueCoordinates') {
         pos = star.truePosition ? star.truePosition.clone() : new THREE.Vector3(star.x_coordinate, star.y_coordinate, star.z_coordinate);
       } else {
         pos = star.spherePosition ? star.spherePosition.clone() : new THREE.Vector3(0, 0, 0);
       }
-      // Calculate scale factor (original: displaySize * 0.2)
       const size = star.displaySize !== undefined ? star.displaySize : 1;
       const scale = size * 0.2;
       dummy.position.copy(pos);
       dummy.scale.set(scale, scale, scale);
       dummy.updateMatrix();
       instancedMesh.setMatrixAt(i, dummy.matrix);
-      
-      // Set instance color (parse displayColor or fallback to white)
+
       const color = new THREE.Color(star.displayColor || '#ffffff');
       colors[i * 3] = color.r;
       colors[i * 3 + 1] = color.g;
       colors[i * 3 + 2] = color.b;
     }
     instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
+    instancedMesh.instanceColor.needsUpdate = true;
     this.starGroup.add(instancedMesh);
     this.starObjects = stars;
   }
