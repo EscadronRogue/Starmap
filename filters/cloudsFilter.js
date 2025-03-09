@@ -67,16 +67,13 @@ export function createCloudOverlay(cloudData, plottedStars, mapType) {
     }
 
     if (matched && !usedSet.has(star)) {
-      // We'll log the name/HD for clarity
       console.log(`  [cloudsFilter] Matched star: name="${star.Common_name_of_the_star}" HD=${star.HD}`);
-      // pick position
       let pt = null;
       if (mapType === 'TrueCoordinates') {
         if (star.truePosition) pt = star.truePosition.clone();
       } else {
         if (star.spherePosition) pt = star.spherePosition.clone();
       }
-
       if (pt) {
         positions.push(pt);
         usedSet.add(star);
@@ -95,8 +92,8 @@ export function createCloudOverlay(cloudData, plottedStars, mapType) {
   }
 
   // 4) Build alpha shape
-  // Adjust alpha to your needs. smaller => more "concave"
-  const alpha = 2.0;
+  // Increase alpha to e.g. 10 or 9999 if you want to ensure large tetrahedra pass
+  const alpha = 10.0;  // or 9999
   console.log("[cloudsFilter] calling computeAlphaShape3D with alpha =", alpha);
   const geometry = computeAlphaShape3D(positions, alpha);
 
