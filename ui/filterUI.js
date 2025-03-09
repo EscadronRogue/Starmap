@@ -131,9 +131,9 @@ function addCloudsFieldset() {
   legend.textContent = 'Dust Clouds';
   fs.appendChild(legend);
   
-  // Add both filter-content and scrollable-category classes for consistency.
+  // Use only 'filter-content' class (do not include 'scrollable-category' so that the content expands properly).
   const contentDiv = document.createElement('div');
-  contentDiv.classList.add('filter-content', 'scrollable-category');
+  contentDiv.classList.add('filter-content');
   contentDiv.style.maxHeight = '0px';
   
   // Toggle the open/closed state on legend click.
