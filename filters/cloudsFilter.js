@@ -62,7 +62,7 @@ export function createCloudOverlay(cloudData, plottedStars, mapType) {
  * @param {Array<string>} cloudDataFiles - Array of URLs for cloud JSON files.
  */
 export async function updateCloudsOverlay(plottedStars, scene, mapType, cloudDataFiles) {
-  // Store overlays in scene.userData.cloudOverlays so we can remove them on update.
+  // Remove previous overlays if present.
   if (!scene.userData.cloudOverlays) {
     scene.userData.cloudOverlays = [];
   } else {
