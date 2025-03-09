@@ -1,6 +1,12 @@
 // /filters/cloudsFilter.js
+//
+// Replaced the old minimal "ConvexGeometry" approach with the official
+// three.js "ConvexHull" from /filters/ConvexHull.js to ensure all outer
+// points on the hull are included.
+//
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
+import { ConvexHull } from './ConvexHull.js';
 
 /**
  * Loads a cloud data file (JSON) from the provided URL.
@@ -16,137 +22,55 @@ export async function loadCloudData(cloudFileUrl) {
 }
 
 /**
- * Computes a best‑fit plane normal for a set of points using a simplified approach.
- * For robustness, we take the cross product of two non‑collinear vectors.
- * @param {Array<THREE.Vector3>} points - The array of 3D points.
- * @param {THREE.Vector3} centroid - The computed centroid of the points.
- * @returns {THREE.Vector3} - A unit normal vector for the best‑fit plane.
- */
-function computeBestFitNormal(points, centroid) {
-  if (points.length < 3) return new THREE.Vector3(0, 0, 1);
-  const v1 = points[1].clone().sub(centroid);
-  // Find a point not collinear with v1
-  let v2 = null;
-  for (let i = 2; i < points.length; i++) {
-    const candidate = points[i].clone().sub(centroid);
-    if (candidate.lengthSq() > 1e-6 && Math.abs(v1.dot(candidate)) < v1.length() * candidate.length() * 0.99) {
-      v2 = candidate;
-      break;
-    }
-  }
-  if (!v2) {
-    // Fallback: use default normal
-    return new THREE.Vector3(0, 0, 1);
-  }
-  return new THREE.Vector3().crossVectors(v1, v2).normalize();
-}
-
-/**
- * Computes the 2D convex hull of a set of points using the monotone chain algorithm.
- * @param {Array} points - Array of objects with properties {x, y, original} (the original 3D point).
- * @returns {Array} - Array of points in convex-hull order.
- */
-function convexHull2D(points) {
-  // Sort points by x then y.
-  const sorted = points.slice().sort((a, b) => (a.x === b.x ? a.y - b.y : a.x - b.x));
-  const lower = [];
-  for (const p of sorted) {
-    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
-      lower.pop();
-    }
-    lower.push(p);
-  }
-  const upper = [];
-  for (let i = sorted.length - 1; i >= 0; i--) {
-    const p = sorted[i];
-    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
-      upper.pop();
-    }
-    upper.push(p);
-  }
-  // Remove last element of each list (duplicate endpoints)
-  lower.pop();
-  upper.pop();
-  return lower.concat(upper);
-}
-
-function cross(o, a, b) {
-  return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-}
-
-/**
- * Creates a dust cloud overlay mesh by projecting the plotted star positions onto a best‑fit plane,
- * computing the 2D convex hull, and then reconstructing a 3D polygon.
- *
+ * Creates a 3D mesh for the dust cloud by computing a convex hull of the cloud’s star positions.
  * @param {Array} cloudData - Array of star objects from the cloud file.
- * @param {Array} plottedStars - Array of star objects currently visible/ploted.
+ * @param {Array} plottedStars - The star objects that are currently plotted.
  * @param {string} mapType - Either 'TrueCoordinates' or 'Globe'.
- * @returns {THREE.Mesh|null} - A mesh representing the cloud, or null if insufficient points.
+ * @returns {THREE.Mesh|null}
  */
 export function createCloudOverlay(cloudData, plottedStars, mapType) {
+
+  // Gather all relevant positions
   const positions = [];
-  // Use the "Star Name" field from the cloud file to filter plotted stars.
   const cloudNames = new Set(cloudData.map(d => d["Star Name"]));
+  
+  // For each star that belongs to this cloud, use that star’s 3D position
   plottedStars.forEach(star => {
     if (cloudNames.has(star.Common_name_of_the_star)) {
-      if (mapType === 'TrueCoordinates') {
-        if (star.truePosition) positions.push(star.truePosition.clone());
-      } else {
-        if (star.spherePosition) positions.push(star.spherePosition.clone());
+      if (mapType === 'TrueCoordinates' && star.truePosition) {
+        positions.push(star.truePosition.clone());
+      } else if (mapType === 'Globe' && star.spherePosition) {
+        positions.push(star.spherePosition.clone());
       }
     }
   });
-  if (positions.length < 3) return null;
 
-  // Compute centroid.
-  const centroid = new THREE.Vector3();
-  positions.forEach(p => centroid.add(p));
-  centroid.divideScalar(positions.length);
-
-  // Compute best-fit plane normal.
-  const normal = computeBestFitNormal(positions, centroid);
-
-  // Construct basis vectors for the plane.
-  const basisX = new THREE.Vector3();
-  if (Math.abs(normal.x) > 0.9) {
-    basisX.set(0, 1, 0);
-  } else {
-    basisX.set(1, 0, 0);
+  if (positions.length < 4) {
+    // Need at least 4 points for a robust 3D hull (3 is only a triangle)
+    return null;
   }
-  basisX.cross(normal).normalize();
-  const basisY = new THREE.Vector3().crossVectors(normal, basisX).normalize();
 
-  // Project each 3D point onto the 2D plane.
-  const points2D = positions.map(p => {
-    const diff = new THREE.Vector3().subVectors(p, centroid);
-    return { x: diff.dot(basisX), y: diff.dot(basisY), original: p };
-  });
+  // Use the official ConvexHull
+  const hull = new ConvexHull().setFromPoints(positions);
 
-  // Compute convex hull in 2D.
-  const hull2D = convexHull2D(points2D);
-  if (hull2D.length < 3) return null;
-
-  // Map 2D hull points back to 3D.
-  const hull3D = hull2D.map(pt => {
-    return new THREE.Vector3().copy(centroid)
-      .addScaledVector(basisX, pt.x)
-      .addScaledVector(basisY, pt.y);
-  });
-
-  // Create a polygon geometry from the ordered hull points.
-  const vertices = [];
-  hull3D.forEach(pt => {
-    vertices.push(pt.x, pt.y, pt.z);
-  });
-  // Triangulate the 2D hull using THREE.ShapeUtils.
-  const hull2DPoints = hull2D.map(pt => new THREE.Vector2(pt.x, pt.y));
-  const indices2D = THREE.ShapeUtils.triangulateShape(hull2DPoints, []);
+  // The hull’s faces can be turned into a single BufferGeometry
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  geometry.setIndex(indices2D.flat());
+
+  const verts = [];
+  hull.faces.forEach(face => {
+    // Each face is a cycle of 3 or more edges, but by default
+    // the official hull code typically uses triangles
+    let edge = face.edge;
+    do {
+      const point = edge.head().point;
+      verts.push(point.x, point.y, point.z);
+      edge = edge.next;
+    } while (edge !== face.edge);
+  });
+
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
   geometry.computeVertexNormals();
 
-  // Create material and mesh.
   const material = new THREE.MeshBasicMaterial({
     color: 0xff6600,
     opacity: 0.3,
@@ -154,17 +78,20 @@ export function createCloudOverlay(cloudData, plottedStars, mapType) {
     side: THREE.DoubleSide,
     depthWrite: false
   });
+  
   const mesh = new THREE.Mesh(geometry, material);
   mesh.renderOrder = 1;
+
   return mesh;
 }
 
 /**
- * Updates the dust clouds overlay on a given scene.
- * @param {Array} plottedStars - The array of currently plotted stars.
- * @param {THREE.Scene} scene - The scene to add the cloud overlays to.
- * @param {string} mapType - 'TrueCoordinates' or 'Globe'
- * @param {Array<string>} cloudDataFiles - Array of URLs for cloud JSON files.
+ * Updates the dust cloud overlays on a given scene. Removes old overlays, loads each cloud’s data,
+ * creates a hull for each, and adds them.
+ * @param {Array} plottedStars - The array of star objects currently plotted.
+ * @param {THREE.Scene} scene - The scene to which we add the cloud overlays.
+ * @param {string} mapType - 'TrueCoordinates' or 'Globe'.
+ * @param {Array<string>} cloudDataFiles - Array of URLs to the JSON files describing each dust cloud.
  */
 export async function updateCloudsOverlay(plottedStars, scene, mapType, cloudDataFiles) {
   if (!scene.userData.cloudOverlays) {
@@ -173,16 +100,17 @@ export async function updateCloudsOverlay(plottedStars, scene, mapType, cloudDat
     scene.userData.cloudOverlays.forEach(mesh => scene.remove(mesh));
     scene.userData.cloudOverlays = [];
   }
+
   for (const fileUrl of cloudDataFiles) {
     try {
       const cloudData = await loadCloudData(fileUrl);
-      const overlay = createCloudOverlay(cloudData, plottedStars, mapType);
-      if (overlay) {
-        scene.add(overlay);
-        scene.userData.cloudOverlays.push(overlay);
+      const hullMesh = createCloudOverlay(cloudData, plottedStars, mapType);
+      if (hullMesh) {
+        scene.add(hullMesh);
+        scene.userData.cloudOverlays.push(hullMesh);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(`Error building cloud overlay for ${fileUrl}:`, error);
     }
   }
 }
