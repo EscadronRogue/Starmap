@@ -19,7 +19,25 @@
         "Absolute_magnitude": 9.0,
         "Parallax": 162.217,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-784"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-784",
+        "Other designations": [
+            "CD\u221245 13677",
+            "HD 191849",
+            "HIP 99701",
+            "SAO 230110",
+            "PPM 325963",
+            "Ci 20 1196",
+            "LFT 1532",
+            "LHS 3531",
+            "LPM 730",
+            "LTT 7999",
+            "NLTT 48880",
+            "PLX 4794",
+            "PM 20103-4519",
+            "TYC 8392-2673-1",
+            "2MASS J20135335-4509506",
+            "Gaia EDR3 6673000841376349696"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 1221",
@@ -41,7 +59,16 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 160.995,
         "Color": "White dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1221"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1221",
+        "Other designations": [
+            "EGGR 372",
+            "G 240-72",
+            "LP 44-113",
+            "WD 1748+708",
+            "LHS 455",
+            "NLTT 45565",
+            "Gaia EDR3 1638979384378696704"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 555",
@@ -63,7 +90,20 @@
         "Absolute_magnitude": 12.3,
         "Parallax": 159.923,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-555"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-555",
+        "Other designations": [
+            "Wolf 1481",
+            "HN Lib",
+            "BD-11 3759",
+            "HIP 71253",
+            "Ci 20 870",
+            "LFT 1120",
+            "LHS 2945",
+            "LPM 532",
+            "LTT 5759",
+            "GJ 555",
+            "Gaia EDR3 6324325225803432320"
+        ]
     },
     {
         "Common_name_of_the_star_system": "EQ Pegasi",
@@ -85,7 +125,24 @@
         "Absolute_magnitude": 11.2,
         "Parallax": 159.663,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/eq-pegasi-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/eq-pegasi-a",
+        "Other designations": [
+            "BD+19 5116B",
+            "Gliese 896",
+            "GJ 896",
+            "EQ Peg",
+            "BD+19\u00b0 5116",
+            "HIP 116132",
+            "WDS J23317+1956AB",
+            "G 68-24",
+            "G 129-19",
+            "G 128-71",
+            "LFT 1799",
+            "LHS 3965",
+            "LTT 16919",
+            "NLTT 57135",
+            "Gaia EDR3 2824770686019003904"
+        ]
     },
     {
         "Common_name_of_the_star_system": "EQ Pegasi",
@@ -107,7 +164,24 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 159.663,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/eq-pegasi-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/eq-pegasi-a",
+        "Other designations": [
+            "BD+19 5116B",
+            "Gliese 896",
+            "GJ 896",
+            "EQ Peg",
+            "BD+19\u00b0 5116",
+            "HIP 116132",
+            "WDS J23317+1956AB",
+            "G 68-24",
+            "G 129-19",
+            "G 128-71",
+            "LFT 1799",
+            "LHS 3965",
+            "LTT 16919",
+            "NLTT 57135",
+            "Gaia EDR3 2824770686019003904"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 581",
@@ -129,7 +203,23 @@
         "Absolute_magnitude": 11.6,
         "Parallax": 158.718,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-581"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-581",
+        "Other designations": [
+            "Wolf 562",
+            "HO Librae",
+            "HO Lib",
+            "BD\u221207\u00b04003",
+            "GJ 581",
+            "HIP 74995",
+            "LFT 1195",
+            "LHS 394",
+            "LPM 564",
+            "LTT 6112",
+            "NLTT 39886",
+            "TYC 5594-1093-1",
+            "BD-07 4003",
+            "Gaia EDR3 6322070093095493504"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 338",
@@ -151,7 +241,25 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 157.888,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-338-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-338-a",
+        "Other designations": [
+            "HD 79211",
+            "LFT 635",
+            "LHS 261",
+            "LTT 12426",
+            "HIC 120005",
+            "HIP 120005",
+            "HD 79210",
+            "LFT 634",
+            "LHS 260",
+            "LTT 12425",
+            "ADS 7251",
+            "MCC 541",
+            "HIC 45343",
+            "HIP 45343",
+            "GJ 338",
+            "Gaia EDR3 1022456139210632064"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 338",
@@ -173,7 +281,25 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 157.888,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-338-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-338-a",
+        "Other designations": [
+            "HD 79211",
+            "LFT 635",
+            "LHS 261",
+            "LTT 12426",
+            "HIC 120005",
+            "HIP 120005",
+            "HD 79210",
+            "LFT 634",
+            "LHS 260",
+            "LTT 12425",
+            "ADS 7251",
+            "MCC 541",
+            "HIC 45343",
+            "HIP 45343",
+            "GJ 338",
+            "Gaia EDR3 1022456139210632064"
+        ]
     },
     {
         "Common_name_of_the_star_system": "LHS 2090",
@@ -195,7 +321,13 @@
         "Absolute_magnitude": 17.1,
         "Parallax": 157.269,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/lhs-2090"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/lhs-2090",
+        "Other designations": [
+            "LP 368-128",
+            "NLTT 20726",
+            "2MASS J09002359+2150054",
+            "Gaia EDR3 685103912857072640"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISEP J1503+2525",
@@ -217,7 +349,12 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 155.776,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wisep-j1503-2525"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wisep-j1503-2525",
+        "Other designations": [
+            "WISEP J150319.70+252525.4",
+            "2MASS J15031961+2525196",
+            "Gaia EDR3 1267906854386665088"
+        ]
     },
     {
         "Common_name_of_the_star_system": "LP 944-20",
@@ -239,7 +376,21 @@
         "Absolute_magnitude": 19.7,
         "Parallax": 155.598,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/lp-944-20"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/lp-944-20",
+        "Other designations": [
+            "SIPS J0339\u22123525",
+            "LEHPM 3451",
+            "2MASSI J0339352\u2212352544",
+            "[B2006] J033935.2\u2212352544",
+            "APMPM J0340\u22123526",
+            "2MASS J03393521-3525440",
+            "2MASSW J0339352\u2212352544",
+            "BRI B0337\u22123535",
+            "BRI 0337\u22123535",
+            "2MUCD 10201",
+            "Gaia DR2 4860376345833699840",
+            "Gaia EDR3 4860376345833699840"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 223.2",
@@ -261,7 +412,21 @@
         "Absolute_magnitude": 15.4,
         "Parallax": 155.237,
         "Color": "White dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-2232"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-2232",
+        "Other designations": [
+            "GJ 223.2",
+            "GJ 9193",
+            "HL 4",
+            "LHS 32",
+            "LP 658-2",
+            "NLTT 15811",
+            "G 099-044",
+            "G 99-44",
+            "G 106-12",
+            "WD 0552\u2013041",
+            "EGGR 45",
+            "Gaia EDR3 3022956969731332096"
+        ]
     },
     {
         "Common_name_of_the_star_system": "V1054 Ophiuchi",
@@ -283,7 +448,27 @@
         "Absolute_magnitude": 10.0,
         "Parallax": 161.41,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/v1054-ophiuchi-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/v1054-ophiuchi-a",
+        "Other designations": [
+            "VB 8",
+            "Wolf 629",
+            "LHS 427",
+            "LDS 573C",
+            "HIC 82809",
+            "HIP 82809",
+            "PLX 3844",
+            "TIC 181589885",
+            "LTT 6750",
+            "LFT 1311",
+            "V1054 Oph",
+            "Gliese 644",
+            "GJ 644",
+            "Wolf 630",
+            "VanBiesbroeck 8",
+            "HD 152751",
+            "HIP 82817",
+            "SAO 141439"
+        ]
     },
     {
         "Common_name_of_the_star_system": "V1054 Ophiuchi",
@@ -305,7 +490,27 @@
         "Absolute_magnitude": 12.7,
         "Parallax": 161.41,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/v1054-ophiuchi-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/v1054-ophiuchi-a",
+        "Other designations": [
+            "VB 8",
+            "Wolf 629",
+            "LHS 427",
+            "LDS 573C",
+            "HIC 82809",
+            "HIP 82809",
+            "PLX 3844",
+            "TIC 181589885",
+            "LTT 6750",
+            "LFT 1311",
+            "V1054 Oph",
+            "Gliese 644",
+            "GJ 644",
+            "Wolf 630",
+            "VanBiesbroeck 8",
+            "HD 152751",
+            "HIP 82817",
+            "SAO 141439"
+        ]
     },
     {
         "Common_name_of_the_star_system": "V1054 Ophiuchi",
@@ -327,7 +532,27 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 161.41,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/v1054-ophiuchi-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/v1054-ophiuchi-a",
+        "Other designations": [
+            "VB 8",
+            "Wolf 629",
+            "LHS 427",
+            "LDS 573C",
+            "HIC 82809",
+            "HIP 82809",
+            "PLX 3844",
+            "TIC 181589885",
+            "LTT 6750",
+            "LFT 1311",
+            "V1054 Oph",
+            "Gliese 644",
+            "GJ 644",
+            "Wolf 630",
+            "VanBiesbroeck 8",
+            "HD 152751",
+            "HIP 82817",
+            "SAO 141439"
+        ]
     },
     {
         "Common_name_of_the_star_system": "V1054 Ophiuchi",
@@ -349,7 +574,27 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 161.41,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/v1054-ophiuchi-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/v1054-ophiuchi-a",
+        "Other designations": [
+            "VB 8",
+            "Wolf 629",
+            "LHS 427",
+            "LDS 573C",
+            "HIC 82809",
+            "HIP 82809",
+            "PLX 3844",
+            "TIC 181589885",
+            "LTT 6750",
+            "LFT 1311",
+            "V1054 Oph",
+            "Gliese 644",
+            "GJ 644",
+            "Wolf 630",
+            "VanBiesbroeck 8",
+            "HD 152751",
+            "HIP 82817",
+            "SAO 141439"
+        ]
     },
     {
         "Common_name_of_the_star_system": "V1054 Ophiuchi",
@@ -371,7 +616,27 @@
         "Absolute_magnitude": 17.8,
         "Parallax": 161.41,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/v1054-ophiuchi-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/v1054-ophiuchi-a",
+        "Other designations": [
+            "VB 8",
+            "Wolf 629",
+            "LHS 427",
+            "LDS 573C",
+            "HIC 82809",
+            "HIP 82809",
+            "PLX 3844",
+            "TIC 181589885",
+            "LTT 6750",
+            "LFT 1311",
+            "V1054 Oph",
+            "Gliese 644",
+            "GJ 644",
+            "Wolf 630",
+            "VanBiesbroeck 8",
+            "HD 152751",
+            "HIP 82817",
+            "SAO 141439"
+        ]
     },
     {
         "Common_name_of_the_star_system": "2MASS J0937+2931",
@@ -393,7 +658,14 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 154.921,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j0937-2931"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j0937-2931",
+        "Other designations": [
+            "EQ J0937+2931",
+            "WISEP J093735.61+293127.7",
+            "2MASS J09373487+2931409",
+            "2MASSI J0937347+293142",
+            "Gaia DR2 1267906854386665088"
+        ]
     },
     {
         "Common_name_of_the_star_system": "GL Virginis",
@@ -415,7 +687,19 @@
         "Absolute_magnitude": 14.8,
         "Parallax": 154.7,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gl-virginis"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gl-virginis",
+        "Other designations": [
+            "GL Vir",
+            "Gliese 1156",
+            "Luyten 1190-34",
+            "G 12-30",
+            "LHS 324",
+            "LTT 13440",
+            "GCTP 2835.0",
+            "LP 494-77",
+            "2MASS J12185939+1107338",
+            "Gaia EDR3 3907283967108054528"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISE J2209+2711",
@@ -437,7 +721,10 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 154.41,
         "Color": "Sub-brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-j2209-2711"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-j2209-2711",
+        "Other designations": [
+            "WISE J220905.73+271143.9"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 625",
@@ -459,7 +746,14 @@
         "Absolute_magnitude": 11.0,
         "Parallax": 154.35,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-625"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-625",
+        "Other designations": [
+            "G 202-48",
+            "HIC 80459",
+            "PLX 3740.03",
+            "PM J16254+5418",
+            "Gaia EDR3 1428427236986209024"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 1128",
@@ -481,7 +775,20 @@
         "Absolute_magnitude": 13.7,
         "Parallax": 153.759,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1128"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1128",
+        "Other designations": [
+            "Luyten 100-115",
+            "L 100-115",
+            "LFT 680",
+            "LHS 271",
+            "LTT 3572",
+            "NLTT 22480",
+            "GSC 09209-00444",
+            "2MASS J09424635-6853060",
+            "DENIS J094246.3-685309",
+            "GJ 1128",
+            "Gaia EDR3 5243594081269535872"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISE J0410+1502",
@@ -503,7 +810,14 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 153.42,
         "Color": "Sub-brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-j0410-1502"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-j0410-1502",
+        "Other designations": [
+            "WISEPA J041022.71+150248.5",
+            "WISEP J0410+1502",
+            "WISE 0410+1502",
+            "WISE J041022.71+150248.4",
+            "EQ J0410+1502"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISE J0313+7807",
@@ -525,7 +839,12 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 153.0,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-j0313-7807"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-j0313-7807",
+        "Other designations": [
+            "WISEP J031325.96+780744.2\tWISEA J031326.00+780744.3",
+            "WISE J031325.94+780744.3",
+            "EQ J0313+7807"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 892",
@@ -547,7 +866,22 @@
         "Absolute_magnitude": 6.5,
         "Parallax": 152.864,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-892"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-892",
+        "Other designations": [
+            "HR 8832",
+            "HD 219134",
+            "FK5 875",
+            "HIP 114622",
+            "LFT 1767",
+            "LHS 71",
+            "LTT 16826",
+            "SAO 35236",
+            "TOI 1469",
+            "GJ 892",
+            "WISEA J231319.69+571009.3",
+            "2MASS J23131692+5710059",
+            "Gaia EDR3 2009481748875806976"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3737",
@@ -569,7 +903,16 @@
         "Absolute_magnitude": 13.6,
         "Parallax": 150.078,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3737"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3737",
+        "Other designations": [
+            "L 471-42",
+            "LHS 337",
+            "LTT 4818",
+            "NLTT 31382",
+            "PM 12362-3805",
+            "2MASS J12384914-3822527",
+            "Gaia EDR3 6153483658836320384"
+        ]
     },
     {
         "Common_name_of_the_star_system": "CWISE J1055+5443",
@@ -591,7 +934,11 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 0.0,
         "Color": "Sub-brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/cwise-j1055-5443"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/cwise-j1055-5443",
+        "Other designations": [
+            "CWISE J105512.11+544328.3",
+            "WISEA J105512.93+544329.7"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 408",
@@ -613,7 +960,22 @@
         "Absolute_magnitude": 10.9,
         "Parallax": 148.199,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-408"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-408",
+        "Other designations": [
+            "Ross 104",
+            "HIP 53767",
+            "HIC 53767",
+            "LTT 12942",
+            "LHS 6193",
+            "G 58-32",
+            "2MASS J11000432+2249592",
+            "G 119-49",
+            "GJ 408",
+            "WEB 9740",
+            "TIC 97472519",
+            "TYC 1978-1286-1",
+            "Gaia EDR3 3988987164339438208"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Xi Bootis",
@@ -635,7 +997,20 @@
         "Absolute_magnitude": 5.5,
         "Parallax": 148.069,
         "Color": "Yellow star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/xi-bootis-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/xi-bootis-a",
+        "Other designations": [
+            "Gliese 566",
+            "GJ 556",
+            "Ksi Bootis",
+            "\u03be Boo",
+            "\u03be Bo\u00f6tis",
+            "37 Bo\u00f6tis",
+            "HD 131156",
+            "HIP 72659",
+            "HR 5544",
+            "SAO 101250",
+            "Gaia EDR3 1237090738916392704"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Xi Bootis",
@@ -657,7 +1032,20 @@
         "Absolute_magnitude": 7.7,
         "Parallax": 148.069,
         "Color": "Yellow star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/xi-bootis-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/xi-bootis-a",
+        "Other designations": [
+            "Gliese 566",
+            "GJ 556",
+            "Ksi Bootis",
+            "\u03be Boo",
+            "\u03be Bo\u00f6tis",
+            "37 Bo\u00f6tis",
+            "HD 131156",
+            "HIP 72659",
+            "HR 5544",
+            "SAO 101250",
+            "Gaia EDR3 1237090738916392704"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 299",
@@ -679,7 +1067,15 @@
         "Absolute_magnitude": 13.7,
         "Parallax": 147.722,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-299-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-299-a",
+        "Other designations": [
+            "Ross 619",
+            "LHS 35",
+            "G 52-2",
+            "G 50-22",
+            "LTT 12146",
+            "Gaia EDR3 3098328182579892096"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 299",
@@ -701,7 +1097,15 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 147.722,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-299-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-299-a",
+        "Other designations": [
+            "Ross 619",
+            "LHS 35",
+            "G 52-2",
+            "G 50-22",
+            "LTT 12146",
+            "Gaia EDR3 3098328182579892096"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3522",
@@ -723,7 +1127,16 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": "Unknown",
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3522-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3522-a",
+        "Other designations": [
+            "LHS 6158",
+            "G 41-14",
+            "LTT 12352",
+            "DEL 2",
+            "NLTT 20670",
+            "2MASS J08585633+0828259",
+            "NN 3522"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3522",
@@ -745,7 +1158,16 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": "Unknown",
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3522-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3522-a",
+        "Other designations": [
+            "LHS 6158",
+            "G 41-14",
+            "LTT 12352",
+            "DEL 2",
+            "NLTT 20670",
+            "2MASS J08585633+0828259",
+            "NN 3522"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3522",
@@ -767,7 +1189,16 @@
         "Absolute_magnitude": 11.8,
         "Parallax": 147.66,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3522-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3522-a",
+        "Other designations": [
+            "LHS 6158",
+            "G 41-14",
+            "LTT 12352",
+            "DEL 2",
+            "NLTT 20670",
+            "2MASS J08585633+0828259",
+            "NN 3522"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 829",
@@ -789,7 +1220,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": "Unknown",
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-829-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-829-a",
+        "Other designations": [
+            "Ross 775",
+            "G 126-4",
+            "LHS 508",
+            "Gaia EDR3 1784473016438653056"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 829",
@@ -811,7 +1248,13 @@
         "Absolute_magnitude": 11.1,
         "Parallax": 147.496,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-829-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-829-a",
+        "Other designations": [
+            "Ross 775",
+            "G 126-4",
+            "LHS 508",
+            "Gaia EDR3 1784473016438653056"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Scholzs Star",
@@ -833,7 +1276,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 166.0,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/scholzs-star"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/scholzs-star",
+        "Other designations": [
+            "WISE 0720\u22120846",
+            "2MASS J07200325\u22120846499",
+            "2MASS 0720\u22120846",
+            "Gaia DR2 3048443305671969152"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Scholzs Star",
@@ -855,7 +1304,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 166.0,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/scholzs-star"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/scholzs-star",
+        "Other designations": [
+            "WISE 0720\u22120846",
+            "2MASS J07200325\u22120846499",
+            "2MASS 0720\u22120846",
+            "Gaia DR2 3048443305671969152"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISE 1928+2356",
@@ -877,7 +1332,11 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 146.407,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-1928-2356"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-1928-2356",
+        "Other designations": [
+            "WISE J192841.35+235604.9",
+            "Gaia EDR3 2019802555283940608"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3192",
@@ -899,7 +1358,21 @@
         "Absolute_magnitude": 11.3,
         "Parallax": 145.692,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3192-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3192-a",
+        "Other designations": [
+            "BD-17 588B",
+            "BD-17 588",
+            "RST 2292",
+            "HIC 14101",
+            "HIP 14101",
+            "Gliese 3192",
+            "GJ 3192",
+            "LTT 1445",
+            "LP 771-95",
+            "BD-17 588A",
+            "TOI-455",
+            "Gaia EDR3 5153091836072107136"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3192",
@@ -921,7 +1394,21 @@
         "Absolute_magnitude": 11.3,
         "Parallax": 145.692,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3192-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3192-a",
+        "Other designations": [
+            "BD-17 588B",
+            "BD-17 588",
+            "RST 2292",
+            "HIC 14101",
+            "HIP 14101",
+            "Gliese 3192",
+            "GJ 3192",
+            "LTT 1445",
+            "LP 771-95",
+            "BD-17 588A",
+            "TOI-455",
+            "Gaia EDR3 5153091836072107136"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3192",
@@ -943,7 +1430,21 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 145.692,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3192-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3192-a",
+        "Other designations": [
+            "BD-17 588B",
+            "BD-17 588",
+            "RST 2292",
+            "HIC 14101",
+            "HIP 14101",
+            "Gliese 3192",
+            "GJ 3192",
+            "LTT 1445",
+            "LP 771-95",
+            "BD-17 588A",
+            "TOI-455",
+            "Gaia EDR3 5153091836072107136"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 880",
@@ -965,7 +1466,26 @@
         "Absolute_magnitude": 9.4,
         "Parallax": 145.623,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-880-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-880-a",
+        "Other designations": [
+            "BD+15 4733 B",
+            "spectral double",
+            "Ross 671",
+            "LHS 533",
+            "BD+15 4733",
+            "DO 21896",
+            "2E 4655",
+            "G 67-37",
+            "HD 216899",
+            "HIC 113296",
+            "HIP 113296",
+            "IRAS 22541+1617",
+            "LFT 1751",
+            "2MASS J22563497+1633130",
+            "WEB 20157",
+            "GJ 880",
+            "Gaia EDR3 2828928008202069376"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 880",
@@ -987,7 +1507,26 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 145.623,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-880-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-880-a",
+        "Other designations": [
+            "BD+15 4733 B",
+            "spectral double",
+            "Ross 671",
+            "LHS 533",
+            "BD+15 4733",
+            "DO 21896",
+            "2E 4655",
+            "G 67-37",
+            "HD 216899",
+            "HIC 113296",
+            "HIP 113296",
+            "IRAS 22541+1617",
+            "LFT 1751",
+            "2MASS J22563497+1633130",
+            "WEB 20157",
+            "GJ 880",
+            "Gaia EDR3 2828928008202069376"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISE 2056+1459",
@@ -1009,7 +1548,11 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 144.0,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-2056-1459"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-2056-1459",
+        "Other designations": [
+            "WISE J205628.91+145953.2",
+            "WISEPC J2056+1459"
+        ]
     },
     {
         "Common_name_of_the_star_system": "EE Leonis",
@@ -1031,7 +1574,16 @@
         "Absolute_magnitude": 12.4,
         "Parallax": 143.539,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/ee-leonis"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/ee-leonis",
+        "Other designations": [
+            "EE Leo",
+            "Gliese 402",
+            "Wolf 358",
+            "HIP 53020",
+            "LTT 12891",
+            "LHS 294",
+            "Gaia EDR3 3864615459886222464"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 393",
@@ -1053,7 +1605,18 @@
         "Absolute_magnitude": 10.4,
         "Parallax": 142.095,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-393"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-393",
+        "Other designations": [
+            "GJ 393",
+            "Ross 446",
+            "BD+01 2447",
+            "LHS 2272",
+            "G 162-60",
+            "HIP 51317",
+            "LTT 12805",
+            "BD+01 2447",
+            "Gaia EDR3 3855208897392952192"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 809",
@@ -1075,7 +1638,15 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 142.054,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-809"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-809",
+        "Other designations": [
+            "BD+61\u00b0 2068",
+            "GJ 809",
+            "HD 199305",
+            "HIP 103096",
+            "LHS 3595",
+            "Gaia EDR3 2195886971653527168"
+        ]
     },
     {
         "Common_name_of_the_star_system": "2MASS J2146+3813",
@@ -1097,7 +1668,16 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 141.895,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j2146-3813"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j2146-3813",
+        "Other designations": [
+            "2MASS J21462206+3813047",
+            "PM J21463+3813",
+            "UCAC4 642-113039",
+            "TIC 407688400",
+            "Gaia DR2 1952802469918554368",
+            "LSPM J2146+3813",
+            "Gaia EDR3 1952802469918554368"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3877",
@@ -1119,7 +1699,17 @@
         "Absolute_magnitude": 17.9,
         "Parallax": 141.789,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3877"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3877",
+        "Other designations": [
+            "LHS 3003",
+            "LP 914-54",
+            "NLTT 38829",
+            "PLX 3372.03",
+            "2MASS J14563831-2809473",
+            "2MUCD 11264",
+            "Gaia DR2 6224387727748521344",
+            "Gaia EDR3 6224387727748521344"
+        ]
     },
     {
         "Common_name_of_the_star_system": "L 230-188",
@@ -1141,7 +1731,21 @@
         "Absolute_magnitude": 14.3,
         "Parallax": 140.696,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/l230-188"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/l230-188",
+        "Other designations": [
+            "LHS 22",
+            "GCRV 26227",
+            "GJ 1068",
+            "LFT 334",
+            "LTT 1891",
+            "2MASS J04102815-5336078",
+            "NLTT 12731",
+            "PM 04093-5342",
+            "TIC 219223742",
+            "WISEA J041027.14-533633.5",
+            "Gaia DR2 4780100658292046592",
+            "Gaia EDR3 4780100658292046592"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISE J0005+3737",
@@ -1163,7 +1767,10 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 140.0,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-j0005-3737"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-j0005-3737",
+        "Other designations": [
+            "WISE J000517.48+373720.5"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 1286",
@@ -1185,7 +1792,17 @@
         "Absolute_magnitude": 15.4,
         "Parallax": 139.339,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1286"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1286",
+        "Other designations": [
+            "LHS 546",
+            "G 157-77",
+            "GJ 1286",
+            "2MASS J23351050-0223214",
+            "NLTT 57290",
+            "WISEA J233511.02-022329.7",
+            "Zkh 351",
+            "Gaia EDR3 2640434056928150400"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISEA J082507.37+280548.2",
@@ -1207,7 +1824,10 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 139.02,
         "Color": "Sub-brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wisea-j08250737-2805482"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wisea-j08250737-2805482",
+        "Other designations": [
+            "WISE J0825+2805"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 105",
@@ -1229,7 +1849,30 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 138.34,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-105-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-105-a",
+        "Other designations": [
+            "BX Ceti",
+            "BX Cet",
+            "LHS 16",
+            "LTT 10859",
+            "G 73-71",
+            "G 76-12",
+            "LFT 217",
+            "GJ 105 B",
+            "HR 753",
+            "HD 16160",
+            "LHS 15",
+            "LHS 16",
+            "LTT 10858",
+            "SAO 110636",
+            "FK5 1073",
+            "G 73-70",
+            "G 76-11",
+            "LFT 217",
+            "HIP 12114",
+            "268 G. Ceti",
+            "Gaia EDR3 19316224572460416"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 105",
@@ -1251,7 +1894,30 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 138.34,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-105-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-105-a",
+        "Other designations": [
+            "BX Ceti",
+            "BX Cet",
+            "LHS 16",
+            "LTT 10859",
+            "G 73-71",
+            "G 76-12",
+            "LFT 217",
+            "GJ 105 B",
+            "HR 753",
+            "HD 16160",
+            "LHS 15",
+            "LHS 16",
+            "LTT 10858",
+            "SAO 110636",
+            "FK5 1073",
+            "G 73-70",
+            "G 76-11",
+            "LFT 217",
+            "HIP 12114",
+            "268 G. Ceti",
+            "Gaia EDR3 19316224572460416"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 105",
@@ -1273,7 +1939,30 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 138.34,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-105-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-105-a",
+        "Other designations": [
+            "BX Ceti",
+            "BX Cet",
+            "LHS 16",
+            "LTT 10859",
+            "G 73-71",
+            "G 76-12",
+            "LFT 217",
+            "GJ 105 B",
+            "HR 753",
+            "HD 16160",
+            "LHS 15",
+            "LHS 16",
+            "LTT 10858",
+            "SAO 110636",
+            "FK5 1073",
+            "G 73-70",
+            "G 76-11",
+            "LFT 217",
+            "HIP 12114",
+            "268 G. Ceti",
+            "Gaia EDR3 19316224572460416"
+        ]
     },
     {
         "Common_name_of_the_star_system": "2MASS 0835-0819",
@@ -1295,7 +1984,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 138.315,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-0835-0819"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-0835-0819",
+        "Other designations": [
+            "2MASS J08354256-0819237",
+            "2MUCD 10742",
+            "WISEA J083542.14-081920.1",
+            "Gaia EDR3 5753687109122994048"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 4274",
@@ -1317,7 +2012,15 @@
         "Absolute_magnitude": 14.0,
         "Parallax": 138.228,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-4274"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-4274",
+        "Other designations": [
+            "Luyten 788-34",
+            "LHS 3799",
+            "LTT 9001",
+            "LP 820-12",
+            "WISEA J222307.22-173633.9",
+            "Gaia EDR3 2595284016771502080"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 667",
@@ -1339,7 +2042,18 @@
         "Absolute_magnitude": 6.6,
         "Parallax": 138.066,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-667-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-667-a",
+        "Other designations": [
+            "142 G. Scorpii",
+            "CD\u221234\u00b011626",
+            "HD 156384",
+            "HIP 84709",
+            "HR 6426",
+            "LHS 442/442/443",
+            "SAO 208670",
+            "GJ 667",
+            "Gaia EDR3 5975663354131618304"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 667",
@@ -1361,7 +2075,18 @@
         "Absolute_magnitude": 8.0,
         "Parallax": 138.066,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-667-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-667-a",
+        "Other designations": [
+            "142 G. Scorpii",
+            "CD\u221234\u00b011626",
+            "HD 156384",
+            "HIP 84709",
+            "HR 6426",
+            "LHS 442/442/443",
+            "SAO 208670",
+            "GJ 667",
+            "Gaia EDR3 5975663354131618304"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 667",
@@ -1383,7 +2108,18 @@
         "Absolute_magnitude": 10.9,
         "Parallax": 138.066,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-667-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-667-a",
+        "Other designations": [
+            "142 G. Scorpii",
+            "CD\u221234\u00b011626",
+            "HD 156384",
+            "HIP 84709",
+            "HR 6426",
+            "LHS 442/442/443",
+            "SAO 208670",
+            "GJ 667",
+            "Gaia EDR3 5975663354131618304"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gaia EDR3 3426333598021539840",
@@ -1405,7 +2141,10 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 138.062,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gaia-edr3-3426333598021539840"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gaia-edr3-3426333598021539840",
+        "Other designations": [
+            "Gaia EDR3 3426333598021539840"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gaia DR2 4733794485572154752",
@@ -1427,7 +2166,8 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 137.6,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gaiadr24733794485572154752"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gaiadr24733794485572154752",
+        "Other designations": []
     },
     {
         "Common_name_of_the_star_system": "WISE 0607+2429",
@@ -1449,7 +2189,12 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 136.9,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-0607-2429"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-0607-2429",
+        "Other designations": [
+            "WISEP J060738.65+242953.4",
+            "2MASS J06073908+2429574",
+            "TIC 81192866"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISE 0049+2151",
@@ -1471,7 +2216,11 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 135.0,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-0049-2151"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-0049-2151",
+        "Other designations": [
+            "WISEP J004945.61+215120.0",
+            "WISE J004945.61+215120.0"
+        ]
     },
     {
         "Common_name_of_the_star_system": "2MASS J1507-1627",
@@ -1493,7 +2242,13 @@
         "Absolute_magnitude": 22.8,
         "Parallax": 134.947,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j1507-1627"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j1507-1627",
+        "Other designations": [
+            "2MASSW J1507476-162738",
+            "MUCD 11296",
+            "WISEA J150747.56-162749.3",
+            "Gaia EDR3 6306068659857135232"
+        ]
     },
     {
         "Common_name_of_the_star_system": "LHS 6167",
@@ -1515,7 +2270,12 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": "Unknown",
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/lhs-6167"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/lhs-6167",
+        "Other designations": [
+            "G 161-7",
+            "NLTT 21329",
+            "FBS L 10-63"
+        ]
     },
     {
         "Common_name_of_the_star_system": "LHS 6167",
@@ -1537,7 +2297,12 @@
         "Absolute_magnitude": 14.5,
         "Parallax": 134.9,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/lhs-6167"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/lhs-6167",
+        "Other designations": [
+            "G 161-7",
+            "NLTT 21329",
+            "FBS L 10-63"
+        ]
     },
     {
         "Common_name_of_the_star_system": "96 G. Piscium",
@@ -1559,7 +2324,22 @@
         "Absolute_magnitude": 6.4,
         "Parallax": 134.495,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/96-g-piscium"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/96-g-piscium",
+        "Other designations": [
+            "Gliese 33",
+            "HD 4628",
+            "LHS 121",
+            "Wolf 25",
+            "HR 222",
+            "BD+04 123",
+            "HIP 3765",
+            "HR 222",
+            "Lal 1299",
+            "LHS 121",
+            "LTT 10285",
+            "SAO 109471",
+            "Gaia EDR3 2552925644460225152"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 831",
@@ -1581,7 +2361,19 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": "Unknown",
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-831-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-831-a",
+        "Other designations": [
+            "Wolf 922",
+            "HIC 106255",
+            "HIP 106255",
+            "LFT 163",
+            "LTT 8556",
+            "NLTT 51428",
+            "LHS 511",
+            "BB Cap",
+            "BLA 9",
+            "BB Capricornus"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 831",
@@ -1603,7 +2395,19 @@
         "Absolute_magnitude": 12.6,
         "Parallax": 134.08,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-831-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-831-a",
+        "Other designations": [
+            "Wolf 922",
+            "HIC 106255",
+            "HIP 106255",
+            "LFT 163",
+            "LTT 8556",
+            "NLTT 51428",
+            "LHS 511",
+            "BB Cap",
+            "BLA 9",
+            "BB Capricornus"
+        ]
     },
     {
         "Common_name_of_the_star_system": "HU Delphini",
@@ -1625,7 +2429,23 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 133.811,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/hu-delphini-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/hu-delphini-a",
+        "Other designations": [
+            "HU Del",
+            "Gliese 791.2",
+            "CCDM J20298+0941AB",
+            "LHS 3556",
+            "G 144-8",
+            "G 24-16",
+            "AST 2",
+            "HU Del",
+            "2E 4369",
+            "LTT 15983",
+            "JP11 5099",
+            "TIC 374416052",
+            "UBV 17774",
+            "USNO 78"
+        ]
     },
     {
         "Common_name_of_the_star_system": "HU Delphini",
@@ -1647,7 +2467,23 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 133.811,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/hu-delphini-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/hu-delphini-a",
+        "Other designations": [
+            "HU Del",
+            "Gliese 791.2",
+            "CCDM J20298+0941AB",
+            "LHS 3556",
+            "G 144-8",
+            "G 24-16",
+            "AST 2",
+            "HU Del",
+            "2E 4369",
+            "LTT 15983",
+            "JP11 5099",
+            "TIC 374416052",
+            "UBV 17774",
+            "USNO 78"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Beta Hydri",
@@ -1669,7 +2505,24 @@
         "Absolute_magnitude": 3.4,
         "Parallax": 133.719,
         "Color": "Unknown",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/beta-hydri"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/beta-hydri",
+        "Other designations": [
+            "LHS 6",
+            "Gliese 19",
+            "HD 2151",
+            "HIP 2021",
+            "HR 98",
+            "LTT 226",
+            "GCTP 69",
+            "SAO 255670",
+            "CPD\u201377\u00b0 16",
+            "FK5 11",
+            "LPM 22",
+            "LFT 43",
+            "bet Hyi",
+            "* bet Hyi",
+            "Gaia EDR3 4683897617110115200"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISE 1405+5534",
@@ -1691,7 +2544,11 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 133.0,
         "Color": "Sub-brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-1405-5534"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-1405-5534",
+        "Other designations": [
+            "WISEPC J140518.40+553421.4",
+            "WISE J140518.39+553421.3"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gaia DR2 6702242043883732864",
@@ -1713,7 +2570,11 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 132.77,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gaia-dr2-6702242043883732864"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gaia-dr2-6702242043883732864",
+        "Other designations": [
+            "TIC 349898518",
+            "2MASS J18180608-5124366"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gaia DR2 6702242043883732864",
@@ -1735,7 +2596,11 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 132.77,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gaia-dr2-6702242043883732864"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gaia-dr2-6702242043883732864",
+        "Other designations": [
+            "TIC 349898518",
+            "2MASS J18180608-5124366"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3991",
@@ -1757,7 +2622,13 @@
         "Absolute_magnitude": 14.3,
         "Parallax": 131.6,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3991-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3991-a",
+        "Other designations": [
+            "G 203-47",
+            "HIP 83945",
+            "USNO 752",
+            "Gaia EDR3 1355264565043431040"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3991",
@@ -1779,7 +2650,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 131.6,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3991-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3991-a",
+        "Other designations": [
+            "G 203-47",
+            "HIP 83945",
+            "USNO 752",
+            "Gaia EDR3 1355264565043431040"
+        ]
     },
     {
         "Common_name_of_the_star_system": "G 141-36",
@@ -1801,7 +2678,11 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 131.279,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/g-141-36"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/g-141-36",
+        "Other designations": [
+            "2MASS J18481752+0741210",
+            "Gaia EDR3 4286249341336984576"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 514",
@@ -1823,7 +2704,23 @@
         "Absolute_magnitude": 9.6,
         "Parallax": 131.101,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-514"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-514",
+        "Other designations": [
+            "Ross 490",
+            "LHS 352",
+            "BD+11 2576",
+            "G 63-34",
+            "LTT 13925",
+            "NLTT 34287",
+            "LFT 1012",
+            "HIP 65859",
+            "HIC 65859",
+            "MCC 143",
+            "2MASS J13295979+1022376",
+            "TYC 895-317-1",
+            "Gl 514",
+            "Gaia EDR3 3738099879558957952"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 4053",
@@ -1845,7 +2742,15 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 130.853,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-4053"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-4053",
+        "Other designations": [
+            "LP 71-165",
+            "G 258-33",
+            "LHS 3376",
+            "PLX 4228.11",
+            "USNO 554",
+            "Gaia EDR3 2257597439718033536"
+        ]
     },
     {
         "Common_name_of_the_star_system": "107 Piscium",
@@ -1867,7 +2772,25 @@
         "Absolute_magnitude": 5.8,
         "Parallax": 130.823,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/107-piscium"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/107-piscium",
+        "Other designations": [
+            "BD+19\u00b0 279",
+            "CCDM J01425+2016A",
+            "GC 2080",
+            "Gliese 68",
+            "HD 10476",
+            "HIP 7981",
+            "HR 493",
+            "IDS 01371+1947 A",
+            "LFT 153",
+            "LHS 1287",
+            "LTT 10596",
+            "NLTT 5685",
+            "PPM 91014",
+            "SAO 74883",
+            "WDS 01425+2016A",
+            "Gaia EDR3 96331172942614528"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 4248",
@@ -1889,7 +2812,15 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 130.419,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-4248"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-4248",
+        "Other designations": [
+            "Luyten 499-56",
+            "L 499-56",
+            "LHS 3746",
+            "LP 983-71",
+            "LTT 8811",
+            "Gaia EDR3 6575069780231675264"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Mu Cassiopeiae",
@@ -1911,7 +2842,26 @@
         "Absolute_magnitude": 5.7,
         "Parallax": 130.288,
         "Color": "Yellow star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/mu-cassiopeiae-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/mu-cassiopeiae-a",
+        "Other designations": [
+            "30 Cassiopeiae",
+            "Gliese 53",
+            "HR 321",
+            "BD+54\u00b0223",
+            "HD 6582",
+            "LHS 8",
+            "LTT 10460",
+            "GCTP 219.00",
+            "SAO 22024",
+            "FK5 1030",
+            "LFT 107",
+            "HIP 5336",
+            "GC 1360",
+            "CCDM J01080+5455",
+            "MU Cas",
+            "V* MU Cas",
+            "Gaia EDR3 411413822074322432"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Mu Cassiopeiae",
@@ -1933,7 +2883,26 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 130.288,
         "Color": "Yellow star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/mu-cassiopeiae-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/mu-cassiopeiae-a",
+        "Other designations": [
+            "30 Cassiopeiae",
+            "Gliese 53",
+            "HR 321",
+            "BD+54\u00b0223",
+            "HD 6582",
+            "LHS 8",
+            "LTT 10460",
+            "GCTP 219.00",
+            "SAO 22024",
+            "FK5 1030",
+            "LFT 107",
+            "HIP 5336",
+            "GC 1360",
+            "CCDM J01080+5455",
+            "MU Cas",
+            "V* MU Cas",
+            "Gaia EDR3 411413822074322432"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Vega",
@@ -1955,7 +2924,24 @@
         "Absolute_magnitude": 0.6,
         "Parallax": 130.23,
         "Color": "White-Blue star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/vega"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/vega",
+        "Other designations": [
+            "Alpha Lyrae",
+            "Lucida Lyrae",
+            "Gliese 721",
+            "GJ 721",
+            "Wega",
+            "\u03b1 Lyrae",
+            "3 Lyrae",
+            "BD+38\u00b03238",
+            "GCTP 4293.00",
+            "HD 172167",
+            "HIC 91262",
+            "HIP 91262",
+            "HR 7001",
+            "LTT 15486",
+            "SAO 67174"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 109",
@@ -1977,7 +2963,20 @@
         "Absolute_magnitude": 11.1,
         "Parallax": 130.196,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-109"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-109",
+        "Other designations": [
+            "Ross 556",
+            "V VX Ari",
+            "VX Arietis",
+            "V* VX Ari",
+            "HIC 12781",
+            "HIP 12781",
+            "Ci 20 180",
+            "Ci 20 180",
+            "LHS 1439",
+            "LTT 10897",
+            "Gaia EDR3 114207651462714880"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Fomalhaut",
@@ -1999,7 +2998,37 @@
         "Absolute_magnitude": 1.7,
         "Parallax": 129.81,
         "Color": "White-Blue star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/fomalhaut-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/fomalhaut-a",
+        "Other designations": [
+            "LP 876-10",
+            "Fomalhaut C",
+            "2MASS J22480446-2422075",
+            "NLTT 54872",
+            "GSC 06964-01226",
+            "TW Piscis Austrini",
+            "TW PsA",
+            "Gl 879",
+            "HR 8721",
+            "CD -32\u00b017321",
+            "HD 216803",
+            "LTT 9283",
+            "GCTP 5562.00",
+            "SAO 214197",
+            "CP(D)-32 6550",
+            "HIP 113283",
+            "\u03b1 Piscis Austrini",
+            "\u03b1 PsA",
+            "Alpha PsA",
+            "24 Piscis Austrini",
+            "CPD \u221230\u00b0 6685",
+            "FK5 867",
+            "Gl 881",
+            "HD 216956",
+            "HIP 113368",
+            "HR 8728",
+            "SAO 191524",
+            "alf PsA"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Fomalhaut",
@@ -2021,7 +3050,37 @@
         "Absolute_magnitude": 7.1,
         "Parallax": 129.81,
         "Color": "White-Blue star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/fomalhaut-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/fomalhaut-a",
+        "Other designations": [
+            "LP 876-10",
+            "Fomalhaut C",
+            "2MASS J22480446-2422075",
+            "NLTT 54872",
+            "GSC 06964-01226",
+            "TW Piscis Austrini",
+            "TW PsA",
+            "Gl 879",
+            "HR 8721",
+            "CD -32\u00b017321",
+            "HD 216803",
+            "LTT 9283",
+            "GCTP 5562.00",
+            "SAO 214197",
+            "CP(D)-32 6550",
+            "HIP 113283",
+            "\u03b1 Piscis Austrini",
+            "\u03b1 PsA",
+            "Alpha PsA",
+            "24 Piscis Austrini",
+            "CPD \u221230\u00b0 6685",
+            "FK5 867",
+            "Gl 881",
+            "HD 216956",
+            "HIP 113368",
+            "HR 8728",
+            "SAO 191524",
+            "alf PsA"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Fomalhaut",
@@ -2043,7 +3102,37 @@
         "Absolute_magnitude": 13.2,
         "Parallax": 129.81,
         "Color": "White-Blue star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/fomalhaut-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/fomalhaut-a",
+        "Other designations": [
+            "LP 876-10",
+            "Fomalhaut C",
+            "2MASS J22480446-2422075",
+            "NLTT 54872",
+            "GSC 06964-01226",
+            "TW Piscis Austrini",
+            "TW PsA",
+            "Gl 879",
+            "HR 8721",
+            "CD -32\u00b017321",
+            "HD 216803",
+            "LTT 9283",
+            "GCTP 5562.00",
+            "SAO 214197",
+            "CP(D)-32 6550",
+            "HIP 113283",
+            "\u03b1 Piscis Austrini",
+            "\u03b1 PsA",
+            "Alpha PsA",
+            "24 Piscis Austrini",
+            "CPD \u221230\u00b0 6685",
+            "FK5 867",
+            "Gl 881",
+            "HD 216956",
+            "HIP 113368",
+            "HR 8728",
+            "SAO 191524",
+            "alf PsA"
+        ]
     },
     {
         "Common_name_of_the_star_system": "AN Sextantis",
@@ -2065,7 +3154,21 @@
         "Absolute_magnitude": 9.8,
         "Parallax": 129.754,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/an-sextantis"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/an-sextantis",
+        "Other designations": [
+            "Gliese 382",
+            "HIP 49986",
+            "HIC 49986",
+            "G 162-25",
+            "G 53-29",
+            "LTT 3734",
+            "V* AN Sex",
+            "BD-03 2870",
+            "NLTT 23680",
+            "MCC 569",
+            "2MASS J10121768-0344441",
+            "Gaia EDR3 3828238392559860992"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 673",
@@ -2087,7 +3190,19 @@
         "Absolute_magnitude": 8.1,
         "Parallax": 129.646,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-673"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-673",
+        "Other designations": [
+            "Wolf 718",
+            "LHS 447",
+            "BD +02\u00b03312",
+            "HD 157881",
+            "LTT 15175",
+            "GCTP 3955.00",
+            "SAO 122374",
+            "Vys 794",
+            "HIP 85295",
+            "Gaia EDR3 4375233191015944192"
+        ]
     },
     {
         "Common_name_of_the_star_system": "SIPS J1259-4336",
@@ -2109,7 +3224,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 129.429,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/sipsj1259-4336"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/sipsj1259-4336",
+        "Other designations": [
+            "2MASS J12590470-4336243",
+            "TIC 248223026",
+            "WISEA J125905.84-433627.2",
+            "Gaia EDR3 6135947032490329472"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 2005",
@@ -2131,7 +3252,13 @@
         "Absolute_magnitude": 15.9,
         "Parallax": 129.317,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-2005-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-2005-a",
+        "Other designations": [
+            "LHS 1070",
+            "LP 881-64",
+            "LEI 1",
+            "Gaia EDR3 2322561156529549440"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 2005",
@@ -2153,7 +3280,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 129.317,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-2005-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-2005-a",
+        "Other designations": [
+            "LHS 1070",
+            "LP 881-64",
+            "LEI 1",
+            "Gaia EDR3 2322561156529549440"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 2005",
@@ -2175,7 +3308,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 129.317,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-2005-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-2005-a",
+        "Other designations": [
+            "LHS 1070",
+            "LP 881-64",
+            "LEI 1",
+            "Gaia EDR3 2322561156529549440"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 2005",
@@ -2197,7 +3336,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 129.317,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-2005-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-2005-a",
+        "Other designations": [
+            "LHS 1070",
+            "LP 881-64",
+            "LEI 1",
+            "Gaia EDR3 2322561156529549440"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3378",
@@ -2219,7 +3364,14 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 129.301,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3378"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3378",
+        "Other designations": [
+            "Luyten 1813-21",
+            "G 192-13",
+            "LHS 1805",
+            "GJ 3378",
+            "Gaia EDR3 999747822484300800"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 701",
@@ -2241,7 +3393,21 @@
         "Absolute_magnitude": 9.9,
         "Parallax": 129.218,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-701"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-701",
+        "Other designations": [
+            "Luyten 991-14",
+            "LHS 3356",
+            "HD 165222",
+            "LFT 1389",
+            "HIP 88574",
+            "G 21-1",
+            "G 20-22",
+            "NLTT 45883",
+            "MCC 176",
+            "2MASS J18050755-0301523",
+            "LTT 7180",
+            "Gaia EDR3 4177731838628465408"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 1093",
@@ -2263,7 +3429,16 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 128.987,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1093"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1093",
+        "Other designations": [
+            "Luyten 399-68",
+            "LHS 223",
+            "G 109-35",
+            "PLX 1635.01",
+            "NLTT 17247",
+            "2MASS J06592868+1920577",
+            "Gaia EDR3 3365063724883180288"
+        ]
     },
     {
         "Common_name_of_the_star_system": "LP 71-82",
@@ -2285,7 +3460,18 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 128.306,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/lp-71-82"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/lp-71-82",
+        "Other designations": [
+            "G 227-22",
+            "LSPM J1802+6415",
+            "NLTT 45873",
+            "2MASS J18021660+6415445",
+            "2E 4002",
+            "RX J1802.2+6415",
+            "TIC 233068870",
+            "WISEA J180216.92+641540.2",
+            "Gaia EDR3 2161121135533953536"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISE 1800+0134",
@@ -2307,7 +3493,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 128.055,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-1800-0134"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-1800-0134",
+        "Other designations": [
+            "WISEP J180026.60+013453.1",
+            "DENIS J180026.4+013457",
+            "2MASS J18002648+0134565",
+            "Gaia EDR3 4468009917744160000"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 623",
@@ -2329,7 +3521,20 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 127.48,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-623-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-623-a",
+        "Other designations": [
+            "HEN 1",
+            "LHS 417",
+            "G 202-45",
+            "HIC 80346",
+            "HIP 80346",
+            "LFT 1273",
+            "LHS 417",
+            "L 1707-1",
+            "LTT 14885",
+            "NLTT 42730",
+            "2MASS J16240913+4821112"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 623",
@@ -2351,7 +3556,20 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 127.48,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-623-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-623-a",
+        "Other designations": [
+            "HEN 1",
+            "LHS 417",
+            "G 202-45",
+            "HIC 80346",
+            "HIP 80346",
+            "LFT 1273",
+            "LHS 417",
+            "L 1707-1",
+            "LTT 14885",
+            "NLTT 42730",
+            "2MASS J16240913+4821112"
+        ]
     },
     {
         "Common_name_of_the_star_system": "2MASS 0729-3954",
@@ -2373,7 +3591,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 126.3,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-0729-3954"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-0729-3954",
+        "Other designations": [
+            "2MASS 0729-39",
+            "2MASS J07290002-3954043",
+            "WISEA J072859.49-395345.3",
+            "TIC 173510894"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 1224",
@@ -2395,7 +3619,14 @@
         "Absolute_magnitude": 14.0,
         "Parallax": 125.451,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1224"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1224",
+        "Other designations": [
+            "LHS 3359",
+            "L 920-26",
+            "G 154-44",
+            "G 155-1",
+            "Gaia EDR3 4145870293808914688"
+        ]
     },
     {
         "Common_name_of_the_star_system": "SCR J0740-4257",
@@ -2417,7 +3648,14 @@
         "Absolute_magnitude": 14.3,
         "Parallax": 125.303,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/scrj0740-4257"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/scrj0740-4257",
+        "Other designations": [
+            "UCAC4 236-016971",
+            "2MASS J07401183-4257406",
+            "PM J07401-4257",
+            "TIC 123480394",
+            "Gaia EDR3 5535361753834861312"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Pi3 Orionis",
@@ -2439,7 +3677,23 @@
         "Absolute_magnitude": 3.7,
         "Parallax": 124.62,
         "Color": "Yellow-White star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/pi3-orionis"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/pi3-orionis",
+        "Other designations": [
+            "Tabit",
+            "\u03c0\u00b3 Ori",
+            "1 Ori",
+            "Pi3 Orionis",
+            "BD+06\u00b0762",
+            "FK5 1134",
+            "GCTP 1077.00",
+            "Gliese 178",
+            "HD 30652",
+            "HIP 22449",
+            "HR 1543",
+            "LTT 11517",
+            "SAO 112106",
+            "Gaia EDR3 3288921720025503360"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 257",
@@ -2461,7 +3715,25 @@
         "Absolute_magnitude": 12.0,
         "Parallax": 124.57,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-257-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-257-a",
+        "Other designations": [
+            "CD-44 3045B",
+            "GJ 257 B",
+            "CSI-44 3045 23",
+            "LPM 248B",
+            "CD-44 3045",
+            "HIC 33499",
+            "HIP 33499",
+            "LHS 222",
+            "LFT 502",
+            "LTT 2699",
+            "NLTT 17239",
+            "LPM 248",
+            "Ci 20 407",
+            "GJ 257",
+            "Gaia DR2 5559035514779133056",
+            "Gaia EDR3 5559035514779971456"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 257",
@@ -2483,7 +3755,25 @@
         "Absolute_magnitude": 11.8,
         "Parallax": 124.57,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-257-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-257-a",
+        "Other designations": [
+            "CD-44 3045B",
+            "GJ 257 B",
+            "CSI-44 3045 23",
+            "LPM 248B",
+            "CD-44 3045",
+            "HIC 33499",
+            "HIP 33499",
+            "LHS 222",
+            "LFT 502",
+            "LTT 2699",
+            "NLTT 17239",
+            "LPM 248",
+            "Ci 20 407",
+            "GJ 257",
+            "Gaia DR2 5559035514779133056",
+            "Gaia EDR3 5559035514779971456"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 1151",
@@ -2505,7 +3795,19 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 124.338,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1151"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1151",
+        "Other designations": [
+            "G 122-49",
+            "LHS 316",
+            "PLX 2739.0",
+            "NLTT 28752",
+            "Zkh 171",
+            "GJ 1151",
+            "2MASS J11505787+4822395",
+            "TIC 11893637",
+            "WISEA J115056.09+482228.4",
+            "Gaia EDR3 786834302080370304"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 480.1",
@@ -2527,7 +3829,21 @@
         "Absolute_magnitude": 12.7,
         "Parallax": 124.185,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-4801"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-4801",
+        "Other designations": [
+            "LP 399-68",
+            "LHS 340",
+            "GJ 9415",
+            "LFT 935",
+            "HIC 61874",
+            "HIP 61874",
+            "LTT 4836",
+            "NLTT 31495",
+            "2MASS J12404633-4333595",
+            "TYC 7783-576-1",
+            "L 399-68",
+            "Gaia EDR3 6133474952391837824"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Chi Draconis",
@@ -2549,7 +3865,21 @@
         "Absolute_magnitude": 4.0,
         "Parallax": 124.11,
         "Color": "Yellow-White star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/chi-draconis-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/chi-draconis-a",
+        "Other designations": [
+            "Gliese 713",
+            "\u03c7 Dra",
+            "44 Dra",
+            "BD+72\u00b0 839",
+            "FK5 695",
+            "Gliese 713",
+            "HD 170153",
+            "HIP 89937",
+            "HR 6927",
+            "LHS 3379",
+            "LTT 15438",
+            "SAO 9087"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Chi Draconis",
@@ -2571,7 +3901,21 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 124.11,
         "Color": "Yellow-White star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/chi-draconis-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/chi-draconis-a",
+        "Other designations": [
+            "Gliese 713",
+            "\u03c7 Dra",
+            "44 Dra",
+            "BD+72\u00b0 839",
+            "FK5 695",
+            "Gliese 713",
+            "HD 170153",
+            "HIP 89937",
+            "HR 6927",
+            "LHS 3379",
+            "LTT 15438",
+            "SAO 9087"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 486",
@@ -2593,7 +3937,26 @@
         "Absolute_magnitude": 11.8,
         "Parallax": 123.776,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-486"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-486",
+        "Other designations": [
+            "GJ 486",
+            "Gl 486",
+            "Wolf 437",
+            "LHS 341",
+            "HIC 62452",
+            "HIP 62452",
+            "LFT 947",
+            "LTT 13654",
+            "G 60-32",
+            "Ci 20 737",
+            "TYC 882-1111-1",
+            "NLTT 31933",
+            "WISEA J124755.90+094500.2",
+            "LSPM J1247+0945",
+            "2MASS J12475664+0945050",
+            "PLX 2943",
+            "Gaia EDR3 3735000631158990976"
+        ]
     },
     {
         "Common_name_of_the_star_system": "2MASSW J2148162+400359",
@@ -2615,7 +3978,10 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 123.675,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/2massw-j2148162-400359"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/2massw-j2148162-400359",
+        "Other designations": [
+            "Gaia EDR3 1954170404122975232"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 793",
@@ -2637,7 +4003,18 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 123.655,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-793"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-793",
+        "Other designations": [
+            "HIP 101180",
+            "LHS 3558",
+            "LTT 15991",
+            "G 262-15",
+            "LFT 1552",
+            "LTT 15991",
+            "NLTT 49417",
+            "MCC 820",
+            "Gaia EDR3 2246206567973292160"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 1154",
@@ -2659,7 +4036,17 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 123.643,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1154"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1154",
+        "Other designations": [
+            "LTT 13408",
+            "G 13-22",
+            "LHS 2531",
+            "NLTT 30062",
+            "PLX 2817.01",
+            "LSPM J1214+0037",
+            "2MASS J12141654+0037263",
+            "Gaia EDR3 3698534434669937024"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISE 2220-3628",
@@ -2681,7 +4068,10 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 123.0,
         "Color": "Sub-brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-2220-3628"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-2220-3628",
+        "Other designations": [
+            "WISE J222055.31\u2212362817.4"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 300",
@@ -2703,7 +4093,19 @@
         "Absolute_magnitude": 12.6,
         "Parallax": 123.203,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-300"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-300",
+        "Other designations": [
+            "L 674-15",
+            "LHS 1989",
+            "LFT 571",
+            "LP 843-1",
+            "LTT 3080",
+            "NLTT 19136",
+            "2MASS J08124088-2133056",
+            "JP11 5131",
+            "GJ 300",
+            "Gaia EDR3 5700706729031126656"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 1087",
@@ -2725,7 +4127,18 @@
         "Absolute_magnitude": 14.6,
         "Parallax": 123.199,
         "Color": "White dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1087"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1087",
+        "Other designations": [
+            "G 99-47",
+            "V1201 Orionis",
+            "V1201 Ori",
+            "LHS 212",
+            "LTT 17891",
+            "NLTT 15834",
+            "WD 0553+05",
+            "EGGR 290",
+            "Gaia EDR3 3320184202856435840"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 686",
@@ -2747,7 +4160,20 @@
         "Absolute_magnitude": 10.0,
         "Parallax": 122.555,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-686"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-686",
+        "Other designations": [
+            "BD+18 3421",
+            "LHS 452",
+            "G 170-55",
+            "HIC 86287",
+            "HIP 86287",
+            "L 1278-24",
+            "LFT 1363",
+            "LTT 15228",
+            "NLTT 45173",
+            "GJ 686",
+            "Gaia EDR3 4550763526539955712"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 293",
@@ -2769,7 +4195,18 @@
         "Absolute_magnitude": 14.5,
         "Parallax": 122.413,
         "Color": "White dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-293"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-293",
+        "Other designations": [
+            "Luyten 97-12",
+            "LHS 34",
+            "LFT 555",
+            "LTT 2981",
+            "WD 0752-676",
+            "EGGR 56",
+            "2MASS J07530814-6747314",
+            "LAWD 26",
+            "Gaia EDR3 5273943488410008832"
+        ]
     },
     {
         "Common_name_of_the_star_system": "UGPS J0521+3640",
@@ -2791,7 +4228,8 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 122.0,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/ugps-j0521-3640"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/ugps-j0521-3640",
+        "Other designations": []
     },
     {
         "Common_name_of_the_star_system": "p Eridani",
@@ -2813,7 +4251,28 @@
         "Absolute_magnitude": 6.1,
         "Parallax": 122.109,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/p-eridani-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/p-eridani-a",
+        "Other designations": [
+            "HR 487",
+            "HD 10361",
+            "LTT 902",
+            "p Eri B",
+            "6 Eri",
+            "Gliese 66",
+            "GJ 66",
+            "CD\u221256\u00b0328",
+            "GCTP 352.00",
+            "SAO 232490",
+            "WDS 01398-5612",
+            "DUN 5",
+            "HIP 7751",
+            "HIC 7751",
+            "HR 486",
+            "HD 10360",
+            "LTT 903",
+            "* p Eri A",
+            "Gaia EDR3 4911306239828325632"
+        ]
     },
     {
         "Common_name_of_the_star_system": "p Eridani",
@@ -2835,7 +4294,28 @@
         "Absolute_magnitude": 6.2,
         "Parallax": 122.109,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/p-eridani-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/p-eridani-a",
+        "Other designations": [
+            "HR 487",
+            "HD 10361",
+            "LTT 902",
+            "p Eri B",
+            "6 Eri",
+            "Gliese 66",
+            "GJ 66",
+            "CD\u221256\u00b0328",
+            "GCTP 352.00",
+            "SAO 232490",
+            "WDS 01398-5612",
+            "DUN 5",
+            "HIP 7751",
+            "HIC 7751",
+            "HR 486",
+            "HD 10360",
+            "LTT 903",
+            "* p Eri A",
+            "Gaia EDR3 4911306239828325632"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gaia EDR3 4479498508613790464",
@@ -2857,7 +4337,10 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 121.979,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gaia-edr3-4479498508613790464"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gaia-edr3-4479498508613790464",
+        "Other designations": [
+            "Gaia EDR3 4479498508613790464"
+        ]
     },
     {
         "Common_name_of_the_star_system": "L 173-19",
@@ -2879,7 +4362,14 @@
         "Absolute_magnitude": 13.3,
         "Parallax": 121.708,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/l-173-19"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/l-173-19",
+        "Other designations": [
+            "NLTT 6772",
+            "2MASS J02003830-5558047",
+            "GSC 08485-00936",
+            "TIC 231055581",
+            "Gaia EDR3 4719430087707860736"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 884",
@@ -2901,7 +4391,21 @@
         "Absolute_magnitude": 8.3,
         "Parallax": 121.472,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-884"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-884",
+        "Other designations": [
+            "HD 217357",
+            "LHS 3885",
+            "HIP 113576",
+            "HIC 113576",
+            "LAL 44964",
+            "LFT 1754",
+            "LTT 9308",
+            "NLTT 55523",
+            "MCC 339",
+            "2MASS J23001607-2231276",
+            "CD-23 17699",
+            "Gaia EDR3 2396530698208685312"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 48",
@@ -2923,7 +4427,19 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 121.46,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-48"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-48",
+        "Other designations": [
+            "HIP 4856",
+            "LHS 131",
+            "Ross 318",
+            "BD+70 68b",
+            "LFT 93",
+            "LTT 10362",
+            "NLTT 3359",
+            "MCC 364",
+            "2MASS J01023213+7140475",
+            "Gaia EDR3 533621859441169920"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 54",
@@ -2945,7 +4461,25 @@
         "Absolute_magnitude": 10.3,
         "Parallax": 121.45,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-54-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-54-a",
+        "Other designations": [
+            "GKI 3",
+            "CD-68 47",
+            "CPD-68 41",
+            "GALEX 6384743253449642140",
+            "LFT 117",
+            "LTT 660",
+            "LPM 62",
+            "LHS 1208",
+            "HIC 5496",
+            "HIP 5496",
+            "2MASS J01102281-6726425",
+            "Gaia DR2 4704272495284592512",
+            "NLTT 3945",
+            "TIC 52121469",
+            "TYC 8855-238-1",
+            "NSV 427"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 54",
@@ -2967,7 +4501,25 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 121.45,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-54-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-54-a",
+        "Other designations": [
+            "GKI 3",
+            "CD-68 47",
+            "CPD-68 41",
+            "GALEX 6384743253449642140",
+            "LFT 117",
+            "LTT 660",
+            "LPM 62",
+            "LHS 1208",
+            "HIC 5496",
+            "HIP 5496",
+            "2MASS J01102281-6726425",
+            "Gaia DR2 4704272495284592512",
+            "NLTT 3945",
+            "TIC 52121469",
+            "TYC 8855-238-1",
+            "NSV 427"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 747",
@@ -2989,7 +4541,17 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": "Unknown",
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-747-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-747-a",
+        "Other designations": [
+            "G 207-16",
+            "KUI 90",
+            "LFT 1451",
+            "LHS 471",
+            "L 1499-28",
+            "LP 336-6",
+            "LTT 15603",
+            "NLTT 47437"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 747",
@@ -3011,7 +4573,17 @@
         "Absolute_magnitude": 11.7,
         "Parallax": 120.2,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-747-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-747-a",
+        "Other designations": [
+            "G 207-16",
+            "KUI 90",
+            "LFT 1451",
+            "LHS 471",
+            "L 1499-28",
+            "LP 336-6",
+            "LTT 15603",
+            "NLTT 47437"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 915",
@@ -3033,7 +4605,23 @@
         "Absolute_magnitude": 13.5,
         "Parallax": 120.014,
         "Color": "White dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-915"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-915",
+        "Other designations": [
+            "LHS 1005",
+            "Luyten 362-81",
+            "WD 2359-434",
+            "LFT 1849",
+            "LTT 9857",
+            "LP 988-88",
+            "EGGR 165",
+            "2MASS J00021076-4309560",
+            "LAWD 96",
+            "GJ 915",
+            "EGGR 165",
+            "WISEA J000211.31-431002.6",
+            "L 362-81",
+            "Gaia EDR3 4994877094997259264"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Mu Herculis Aa",
@@ -3055,7 +4643,28 @@
         "Absolute_magnitude": 3.8,
         "Parallax": 119.925,
         "Color": "Unknown",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/mu-herculis-aa"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/mu-herculis-aa",
+        "Other designations": [
+            "mu.02 Her",
+            "86 Herculis",
+            "Gliese 695",
+            "GJ 695",
+            "HR 6623",
+            "BD+27\u00b0 2888",
+            "HD 161797",
+            "LHS 3326/3325",
+            "LTT 15266",
+            "SAO 85397",
+            "FK5 667",
+            "LFT 1374",
+            "GC 24138",
+            "ADS 10786",
+            "HIC 86974",
+            "HIP 86974",
+            "MU Her",
+            "* mu.01 Her",
+            "Gaia EDR3 4594497769766809216"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Mu Herculis Aa",
@@ -3077,7 +4686,28 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 119.925,
         "Color": "Unknown",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/mu-herculis-aa"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/mu-herculis-aa",
+        "Other designations": [
+            "mu.02 Her",
+            "86 Herculis",
+            "Gliese 695",
+            "GJ 695",
+            "HR 6623",
+            "BD+27\u00b0 2888",
+            "HD 161797",
+            "LHS 3326/3325",
+            "LTT 15266",
+            "SAO 85397",
+            "FK5 667",
+            "LFT 1374",
+            "GC 24138",
+            "ADS 10786",
+            "HIC 86974",
+            "HIP 86974",
+            "MU Her",
+            "* mu.01 Her",
+            "Gaia EDR3 4594497769766809216"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Mu Herculis Aa",
@@ -3099,7 +4729,28 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 119.925,
         "Color": "Unknown",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/mu-herculis-aa"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/mu-herculis-aa",
+        "Other designations": [
+            "mu.02 Her",
+            "86 Herculis",
+            "Gliese 695",
+            "GJ 695",
+            "HR 6623",
+            "BD+27\u00b0 2888",
+            "HD 161797",
+            "LHS 3326/3325",
+            "LTT 15266",
+            "SAO 85397",
+            "FK5 667",
+            "LFT 1374",
+            "GC 24138",
+            "ADS 10786",
+            "HIC 86974",
+            "HIP 86974",
+            "MU Her",
+            "* mu.01 Her",
+            "Gaia EDR3 4594497769766809216"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Mu Herculis Aa",
@@ -3121,7 +4772,28 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 119.925,
         "Color": "Unknown",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/mu-herculis-aa"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/mu-herculis-aa",
+        "Other designations": [
+            "mu.02 Her",
+            "86 Herculis",
+            "Gliese 695",
+            "GJ 695",
+            "HR 6623",
+            "BD+27\u00b0 2888",
+            "HD 161797",
+            "LHS 3326/3325",
+            "LTT 15266",
+            "SAO 85397",
+            "FK5 667",
+            "LFT 1374",
+            "GC 24138",
+            "ADS 10786",
+            "HIC 86974",
+            "HIP 86974",
+            "MU Her",
+            "* mu.01 Her",
+            "Gaia EDR3 4594497769766809216"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 518",
@@ -3143,7 +4815,22 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 119.757,
         "Color": "White dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-518"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-518",
+        "Other designations": [
+            "Wolf 489",
+            "WD 1334+039",
+            "LHS 46",
+            "G 062-053",
+            "LFT 1023",
+            "LTT 13961",
+            "NLTT 34618",
+            "G 62-53",
+            "G 64-4",
+            "EGGR 100",
+            "2MASS J13363181+0340458",
+            "USNO-B1.0 0936-00229354",
+            "Gaia EDR3 3713594960831605760"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 1227",
@@ -3165,7 +4852,15 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 119.752,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1227"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1227",
+        "Other designations": [
+            "LHS 465",
+            "G 227-29",
+            "LP 103-305",
+            "NLTT 46427",
+            "2MASS J18222719+6203025",
+            "Gaia EDR3 2159844052779000064"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 1289",
@@ -3187,7 +4882,18 @@
         "Absolute_magnitude": 13.0,
         "Parallax": 119.579,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1289"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1289",
+        "Other designations": [
+            "G 130-4",
+            "LHS 4003",
+            "2MASS J23430628+3632132",
+            "NLTT 57748",
+            "G 190-43",
+            "GJ 1289",
+            "TIC 352593978",
+            "WISEA J234307.14+363211.5",
+            "Gaia EDR3 2879455480942629248"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 185",
@@ -3209,7 +4915,16 @@
         "Absolute_magnitude": 8.7,
         "Parallax": 119.574,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-185-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-185-a",
+        "Other designations": [
+            "BD\u221221\u00b0 1051",
+            "HD 32450",
+            "HIP 23455",
+            "SAO 170003",
+            "LTT 2151",
+            "MCC 112",
+            "Gaia EDR3 2974726131970829952"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 185",
@@ -3231,7 +4946,16 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 119.574,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-185-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-185-a",
+        "Other designations": [
+            "BD\u221221\u00b0 1051",
+            "HD 32450",
+            "HIP 23455",
+            "SAO 170003",
+            "LTT 2151",
+            "MCC 112",
+            "Gaia EDR3 2974726131970829952"
+        ]
     },
     {
         "Common_name_of_the_star_system": "2MASS J18352\u20133123",
@@ -3253,7 +4977,12 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": "Unknown",
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j18352\u20133123-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j18352\u20133123-a",
+        "Other designations": [
+            "2MASS J18352205\u22123123421",
+            "2MASS J18352154\u20133123385",
+            "1RXS J183520.9\u2212312327"
+        ]
     },
     {
         "Common_name_of_the_star_system": "2MASS J18352\u20133123",
@@ -3275,7 +5004,12 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 119.0,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j18352\u20133123-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j18352\u20133123-a",
+        "Other designations": [
+            "2MASS J18352205\u22123123421",
+            "2MASS J18352154\u20133123385",
+            "1RXS J183520.9\u2212312327"
+        ]
     },
     {
         "Common_name_of_the_star_system": "SCR 1138-7721",
@@ -3297,7 +5031,13 @@
         "Absolute_magnitude": 15.2,
         "Parallax": 119.342,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/scr-1138-7721"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/scr-1138-7721",
+        "Other designations": [
+            "2MASS J11381671-7721484",
+            "WISEA J113810.11-772142.2",
+            "SCR J1138-7721",
+            "Gaia EDR3 5224460173763882496"
+        ]
     },
     {
         "Common_name_of_the_star_system": "2MASS J1546-5534",
@@ -3319,7 +5059,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 119.1,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j1546-5534"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j1546-5534",
+        "Other designations": [
+            "2MASS J15464185-5534468",
+            "DENIS J154641.8-553446",
+            "SCR J1546-5534",
+            "WISEA J154640.78-553446.0"
+        ]
     },
     {
         "Common_name_of_the_star_system": "TYC 3980-1081-1",
@@ -3341,7 +5087,13 @@
         "Absolute_magnitude": 11.0,
         "Parallax": 118.155,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/tyc-3980-1081-1-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/tyc-3980-1081-1-a",
+        "Other designations": [
+            "UCAC4 747-070768",
+            "Gaia DR2 2202703050401536000",
+            "IRAS 21500+5903",
+            "2MASS J21513828+5917383"
+        ]
     },
     {
         "Common_name_of_the_star_system": "TYC 3980-1081-1",
@@ -3363,7 +5115,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 118.155,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/tyc-3980-1081-1-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/tyc-3980-1081-1-a",
+        "Other designations": [
+            "UCAC4 747-070768",
+            "Gaia DR2 2202703050401536000",
+            "IRAS 21500+5903",
+            "2MASS J21513828+5917383"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Beta Canum Venaticorum",
@@ -3385,7 +5143,23 @@
         "Absolute_magnitude": 4.6,
         "Parallax": 118.027,
         "Color": "Yellow star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/beta-canum-venaticorum"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/beta-canum-venaticorum",
+        "Other designations": [
+            "Asterion",
+            "Chara",
+            "Beta CVn",
+            "8 CVn",
+            "BD +42 2321",
+            "FK5 470",
+            "HD 109358",
+            "HIP 61317",
+            "HR 4785",
+            "SAO 44230",
+            "Gliese 475",
+            "* bet CVn",
+            "Gaia DR2 1534011998570864256",
+            "Gaia EDR3 1534011998572555776"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 232",
@@ -3407,7 +5181,17 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 117.726,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-232"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-232",
+        "Other designations": [
+            "Ross 64",
+            "JP11 5117",
+            "LHS 1846",
+            "LFT 467",
+            "G 104-37",
+            "LTT 11838",
+            "Ci 20 385",
+            "Gaia EDR3 3377365057060447616"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 618",
@@ -3429,7 +5213,23 @@
         "Absolute_magnitude": 10.9,
         "Parallax": 117.472,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-618-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-618-a",
+        "Other designations": [
+            "LHS 416",
+            "LFT 1267",
+            "L 482-31",
+            "LTT 6509",
+            "CD-37 10765",
+            "LHS 415",
+            "LDS 6312",
+            "L 482-30",
+            "LFT 1266",
+            "LTT 6508",
+            "NLTT 42493",
+            "2MASS J16200353-3731449",
+            "TYC 7853-670-1",
+            "Gaia EDR3 6021430250773348736"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 618",
@@ -3451,7 +5251,23 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 117.472,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-618-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-618-a",
+        "Other designations": [
+            "LHS 416",
+            "LFT 1267",
+            "L 482-31",
+            "LTT 6509",
+            "CD-37 10765",
+            "LHS 415",
+            "LDS 6312",
+            "L 482-30",
+            "LFT 1266",
+            "LTT 6508",
+            "NLTT 42493",
+            "2MASS J16200353-3731449",
+            "TYC 7853-670-1",
+            "Gaia EDR3 6021430250773348736"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 318",
@@ -3473,7 +5289,20 @@
         "Absolute_magnitude": 12.2,
         "Parallax": 117.396,
         "Color": "White dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-318"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-318",
+        "Other designations": [
+            "CD\u221232\u00b0 5613",
+            "LHS 253",
+            "L 532-81",
+            "LTT 3218",
+            "WD 0839-327",
+            "CD-32 5613",
+            "LFT 600",
+            "GJ 318",
+            "LAWD 28",
+            "PLX 2080.1",
+            "Gaia EDR3 5639391810273308416"
+        ]
     },
     {
         "Common_name_of_the_star_system": "61 Virginis",
@@ -3495,7 +5324,21 @@
         "Absolute_magnitude": 5.1,
         "Parallax": 117.173,
         "Color": "Yellow star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/61-virginis"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/61-virginis",
+        "Other designations": [
+            "61 Vir",
+            "Gliese 506",
+            "BD-17\u00b03813",
+            "FK5 1345",
+            "GCTP 3039.00",
+            "HD 115617",
+            "HIP 64924",
+            "HR 5019",
+            "LHS 349",
+            "LTT 5111",
+            "SAO 157844",
+            "Gaia EDR3 3507879565090229888"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 1276",
@@ -3517,7 +5360,17 @@
         "Absolute_magnitude": 16.0,
         "Parallax": 117.139,
         "Color": "White dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1276"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1276",
+        "Other designations": [
+            "LP 701-29",
+            "LHS 69",
+            "WD 2251-070",
+            "EGGR 453",
+            "2MASS J22535314-0646536",
+            "NLTT 55164",
+            "GJ 1276",
+            "Gaia EDR3 2611561706216413696"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 493.1",
@@ -3539,7 +5392,19 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 117.033,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-4931"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-4931",
+        "Other designations": [
+            "Wolf 461",
+            "V* FN Vir",
+            "G 60-55",
+            "G 62-5",
+            "LFT 962",
+            "LHS 2664",
+            "LTT 13750",
+            "NLTT 32583",
+            "2MASS J13003350+0541081",
+            "Gaia EDR3 3705324881045028992"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3454",
@@ -3561,7 +5426,15 @@
         "Absolute_magnitude": 13.6,
         "Parallax": 116.6,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3454-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3454-a",
+        "Other designations": [
+            "LTT 17993",
+            "G 89-32",
+            "Nl 654",
+            "HEN 3",
+            "2MASS J07362513+0704431",
+            "NLTT 18152"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3454",
@@ -3583,7 +5456,15 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 116.6,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3454-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3454-a",
+        "Other designations": [
+            "LTT 17993",
+            "G 89-32",
+            "Nl 654",
+            "HEN 3",
+            "2MASS J07362513+0704431",
+            "NLTT 18152"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 877",
@@ -3605,7 +5486,20 @@
         "Absolute_magnitude": 10.7,
         "Parallax": 116.313,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-877"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-877",
+        "Other designations": [
+            "HIP 113229",
+            "LHS 531",
+            "L 49-19",
+            "Ci 20 1389",
+            "GJ 877",
+            "HIC 113229",
+            "LFT 1747",
+            "2MASS J22554532-7527320",
+            "NLTT 55234",
+            "Gaia DR2 6378584028690858496",
+            "Gaia EDR3 6378584028690858496"
+        ]
     },
     {
         "Common_name_of_the_star_system": "CD Ceti",
@@ -3627,7 +5521,16 @@
         "Absolute_magnitude": 14.3,
         "Parallax": 116.268,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/cd-ceti"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/cd-ceti",
+        "Other designations": [
+            "Gliese 1057",
+            "LHS 168",
+            "NLTT 10256",
+            "G 77-31",
+            "CD Cet",
+            "V* CD Cet",
+            "Gaia EDR3 3179036008830848"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Zeta Tucanae",
@@ -3649,7 +5552,21 @@
         "Absolute_magnitude": 4.6,
         "Parallax": 116.183,
         "Color": "Yellow-White star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/zeta-tucanae"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/zeta-tucanae",
+        "Other designations": [
+            "FK5 10",
+            "GCTP 54",
+            "Gliese 17",
+            "GJ 17",
+            "HD 1581",
+            "HIP 1599",
+            "HR 77",
+            "LHS 5",
+            "LTT 167",
+            "SAO 248163",
+            "GC 401",
+            "Gaia EDR3 4900108950849461248"
+        ]
     },
     {
         "Common_name_of_the_star_system": "LP 502-56",
@@ -3671,7 +5588,17 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 116.042,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/lp-502-56"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/lp-502-56",
+        "Other designations": [
+            "Karmn J15305+094",
+            "LSPM J1530+0926",
+            "2MASS J15303032+0926014",
+            "NLTT 40406",
+            "PM J15305+0926",
+            "TIC 393018418",
+            "Gaia DR2 1165479168642900992",
+            "Gaia EDR3 1165479168642900992"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3517",
@@ -3693,7 +5620,18 @@
         "Absolute_magnitude": 19.3,
         "Parallax": 115.488,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3517"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3517",
+        "Other designations": [
+            "LHS 2065",
+            "LP 666-9",
+            "2MUCD 10776",
+            "NLTT 20475",
+            "PLX 2122.01",
+            "2MASS J08533619-0329321",
+            "TIC 7975441",
+            "WISEA J085335.79-032934.3",
+            "Gaia EDR3 5761985432616501376"
+        ]
     },
     {
         "Common_name_of_the_star_system": "AP Columbae",
@@ -3715,7 +5653,15 @@
         "Absolute_magnitude": 13.3,
         "Parallax": 115.398,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/ap-columbae"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/ap-columbae",
+        "Other designations": [
+            "V* AP Col",
+            "LTT 2449",
+            "L 523-55",
+            "LP 949-15",
+            "2MASS J06045215-3433360",
+            "Gaia EDR3 2886233695250041216"
+        ]
     },
     {
         "Common_name_of_the_star_system": "PM J11413-3624",
@@ -3737,7 +5683,11 @@
         "Absolute_magnitude": 13.4,
         "Parallax": 115.083,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/pmj11413-3624"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/pmj11413-3624",
+        "Other designations": [
+            "SIPS J1141-3624",
+            "Gaia EDR3 3464485826872541440"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Chi1 Orionis",
@@ -3759,7 +5709,21 @@
         "Absolute_magnitude": 4.7,
         "Parallax": 114.95,
         "Color": "Yellow star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/chi1-orionis-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/chi1-orionis-a",
+        "Other designations": [
+            "54 Ori",
+            "Gliese 222",
+            "GJ 222",
+            "HR 2047",
+            "BD+20\u00b0 1162",
+            "HD 39587",
+            "LTT 11743",
+            "GCTP 1354.00",
+            "SAO 77705",
+            "HIC 27913",
+            "HIP 27913",
+            "Gaia EDR3 3399063235755057792"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Chi1 Orionis",
@@ -3781,7 +5745,21 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 114.95,
         "Color": "Yellow star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/chi1-orionis-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/chi1-orionis-a",
+        "Other designations": [
+            "54 Ori",
+            "Gliese 222",
+            "GJ 222",
+            "HR 2047",
+            "BD+20\u00b0 1162",
+            "HD 39587",
+            "LTT 11743",
+            "GCTP 1354.00",
+            "SAO 77705",
+            "HIC 27913",
+            "HIP 27913",
+            "Gaia EDR3 3399063235755057792"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 1207",
@@ -3803,7 +5781,17 @@
         "Absolute_magnitude": 12.6,
         "Parallax": 114.916,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1207"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1207",
+        "Other designations": [
+            "G 19-7",
+            "L 988-42",
+            "LP 686-27",
+            "LTT 6767",
+            "LHS 3255",
+            "LFT 1312",
+            "NLTT 43858",
+            "Gaia EDR3 4365609170043180416"
+        ]
     },
     {
         "Common_name_of_the_star_system": "LP 991-84",
@@ -3825,7 +5813,10 @@
         "Absolute_magnitude": 14.7,
         "Parallax": 114.604,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/lp991-84"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/lp991-84",
+        "Other designations": [
+            "Gaia EDR3 4960651016012601856"
+        ]
     },
     {
         "Common_name_of_the_star_system": "2MASS 0036+1821",
@@ -3847,7 +5838,11 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 114.473,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-0036-1821"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-0036-1821",
+        "Other designations": [
+            "2MASS J00361617+1821104",
+            "Gaia EDR3 2794735086363871360"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 250",
@@ -3869,7 +5864,20 @@
         "Absolute_magnitude": 10.4,
         "Parallax": "Unknown",
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-250-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-250-a",
+        "Other designations": [
+            "HD 50281B",
+            "88 G. Monocerotis",
+            "BD -05\u00b01844",
+            "GCTP 1606.00",
+            "HD 50281",
+            "HIP 32984",
+            "LFT 494",
+            "LHS 1875",
+            "LTT 2662",
+            "SAO 133805",
+            "Gaia EDR3 3101923001490347392"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 250",
@@ -3891,7 +5899,20 @@
         "Absolute_magnitude": 6.9,
         "Parallax": 114.355,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-250-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-250-a",
+        "Other designations": [
+            "HD 50281B",
+            "88 G. Monocerotis",
+            "BD -05\u00b01844",
+            "GCTP 1606.00",
+            "HD 50281",
+            "HIP 32984",
+            "LFT 494",
+            "LHS 1875",
+            "LTT 2662",
+            "SAO 133805",
+            "Gaia EDR3 3101923001490347392"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 450",
@@ -3913,7 +5934,20 @@
         "Absolute_magnitude": 10.1,
         "Parallax": 114.085,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-450"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-450",
+        "Other designations": [
+            "HIP 57802",
+            "G 148-13",
+            "MCC 135",
+            "NLTT 28756",
+            "HIC 57802",
+            "HIP 57802",
+            "NGP 36 11",
+            "2MASS J11510737+3516188",
+            "BD+36 2119",
+            "MCC 135",
+            "Gaia EDR3 4031586157514097024"
+        ]
     },
     {
         "Common_name_of_the_star_system": "41 G. Arae",
@@ -3935,7 +5969,24 @@
         "Absolute_magnitude": 5.8,
         "Parallax": 113.751,
         "Color": "Yellow star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/41-g-arae-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/41-g-arae-a",
+        "Other designations": [
+            "* 41 Ara B",
+            "41 Arae",
+            "CD-46\u00b0 11370",
+            "Gliese 666",
+            "GJ 666",
+            "HD 156274",
+            "HIP 84720",
+            "HR 6416",
+            "LHS 444",
+            "LTT 6886",
+            "SAO 227816",
+            "LPM 636",
+            "LFT 1334",
+            "* 41 Ara",
+            "Gaia EDR3 5951165616611763456"
+        ]
     },
     {
         "Common_name_of_the_star_system": "41 G. Arae",
@@ -3957,7 +6008,24 @@
         "Absolute_magnitude": 9.0,
         "Parallax": 113.751,
         "Color": "Yellow star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/41-g-arae-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/41-g-arae-a",
+        "Other designations": [
+            "* 41 Ara B",
+            "41 Arae",
+            "CD-46\u00b0 11370",
+            "Gliese 666",
+            "GJ 666",
+            "HD 156274",
+            "HIP 84720",
+            "HR 6416",
+            "LHS 444",
+            "LTT 6886",
+            "SAO 227816",
+            "LPM 636",
+            "LFT 1334",
+            "* 41 Ara",
+            "Gaia EDR3 5951165616611763456"
+        ]
     },
     {
         "Common_name_of_the_star_system": "41 G. Arae",
@@ -3979,7 +6047,24 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 113.751,
         "Color": "Yellow star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/41-g-arae-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/41-g-arae-a",
+        "Other designations": [
+            "* 41 Ara B",
+            "41 Arae",
+            "CD-46\u00b0 11370",
+            "Gliese 666",
+            "GJ 666",
+            "HD 156274",
+            "HIP 84720",
+            "HR 6416",
+            "LHS 444",
+            "LTT 6886",
+            "SAO 227816",
+            "LPM 636",
+            "LFT 1334",
+            "* 41 Ara",
+            "Gaia EDR3 5951165616611763456"
+        ]
     },
     {
         "Common_name_of_the_star_system": "5 G. Capricorni",
@@ -4001,7 +6086,20 @@
         "Absolute_magnitude": 6.0,
         "Parallax": 113.487,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/5-g-capricorni"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/5-g-capricorni",
+        "Other designations": [
+            "HD 192310",
+            "CD-27\u00b0 14659",
+            "GCTP 4804.00",
+            "Gliese 785",
+            "HIP 99825",
+            "LHS 488",
+            "LTT 8009",
+            "NSV 12933",
+            "SAO 189065",
+            "HR 7722",
+            "Gaia EDR3 6847167606385195648"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 849",
@@ -4023,7 +6121,19 @@
         "Absolute_magnitude": 10.6,
         "Parallax": 113.445,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-849"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-849",
+        "Other designations": [
+            "BD-05 5715",
+            "GCRV 13921",
+            "HIP 109388",
+            "LFT 1689",
+            "LHS 517",
+            "LPM 814",
+            "LTT 8889",
+            "NLTT 53078",
+            "GJ 849",
+            "Gaia EDR3 2627117287488522240"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 745",
@@ -4045,7 +6155,17 @@
         "Absolute_magnitude": 11.0,
         "Parallax": 113.223,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-745-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-745-a",
+        "Other designations": [
+            "ROSS 731",
+            "HIP 93873",
+            "HIP 93899",
+            "LHS 3432",
+            "LHS 3433",
+            "Ross 730",
+            "GJ 745",
+            "Gaia EDR3 4519789081415296128"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 745",
@@ -4067,7 +6187,17 @@
         "Absolute_magnitude": 11.0,
         "Parallax": 113.223,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-745-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-745-a",
+        "Other designations": [
+            "ROSS 731",
+            "HIP 93873",
+            "HIP 93899",
+            "LHS 3432",
+            "LHS 3433",
+            "Ross 730",
+            "GJ 745",
+            "Gaia EDR3 4519789081415296128"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Xi Ursae Majoris Aa",
@@ -4089,7 +6219,24 @@
         "Absolute_magnitude": 4.1,
         "Parallax": 113.2,
         "Color": "Yellow-White star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/xi-ursae-majoris-aa"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/xi-ursae-majoris-aa",
+        "Other designations": [
+            "WISE J111838.70+312537.9",
+            "WISE J1118+3125",
+            "ksi UMa B",
+            "Alula Australis",
+            "\u03be Ursae Majoris",
+            "\u03be UMa",
+            "Xi UMa",
+            "53 Ursae Majoris",
+            "BD+32\u00b02132",
+            "CCDM J11182+3132",
+            "GC 15537",
+            "HIP 55203",
+            "IDS 11128+3206",
+            "SAO 62484",
+            "WDS J11182+3132"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Xi Ursae Majoris Aa",
@@ -4111,7 +6258,24 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 113.2,
         "Color": "Yellow-White star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/xi-ursae-majoris-aa"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/xi-ursae-majoris-aa",
+        "Other designations": [
+            "WISE J111838.70+312537.9",
+            "WISE J1118+3125",
+            "ksi UMa B",
+            "Alula Australis",
+            "\u03be Ursae Majoris",
+            "\u03be UMa",
+            "Xi UMa",
+            "53 Ursae Majoris",
+            "BD+32\u00b02132",
+            "CCDM J11182+3132",
+            "GC 15537",
+            "HIP 55203",
+            "IDS 11128+3206",
+            "SAO 62484",
+            "WDS J11182+3132"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Xi Ursae Majoris Aa",
@@ -4133,7 +6297,24 @@
         "Absolute_magnitude": 5.1,
         "Parallax": 113.2,
         "Color": "Yellow-White star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/xi-ursae-majoris-aa"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/xi-ursae-majoris-aa",
+        "Other designations": [
+            "WISE J111838.70+312537.9",
+            "WISE J1118+3125",
+            "ksi UMa B",
+            "Alula Australis",
+            "\u03be Ursae Majoris",
+            "\u03be UMa",
+            "Xi UMa",
+            "53 Ursae Majoris",
+            "BD+32\u00b02132",
+            "CCDM J11182+3132",
+            "GC 15537",
+            "HIP 55203",
+            "IDS 11128+3206",
+            "SAO 62484",
+            "WDS J11182+3132"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Xi Ursae Majoris Aa",
@@ -4155,7 +6336,24 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 113.2,
         "Color": "Yellow-White star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/xi-ursae-majoris-aa"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/xi-ursae-majoris-aa",
+        "Other designations": [
+            "WISE J111838.70+312537.9",
+            "WISE J1118+3125",
+            "ksi UMa B",
+            "Alula Australis",
+            "\u03be Ursae Majoris",
+            "\u03be UMa",
+            "Xi UMa",
+            "53 Ursae Majoris",
+            "BD+32\u00b02132",
+            "CCDM J11182+3132",
+            "GC 15537",
+            "HIP 55203",
+            "IDS 11128+3206",
+            "SAO 62484",
+            "WDS J11182+3132"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Xi Ursae Majoris Aa",
@@ -4177,7 +6375,24 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 113.2,
         "Color": "Yellow-White star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/xi-ursae-majoris-aa"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/xi-ursae-majoris-aa",
+        "Other designations": [
+            "WISE J111838.70+312537.9",
+            "WISE J1118+3125",
+            "ksi UMa B",
+            "Alula Australis",
+            "\u03be Ursae Majoris",
+            "\u03be UMa",
+            "Xi UMa",
+            "53 Ursae Majoris",
+            "BD+32\u00b02132",
+            "CCDM J11182+3132",
+            "GC 15537",
+            "HIP 55203",
+            "IDS 11128+3206",
+            "SAO 62484",
+            "WDS J11182+3132"
+        ]
     },
     {
         "Common_name_of_the_star_system": "LDS 169",
@@ -4199,7 +6414,25 @@
         "Absolute_magnitude": 10.8,
         "Parallax": 113.13,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/lds-169-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/lds-169-a",
+        "Other designations": [
+            "L 32-8",
+            "NLTT 16774",
+            "HIC 31292",
+            "2MASS J06334690-7537301",
+            "HIP 31292",
+            "GSC 09379-01149",
+            "IDS 06371-7533 B",
+            "TIC 142086813",
+            "TYC 9379-1149-1",
+            "WDS J06337-7538B",
+            "L 32-9 A",
+            "LTT 2602",
+            "HIP 31293",
+            "IRAS 06355-7535",
+            "EXO 063528-7535.1",
+            "Gaia EDR3 5260759175761501696"
+        ]
     },
     {
         "Common_name_of_the_star_system": "LDS 169",
@@ -4221,7 +6454,25 @@
         "Absolute_magnitude": 11.7,
         "Parallax": 113.13,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/lds-169-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/lds-169-a",
+        "Other designations": [
+            "L 32-8",
+            "NLTT 16774",
+            "HIC 31292",
+            "2MASS J06334690-7537301",
+            "HIP 31292",
+            "GSC 09379-01149",
+            "IDS 06371-7533 B",
+            "TIC 142086813",
+            "TYC 9379-1149-1",
+            "WDS J06337-7538B",
+            "L 32-9 A",
+            "LTT 2602",
+            "HIP 31293",
+            "IRAS 06355-7535",
+            "EXO 063528-7535.1",
+            "Gaia EDR3 5260759175761501696"
+        ]
     },
     {
         "Common_name_of_the_star_system": "284 G. Eridani",
@@ -4243,7 +6494,19 @@
         "Absolute_magnitude": 6.5,
         "Parallax": 113.071,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/284-g-eridani"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/284-g-eridani",
+        "Other designations": [
+            "Gliese 183",
+            "BD -05\u00b01123",
+            "HD 32147",
+            "LHS 200",
+            "LTT 2142",
+            "GCTP 1129.00",
+            "SAO 131688",
+            "LPM 200",
+            "HIP 23311",
+            "Gaia EDR3 3211461469444773376"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISE 1217+1626",
@@ -4265,7 +6528,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 113.0,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-1217-1626-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-1217-1626-a",
+        "Other designations": [
+            "WISEPC J121756.91+162640.2",
+            "LIM 4",
+            "EQ J1217+1626",
+            "WISEA J121756.92+162640.3"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISE 1217+1626",
@@ -4287,7 +6556,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 113.0,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-1217-1626-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-1217-1626-a",
+        "Other designations": [
+            "WISEPC J121756.91+162640.2",
+            "LIM 4",
+            "EQ J1217+1626",
+            "WISEA J121756.92+162640.3"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 1105",
@@ -4309,7 +6584,17 @@
         "Absolute_magnitude": 14.2,
         "Parallax": 112.993,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1105"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-1105",
+        "Other designations": [
+            "HIP 38956",
+            "LHS 1963",
+            "G 111-47",
+            "NLTT 18699",
+            "HIC 38956",
+            "LSPM J0758+4118",
+            "TYC 2968-1142-1",
+            "Gaia EDR3 922225002820369152"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 465",
@@ -4331,7 +6616,13 @@
         "Absolute_magnitude": 11.5,
         "Parallax": 112.674,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-465"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-465",
+        "Other designations": [
+            "LHS 45",
+            "Ross 695",
+            "HIP 60559",
+            "Gaia EDR3 3519785523672576384"
+        ]
     },
     {
         "Common_name_of_the_star_system": "SCR J0630-7643",
@@ -4353,7 +6644,16 @@
         "Absolute_magnitude": 15.1,
         "Parallax": 112.658,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/scr-j0630-7643-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/scr-j0630-7643-a",
+        "Other designations": [
+            "** HEN 4B",
+            "WDS J06308-7643B",
+            "Gaia DR2 5260451999698559872",
+            "SCR J0630-7643B",
+            "SIPS J0630-7643",
+            "2MASS J06304661-7643094",
+            "Gaia EDR3 5260451999700465536"
+        ]
     },
     {
         "Common_name_of_the_star_system": "SCR J0630-7643",
@@ -4375,7 +6675,16 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 112.658,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/scr-j0630-7643-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/scr-j0630-7643-a",
+        "Other designations": [
+            "** HEN 4B",
+            "WDS J06308-7643B",
+            "Gaia DR2 5260451999698559872",
+            "SCR J0630-7643B",
+            "SIPS J0630-7643",
+            "2MASS J06304661-7643094",
+            "Gaia EDR3 5260451999700465536"
+        ]
     },
     {
         "Common_name_of_the_star_system": "DENIS 0334-49",
@@ -4397,7 +6706,12 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 112.61,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/denis-0334-49"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/denis-0334-49",
+        "Other designations": [
+            "2MASS J03341218-4953322",
+            "LEHPM 3396",
+            "Gaia EDR3 4736655036868019072"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gaia DR2 2090670890062670080",
@@ -4419,7 +6733,8 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 112.565,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gaia-dr2-2090670890062670080"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gaia-dr2-2090670890062670080",
+        "Other designations": []
     },
     {
         "Common_name_of_the_star_system": "CWISEP J181006.00\u2013101001.1",
@@ -4441,7 +6756,10 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 112.5,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/cwisep-j18100600\u20131010011"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/cwisep-j18100600\u20131010011",
+        "Other designations": [
+            "WISEA J181006.18-101000.5"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISE J1810-1010",
@@ -4463,7 +6781,12 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 112.5,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-j1810-1010"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wise-j1810-1010",
+        "Other designations": [
+            "WISE J181005.5-101002.3",
+            "CWISEP J181006.00",
+            "Gaia DR3 4157330159867759104"
+        ]
     },
     {
         "Common_name_of_the_star_system": "2MASS J0348-6022",
@@ -4485,7 +6808,12 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 110.0,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j0348-6022"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j0348-6022",
+        "Other designations": [
+            "2MASS J03480772-6022270",
+            "WISEA J034807.33-602235.2",
+            "TIC 237922091"
+        ]
     },
     {
         "Common_name_of_the_star_system": "FK Aquarii",
@@ -4507,7 +6835,18 @@
         "Absolute_magnitude": 9.3,
         "Parallax": 112.386,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/fk-aquarii"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/fk-aquarii",
+        "Other designations": [
+            "FL Aqr",
+            "V* FL Aqr",
+            "FK Aqr",
+            "Gliese 867",
+            "HD 214479",
+            "HIP 111802",
+            "BD-21 6267",
+            "FL Aquarii",
+            "Gaia EDR3 2400808142038361088"
+        ]
     },
     {
         "Common_name_of_the_star_system": "FK Aquarii",
@@ -4529,7 +6868,18 @@
         "Absolute_magnitude": 11.7,
         "Parallax": 112.386,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/fk-aquarii"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/fk-aquarii",
+        "Other designations": [
+            "FL Aqr",
+            "V* FL Aqr",
+            "FK Aqr",
+            "Gliese 867",
+            "HD 214479",
+            "HIP 111802",
+            "BD-21 6267",
+            "FL Aquarii",
+            "Gaia EDR3 2400808142038361088"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gamma Leporis",
@@ -4551,7 +6901,32 @@
         "Absolute_magnitude": 3.9,
         "Parallax": 112.296,
         "Color": "Yellow-White star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gamma-leporis"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gamma-leporis",
+        "Other designations": [
+            "BD\u221222 1210",
+            "Gliese 216 B",
+            "HD 38392",
+            "HR 1982",
+            "LTT 2363",
+            "SAO 170757",
+            "V* AK Lep",
+            "13 Leporis",
+            "BD\u221222\u00b0 1211",
+            "CD\u221222\u00b0 2438",
+            "FK5 217",
+            "Gliese 216 A",
+            "HD 38393",
+            "HIP 27072",
+            "HR 1983",
+            "SAO 170759",
+            "BD\u221222 1210",
+            "Gliese 216 B",
+            "HD 38392",
+            "HR 1982",
+            "LTT 2363",
+            "SAO 170757",
+            "Gaia EDR3 2964000159821218432"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gamma Leporis",
@@ -4573,7 +6948,32 @@
         "Absolute_magnitude": 6.4,
         "Parallax": 112.296,
         "Color": "Yellow-White star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gamma-leporis"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gamma-leporis",
+        "Other designations": [
+            "BD\u221222 1210",
+            "Gliese 216 B",
+            "HD 38392",
+            "HR 1982",
+            "LTT 2363",
+            "SAO 170757",
+            "V* AK Lep",
+            "13 Leporis",
+            "BD\u221222\u00b0 1211",
+            "CD\u221222\u00b0 2438",
+            "FK5 217",
+            "Gliese 216 A",
+            "HD 38393",
+            "HIP 27072",
+            "HR 1983",
+            "SAO 170759",
+            "BD\u221222 1210",
+            "Gliese 216 B",
+            "HD 38392",
+            "HR 1982",
+            "LTT 2363",
+            "SAO 170757",
+            "Gaia EDR3 2964000159821218432"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 2066",
@@ -4595,7 +6995,13 @@
         "Absolute_magnitude": 10.3,
         "Parallax": 111.87,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-2066"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-2066",
+        "Other designations": [
+            "HIP 40501",
+            "HIC 40501 G 113-20",
+            "NLTT 19217",
+            "Gaia EDR3 3089711447388931584"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3421",
@@ -4617,7 +7023,16 @@
         "Absolute_magnitude": 13.5,
         "Parallax": 110.826,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3421"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3421",
+        "Other designations": [
+            "G 193-27",
+            "LHS 224",
+            "LP 122-59",
+            "LTT 11965",
+            "LFT 506",
+            "L 1750-5",
+            "Gaia EDR3 981548637301374336"
+        ]
     },
     {
         "Common_name_of_the_star_system": "LP 388-55",
@@ -4639,7 +7054,8 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 110.7,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/lp388-55"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/lp388-55",
+        "Other designations": []
     },
     {
         "Common_name_of_the_star_system": "SZ Ursae Majoris",
@@ -4661,7 +7077,23 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 110.231,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/sz-ursae-majoris"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/sz-ursae-majoris",
+        "Other designations": [
+            "V* SZ UMa",
+            "Gliese 424",
+            "GJ 424",
+            "HIC 55360",
+            "HIP 55360",
+            "LFT 795",
+            "LHS 41",
+            "LTT 13056",
+            "BD+66 717",
+            "NLTT 27039",
+            "MCC 38",
+            "G 236-65",
+            "2MASS J11200526+6550470",
+            "Gaia EDR3 1057318835428596096"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 433",
@@ -4683,7 +7115,22 @@
         "Absolute_magnitude": 10.0,
         "Parallax": 110.171,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-433"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-433",
+        "Other designations": [
+            "HIP 56528",
+            "CD-31 9113",
+            "LHS 2429",
+            "LTT 4290",
+            "NLTT 27914",
+            "SAO 202602",
+            "Ci 20 649",
+            "L 907-1",
+            "PM J11354-3232",
+            "UGP 270",
+            "CPC 17 5737",
+            "GJ 433",
+            "Gaia EDR3 3478160727866058368"
+        ]
     },
     {
         "Common_name_of_the_star_system": "2MASS 0727+1710",
@@ -4705,7 +7152,11 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 110.14,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-0727-1710"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-0727-1710",
+        "Other designations": [
+            "LEHPM 2-461",
+            "2MASS J07271824+1710012"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Rana",
@@ -4727,7 +7178,31 @@
         "Absolute_magnitude": 3.7,
         "Parallax": 110.025,
         "Color": "Unknown",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/rana"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/rana",
+        "Other designations": [
+            "Delta Eridani",
+            "\u03b4 Eridani",
+            "Del Eri",
+            "23 Eridani",
+            "HD 23249",
+            "HR 1136",
+            "BD\u221210\u00b0 728",
+            "GCTP 788",
+            "Gliese 150",
+            "GJ 150",
+            "LHS 1581",
+            "HIP 17378",
+            "FK5 135",
+            "GC 4450",
+            "JP11 813",
+            "LFT 304",
+            "LPM 166",
+            "LTT 1753",
+            "NLTT 11686",
+            "N30 756",
+            "2MASS J03431490-0945490",
+            "Gaia EDR3 5164120762333028736"
+        ]
     },
     {
         "Common_name_of_the_star_system": "HD 115953",
@@ -4749,7 +7224,21 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": "Unknown",
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/hd-115953-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/hd-115953-a",
+        "Other designations": [
+            "BD+48 2108B",
+            "HU 644B",
+            "ADS 8862 B",
+            "GJ 508 B",
+            "TYC 3460-2162-2",
+            "HU 644A",
+            "CHR 193",
+            "ADS 8862 A",
+            "BD+48 2108A",
+            "GJ 508 A",
+            "TYC 3460-2162-1",
+            "Gliese 508 A"
+        ]
     },
     {
         "Common_name_of_the_star_system": "HD 115953",
@@ -4771,7 +7260,21 @@
         "Absolute_magnitude": 8.7,
         "Parallax": 109.98,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/hd-115953-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/hd-115953-a",
+        "Other designations": [
+            "BD+48 2108B",
+            "HU 644B",
+            "ADS 8862 B",
+            "GJ 508 B",
+            "TYC 3460-2162-2",
+            "HU 644A",
+            "CHR 193",
+            "ADS 8862 A",
+            "BD+48 2108A",
+            "GJ 508 A",
+            "TYC 3460-2162-1",
+            "Gliese 508 A"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3146",
@@ -4793,7 +7296,15 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 109.95,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3146"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3146",
+        "Other designations": [
+            "LP 469-206",
+            "LHS 1375",
+            "NLTT 7501",
+            "2MASS J02162977+1335136",
+            "NN 3146",
+            "Gaia EDR3 74203982469858816"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 2012",
@@ -4815,7 +7326,18 @@
         "Absolute_magnitude": 14.8,
         "Parallax": 109.928,
         "Color": "White dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-2012"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-2012",
+        "Other designations": [
+            "LHS 1126",
+            "G 66-57",
+            "WD 0038-226",
+            "LFT 65",
+            "L 651-57",
+            "LP 825-669",
+            "LTT 375",
+            "NLTT 2258",
+            "Gaia EDR3 2349916559152267008"
+        ]
     },
     {
         "Common_name_of_the_star_system": "V374 Pegasi",
@@ -4837,7 +7359,17 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 109.855,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/v374-pegasi"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/v374-pegasi",
+        "Other designations": [
+            "V* V374 Peg",
+            "G 188-38",
+            "Gliese 4247",
+            "HIP 108706",
+            "HIC 108706",
+            "2MASS J22011310+2818248",
+            "NLTT 52699",
+            "Gaia EDR3 1893189736896880640"
+        ]
     },
     {
         "Common_name_of_the_star_system": "2MASS J06523073+4710348",
@@ -4859,7 +7391,13 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 109.765,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j06523073-4710348"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-j06523073-4710348",
+        "Other designations": [
+            "2MUCD 10601",
+            "TIC 191947016",
+            "WISEP J065230.58+471036.3",
+            "Gaia EDR3 954697944875755136"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WT 460",
@@ -4881,7 +7419,15 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 109.732,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wt-460-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wt-460-a",
+        "Other designations": [
+            "2MASS J14115998-4132211",
+            "DENIS J141159.9-413221",
+            "TIC 179615113",
+            "WDS J14120-4132AB",
+            "WISEA J141159.27-413222.5",
+            "Gaia EDR3 6109949904687424640"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WT 460",
@@ -4903,7 +7449,15 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 109.732,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wt-460-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wt-460-a",
+        "Other designations": [
+            "2MASS J14115998-4132211",
+            "DENIS J141159.9-413221",
+            "TIC 179615113",
+            "WDS J14120-4132AB",
+            "WISEA J141159.27-413222.5",
+            "Gaia EDR3 6109949904687424640"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 283",
@@ -4925,7 +7479,29 @@
         "Absolute_magnitude": 13.3,
         "Parallax": 109.344,
         "Color": "White dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-283-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-283-a",
+        "Other designations": [
+            "LHS 234",
+            "LUY 5693B",
+            "CCDM J07402-1725B",
+            "GJ 283 B",
+            "LFT 544",
+            "L 745-46 B",
+            "LP 783-2",
+            "LTT 2916",
+            "2MASS J07401922-1724449",
+            "NLTT 18270",
+            "TIC 289113766",
+            "LAWD 25",
+            "L 745-46",
+            "LFT 543",
+            "LHS 235",
+            "LHS 234",
+            "LTT 2915",
+            "LP 783-3",
+            "LP 7783-2",
+            "Gaia EDR3 5717278911884258176"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 283",
@@ -4947,7 +7523,29 @@
         "Absolute_magnitude": 16.9,
         "Parallax": 109.344,
         "Color": "White dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-283-a"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-283-a",
+        "Other designations": [
+            "LHS 234",
+            "LUY 5693B",
+            "CCDM J07402-1725B",
+            "GJ 283 B",
+            "LFT 544",
+            "L 745-46 B",
+            "LP 783-2",
+            "LTT 2916",
+            "2MASS J07401922-1724449",
+            "NLTT 18270",
+            "TIC 289113766",
+            "LAWD 25",
+            "L 745-46",
+            "LFT 543",
+            "LHS 235",
+            "LHS 234",
+            "LTT 2915",
+            "LP 783-3",
+            "LP 7783-2",
+            "Gaia EDR3 5717278911884258176"
+        ]
     },
     {
         "Common_name_of_the_star_system": "2MASS 0355+1133",
@@ -4969,7 +7567,19 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 109.138,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-0355-1133"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/2mass-0355-1133",
+        "Other designations": [
+            "2MASS J0355+11",
+            "2MASS J03552337+1133437",
+            "** BNA 3",
+            "2MUCD 20171",
+            "SDSS J035523.48+113339.4",
+            "TIC 415339665",
+            "EPIC 210327027",
+            "WDS J03554+1134AB",
+            "WISEA J035523.53+113337.2",
+            "Gaia EDR3 3303349202364648320"
+        ]
     },
     {
         "Common_name_of_the_star_system": "WISEP J213456.73-713743.6",
@@ -4991,7 +7601,8 @@
         "Absolute_magnitude": "Unknown",
         "Parallax": 109.1,
         "Color": "Brown dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/wisep-j21345673-7137436"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/wisep-j21345673-7137436",
+        "Other designations": []
     },
     {
         "Common_name_of_the_star_system": "Argelanders Star",
@@ -5013,7 +7624,22 @@
         "Absolute_magnitude": 6.6,
         "Parallax": 109.03,
         "Color": "Orange star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/argelanders-star"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/argelanders-star",
+        "Other designations": [
+            "BD+38 2285",
+            "FK5 1307",
+            "GCTP 2745.00",
+            "GJ 451",
+            "HIP 57939",
+            "HR 4550",
+            "HD 103095",
+            "LHS 44",
+            "LTT 13276",
+            "SAO 62738",
+            "1830 Groombridge",
+            "Gliese 451",
+            "Gaia EDR3 4034171629042489088"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Gliese 3801",
@@ -5035,7 +7661,17 @@
         "Absolute_magnitude": 14.1,
         "Parallax": 108.79,
         "Color": "Red dwarf",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3801"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/gliese-3801",
+        "Other designations": [
+            "Ross 1015",
+            "LHS 2784",
+            "LTT 13999",
+            "StKM 2-972",
+            "G 165-25",
+            "HIC 66906",
+            "HIP 66906",
+            "Gaia EDR3 1470462322431834880"
+        ]
     },
     {
         "Common_name_of_the_star_system": "Beta Comae Berenices",
@@ -5057,6 +7693,23 @@
         "Absolute_magnitude": 4.4,
         "Parallax": 108.725,
         "Color": "Yellow star",
-        "Catalog_link": "https://www.stellarcatalog.com/stars/beta-comae-berenices"
+        "Catalog_link": "https://www.stellarcatalog.com/stars/beta-comae-berenices",
+        "Other designations": [
+            "43 Com",
+            "\u03b2 Com",
+            "BD+28\u00b0 2193",
+            "FK5 492",
+            "Gl 502",
+            "GJ 502",
+            "Gliese 502",
+            "HD 114710",
+            "HIP 64394",
+            "HR 4983",
+            "LHS 348",
+            "LTT 13815",
+            "SAO 82706",
+            "* bet Com",
+            "Gaia EDR3 1460229442589223424"
+        ]
     }
 ]
