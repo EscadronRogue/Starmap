@@ -20,20 +20,16 @@ function normalizeName(name) {
 }
 
 /**
- * Creates an alpha-shaped overlay mesh from the cloud data and the currently plotted stars.
- * This method ensures the resulting shape can wrap around all points (a "concave hull" approach),
- * in contrast to a minimal convex hull that might omit some points from the boundary.
- *
- * @param {Array} cloudData - Array of star objects from the cloud file.
- * @param {Array} plottedStars - Array of star objects currently visible/plotted.
- * @param {string} mapType - Either 'TrueCoordinates' or 'Globe'.
- * @returns {THREE.Mesh|null}
+ * Creates an alpha-shaped overlay mesh from cloud data + currently plotted stars.
+ * Includes debug logs to see how many stars are matched, geometry size, etc.
  */
 export function createCloudOverlay(cloudData, plottedStars, mapType) {
-  // Gather sets of unique star names and HDs from the cloud data
+  console.log("[cloudsFilter] createCloudOverlay: Cloud data length =", cloudData.length,
+              " #plottedStars =", plottedStars.length, " mapType =", mapType);
+
+  // 1) Build sets of unique star names & HDs
   const cloudNames = new Set();
   const cloudHDs = new Set();
-
   for (const entry of cloudData) {
     const starName = entry['Star Name'];
     if (starName) {
@@ -44,67 +40,74 @@ export function createCloudOverlay(cloudData, plottedStars, mapType) {
       cloudHDs.add(String(hdVal).trim().toLowerCase());
     }
   }
+  console.log("[cloudsFilter] unique cloudNames size =", cloudNames.size,
+              " unique cloudHDs size =", cloudHDs.size);
 
-  // Collect positions from plotted stars that match
+  // 2) Collect matched positions
   const positions = [];
   const usedSet = new Set();
+  let matchCount = 0;
   for (const star of plottedStars) {
     let matched = false;
 
-    // Compare star.Common_name_of_the_star
     const starName = star.Common_name_of_the_star
       ? normalizeName(star.Common_name_of_the_star)
       : '';
 
-    // Compare star.HD
     let starHD = null;
     if (star.HD !== undefined && star.HD !== null) {
       starHD = String(star.HD).trim().toLowerCase();
     }
 
-    // Check if it matches name or HD
+    // If name or HD matches
     if (cloudNames.has(starName)) {
       matched = true;
     } else if (starHD && cloudHDs.has(starHD)) {
       matched = true;
     }
 
-    // If matched, avoid duplicates, gather position
     if (matched && !usedSet.has(star)) {
+      // We'll log the name/HD for clarity
+      console.log(`  [cloudsFilter] Matched star: name="${star.Common_name_of_the_star}" HD=${star.HD}`);
+      // pick position
       let pt = null;
       if (mapType === 'TrueCoordinates') {
-        if (star.truePosition) {
-          pt = star.truePosition.clone();
-        }
+        if (star.truePosition) pt = star.truePosition.clone();
       } else {
-        if (star.spherePosition) {
-          pt = star.spherePosition.clone();
-        }
+        if (star.spherePosition) pt = star.spherePosition.clone();
       }
+
       if (pt) {
         positions.push(pt);
         usedSet.add(star);
+        matchCount++;
       }
     }
   }
 
-  // If fewer than 4 points, we can't do a real alpha shape in 3D
-  // but if you want 3 points for a single triangle, adapt as needed:
+  console.log("[cloudsFilter] matched star count =", matchCount,
+              " final positions length =", positions.length);
+
+  // 3) If fewer than 3 or 4 points, can't form shape
   if (positions.length < 3) {
+    console.warn("[cloudsFilter] not enough points for shape, returning null.");
     return null;
   }
 
-  // We pick an alpha parameter. Tweak as needed: smaller alpha => more "folded" shape.
-  // For a real solution, you'd guess or find an alpha that covers your data well.
+  // 4) Build alpha shape
+  // Adjust alpha to your needs. smaller => more "concave"
   const alpha = 2.0;
-
+  console.log("[cloudsFilter] calling computeAlphaShape3D with alpha =", alpha);
   const geometry = computeAlphaShape3D(positions, alpha);
+
   if (!geometry || geometry.attributes.position.count === 0) {
-    // no geometry produced
+    console.warn("[cloudsFilter] alpha shape geometry is empty, returning null.");
     return null;
   }
+  console.log("[cloudsFilter] alpha shape geometry vertex count =",
+              geometry.attributes.position.count);
 
-  // Create a semi-transparent material
+  // 5) Build material/mesh
   const material = new THREE.MeshBasicMaterial({
     color: 0x0066ff,
     opacity: 0.3,
@@ -112,21 +115,20 @@ export function createCloudOverlay(cloudData, plottedStars, mapType) {
     side: THREE.DoubleSide,
     depthWrite: false
   });
-  
   const mesh = new THREE.Mesh(geometry, material);
   mesh.renderOrder = 1;
+
   return mesh;
 }
 
 /**
  * Updates the clouds overlay on a given scene.
- * @param {Array} plottedStars - The array of currently plotted stars.
- * @param {THREE.Scene} scene - The scene to add the cloud overlays to.
- * @param {string} mapType - 'TrueCoordinates' or 'Globe'
- * @param {Array<string>} cloudDataFiles - Array of URLs for cloud JSON files.
  */
 export async function updateCloudsOverlay(plottedStars, scene, mapType, cloudDataFiles) {
-  // Clear old overlays
+  console.log("[cloudsFilter] updateCloudsOverlay: #plottedStars =", plottedStars.length,
+              " mapType =", mapType,
+              " #cloudDataFiles =", cloudDataFiles.length);
+
   if (!scene.userData.cloudOverlays) {
     scene.userData.cloudOverlays = [];
   } else {
@@ -134,17 +136,20 @@ export async function updateCloudsOverlay(plottedStars, scene, mapType, cloudDat
     scene.userData.cloudOverlays = [];
   }
 
-  // Process each cloud file
   for (const fileUrl of cloudDataFiles) {
+    console.log("[cloudsFilter] loading cloud file:", fileUrl);
     try {
       const cloudData = await loadCloudData(fileUrl);
       const overlay = createCloudOverlay(cloudData, plottedStars, mapType);
       if (overlay) {
         scene.add(overlay);
         scene.userData.cloudOverlays.push(overlay);
+        console.log("[cloudsFilter] added overlay to scene.");
+      } else {
+        console.log("[cloudsFilter] overlay = null, skipping.");
       }
     } catch (e) {
-      console.error(e);
+      console.error("[cloudsFilter] error loading or creating overlay:", e);
     }
   }
 }
