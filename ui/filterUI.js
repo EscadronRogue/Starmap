@@ -131,17 +131,24 @@ function addCloudsFieldset() {
   legend.textContent = 'Dust Clouds';
   fs.appendChild(legend);
   
-  // Use only 'filter-content' class (do not include 'scrollable-category' so that the content expands properly).
+  // Create content container without extra classes to avoid conflicts.
   const contentDiv = document.createElement('div');
   contentDiv.classList.add('filter-content');
   contentDiv.style.maxHeight = '0px';
+  contentDiv.style.overflow = 'hidden';
   
-  // Toggle the open/closed state on legend click.
+  // Toggle open/closed state on legend click.
   legend.addEventListener('click', () => {
     legend.classList.toggle('active');
     const isActive = legend.classList.contains('active');
     legend.setAttribute('aria-expanded', isActive);
-    contentDiv.style.maxHeight = isActive ? contentDiv.scrollHeight + 'px' : '0px';
+    if (isActive) {
+      contentDiv.style.maxHeight = contentDiv.scrollHeight + "px";
+      contentDiv.style.overflow = 'visible';
+    } else {
+      contentDiv.style.maxHeight = "0px";
+      contentDiv.style.overflow = 'hidden';
+    }
   });
   
   const cloudDiv = document.createElement('div');
