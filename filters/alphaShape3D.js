@@ -2,8 +2,10 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 
 /**
- * A simplified demonstration alpha shape approach in 3D.
- * Real production code should use a specialized geometry library or a robust algorithm.
+ * A minimal demonstration alpha shape approach in 3D.
+ * We now generate all 4-combinations of the points, forming multiple tetrahedra,
+ * and apply a naive circumscribed radius test to filter them by alpha.
+ * This is still not a robust alpha shape library, but includes debug logging.
  */
 
 export function computeAlphaShape3D(points, alpha) {
@@ -14,8 +16,8 @@ export function computeAlphaShape3D(points, alpha) {
     return new THREE.BufferGeometry();
   }
 
-  // 1) Tetrahedralize the points (mock placeholder).
-  const tetraList = computeDelaunayTetrahedra(points);
+  // 1) Generate tetrahedra from all 4-combinations of the points
+  const tetraList = computeAllTetrahedra(points);
   console.log("[alphaShape3D] Tetra list length:", tetraList.length);
 
   // 2) Filter tetrahedra by circumscribed radius
@@ -38,22 +40,22 @@ export function computeAlphaShape3D(points, alpha) {
 }
 
 /**
- * Mock function to create a naive set of tetrahedra from points.
- * Not a real Delaunay. 
+ * Build tetrahedra from all 4-combinations of the given points.
+ * This is still not a Delaunay approach, but ensures all points are used in some tetras.
  */
-function computeDelaunayTetrahedra(points) {
-  // For demonstration, chunk them in groups of 4.
+function computeAllTetrahedra(points) {
   const tetras = [];
-  for (let i = 0; i < points.length - 3; i += 4) {
-    const chunk = [
-      points[i],
-      points[i + 1],
-      points[i + 2],
-      points[i + 3]
-    ];
-    tetras.push(chunk);
+  const n = points.length;
+  // Generate all 4-combinations (a<b<c<d)
+  for (let a = 0; a < n; a++) {
+    for (let b = a+1; b < n; b++) {
+      for (let c = b+1; c < n; c++) {
+        for (let d = c+1; d < n; d++) {
+          tetras.push([ points[a], points[b], points[c], points[d] ]);
+        }
+      }
+    }
   }
-
   return tetras;
 }
 
@@ -78,7 +80,7 @@ function circumscribedSphereRadius(tetra) {
 function buildMeshFromTetrahedra(tetraList) {
   const positions = [];
   for (const tetra of tetraList) {
-    // 4 faces per tetra
+    // Each tetra has 4 triangular faces
     const combos = [
       [0,1,2],
       [0,1,3],
