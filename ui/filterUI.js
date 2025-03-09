@@ -92,6 +92,9 @@ export function initFilterUI() {
     maxDistanceSlider.value = this.value;
   });
 
+  // Add Dust Clouds fieldset.
+  addCloudsFieldset();
+
   // Fullscreen button listeners.
   document.querySelectorAll('.fullscreen-btn').forEach(btn => {
     btn.addEventListener('click', function() {
@@ -118,4 +121,40 @@ export function initFilterUI() {
   });
 
   console.log("[filterUI] Filter UI initialized.");
+}
+
+function addCloudsFieldset() {
+  const fs = document.createElement('fieldset');
+  const legend = document.createElement('legend');
+  legend.classList.add('collapsible');
+  legend.textContent = 'Dust Clouds';
+  fs.appendChild(legend);
+  
+  const contentDiv = document.createElement('div');
+  contentDiv.classList.add('filter-content');
+  contentDiv.style.maxHeight = '0px';
+  legend.addEventListener('click', () => {
+    legend.classList.toggle('active');
+    const isActive = legend.classList.contains('active');
+    legend.setAttribute('aria-expanded', isActive);
+    contentDiv.style.maxHeight = isActive ? contentDiv.scrollHeight + 'px' : '0px';
+  });
+  
+  const cloudDiv = document.createElement('div');
+  cloudDiv.classList.add('filter-item');
+  const cloudChk = document.createElement('input');
+  cloudChk.type = 'checkbox';
+  cloudChk.id = 'enable-clouds';
+  cloudChk.name = 'enable-clouds';
+  cloudChk.checked = false; // off by default
+  const cloudLbl = document.createElement('label');
+  cloudLbl.htmlFor = 'enable-clouds';
+  cloudLbl.textContent = 'Show Dust Clouds';
+  cloudDiv.appendChild(cloudChk);
+  cloudDiv.appendChild(cloudLbl);
+  contentDiv.appendChild(cloudDiv);
+  
+  fs.appendChild(contentDiv);
+  const filterForm = document.getElementById('filters-form');
+  filterForm.appendChild(fs);
 }
