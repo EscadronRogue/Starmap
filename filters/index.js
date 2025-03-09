@@ -39,6 +39,7 @@ export async function setupFilterUI(allStars) {
   });
   addConstellationsFieldset();
   addGlobeSurfaceFieldset();
+  // Clouds fieldset is added in the UI file.
   await loadConstellationBoundaries();
   await loadConstellationCenters();
 }
@@ -157,7 +158,8 @@ export function applyFilters(allStars) {
         minDistance: 0,
         maxDistance: 20,
         isolationGridSize: 0,
-        densityGridSize: 0
+        densityGridSize: 0,
+        showClouds: false
       };
     }
   }
@@ -183,7 +185,8 @@ export function applyFilters(allStars) {
     minDistance: formData.get('min-distance'),
     maxDistance: formData.get('max-distance'),
     isolationGridSize: parseFloat(formData.get('isolation-grid-size')) || 0,
-    densityGridSize: parseFloat(formData.get('density-grid-size')) || 0
+    densityGridSize: parseFloat(formData.get('density-grid-size')) || 0,
+    showClouds: (formData.get('enable-clouds') !== null)
   };
 
   let filteredStars = applyDistanceFilter(allStars, filters);
@@ -230,7 +233,8 @@ export function applyFilters(allStars) {
     minDistance: filters.minDistance,
     maxDistance: filters.maxDistance,
     isolationGridSize: filters.isolationGridSize,
-    densityGridSize: filters.densityGridSize
+    densityGridSize: filters.densityGridSize,
+    showClouds: filters.showClouds
   };
 }
 
