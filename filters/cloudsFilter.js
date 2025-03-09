@@ -17,9 +17,20 @@ export async function loadCloudData(cloudFileUrl) {
 }
 
 /**
+ * Normalizes a star name for case-insensitive comparison,
+ * removing leading/trailing spaces, etc.
+ */
+function normalizeName(name) {
+  if (!name) return '';
+  return name.trim().toLowerCase();
+}
+
+/**
  * Creates a cloud overlay mesh from the cloud data and the currently plotted stars.
- * If the same star name appears multiple times in the JSON,
- * we only consider one instance of that star name.
+ * We do multiple checks for each star:
+ *  - If cloud entry's "Star Name" matches star.Common_name_of_the_star (case-insensitive).
+ *  - If cloud entry's HD matches star.HD (if numeric or string).
+ * We also skip duplicates so that each star is only considered once.
  *
  * @param {Array} cloudData - Array of star objects from the cloud file.
  * @param {Array} plottedStars - Array of star objects currently visible/ploted.
@@ -27,31 +38,62 @@ export async function loadCloudData(cloudFileUrl) {
  * @returns {THREE.Mesh|null} - A mesh representing the cloud (convex hull), or null if not enough points.
  */
 export function createCloudOverlay(cloudData, plottedStars, mapType) {
-  // Build a Set of unique star names from the cloud file
-  const uniqueCloudNames = new Set();
-  cloudData.forEach(entry => {
-    const starName = entry["Star Name"];
-    if (starName) {
-      uniqueCloudNames.add(starName.trim());
-    }
-  });
+  // Build sets of unique "normalized" star names and HD values from the cloud file.
+  const cloudNames = new Set();
+  const cloudHDs = new Set();
 
-  // Gather positions from the plotted stars that match any name in the unique set
+  for (const entry of cloudData) {
+    // (1) Add star name if present
+    const starName = entry['Star Name'];
+    if (starName) {
+      cloudNames.add(normalizeName(starName));
+    }
+
+    // (2) Add HD if present
+    const hdVal = entry['HD'];
+    if (hdVal !== undefined && hdVal !== null) {
+      // Convert to string then normalize (to handle '48915B' vs. '48915')
+      cloudHDs.add(String(hdVal).trim().toLowerCase());
+    }
+  }
+
+  // Now gather positions from the plotted stars that match on name or HD
   const positions = [];
-  plottedStars.forEach(star => {
-    const starName = star.Common_name_of_the_star ? star.Common_name_of_the_star.trim() : '';
-    if (uniqueCloudNames.has(starName)) {
+  const usedSet = new Set(); // We track star IDs or references to avoid duplicates
+  for (const star of plottedStars) {
+    let matched = false;
+
+    // Check star.Common_name_of_the_star
+    const starName = star.Common_name_of_the_star ? normalizeName(star.Common_name_of_the_star) : '';
+
+    // Check star.HD (converted to string)
+    let starHD = null;
+    if (star.HD !== undefined && star.HD !== null) {
+      starHD = String(star.HD).trim().toLowerCase();
+    }
+
+    // If either name or HD matches, we consider it a match
+    if (cloudNames.has(starName)) {
+      matched = true;
+    } else if (starHD && cloudHDs.has(starHD)) {
+      matched = true;
+    }
+
+    // If matched, and we haven't used it yet, record the position
+    if (matched && !usedSet.has(star)) {
       if (mapType === 'TrueCoordinates') {
         if (star.truePosition) {
           positions.push(star.truePosition);
+          usedSet.add(star);
         }
       } else {
         if (star.spherePosition) {
           positions.push(star.spherePosition);
+          usedSet.add(star);
         }
       }
     }
-  });
+  }
 
   // Need at least three points to form a polygon
   if (positions.length < 3) return null;
