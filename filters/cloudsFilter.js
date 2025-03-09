@@ -1,12 +1,7 @@
 // /filters/cloudsFilter.js
-//
-// Replaced the old minimal "ConvexGeometry" approach with the official
-// three.js "ConvexHull" from /filters/ConvexHull.js to ensure all outer
-// points on the hull are included.
-//
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { ConvexHull } from './ConvexHull.js';
+import { ConvexGeometry } from './ConvexGeometry.js';
 
 /**
  * Loads a cloud data file (JSON) from the provided URL.
@@ -22,55 +17,49 @@ export async function loadCloudData(cloudFileUrl) {
 }
 
 /**
- * Creates a 3D mesh for the dust cloud by computing a convex hull of the cloud’s star positions.
+ * Creates a cloud overlay mesh from the cloud data and the currently plotted stars.
+ * If the same star name appears multiple times in the JSON,
+ * we only consider one instance of that star name.
+ *
  * @param {Array} cloudData - Array of star objects from the cloud file.
- * @param {Array} plottedStars - The star objects that are currently plotted.
+ * @param {Array} plottedStars - Array of star objects currently visible/ploted.
  * @param {string} mapType - Either 'TrueCoordinates' or 'Globe'.
- * @returns {THREE.Mesh|null}
+ * @returns {THREE.Mesh|null} - A mesh representing the cloud (convex hull), or null if not enough points.
  */
 export function createCloudOverlay(cloudData, plottedStars, mapType) {
+  // Build a Set of unique star names from the cloud file
+  const uniqueCloudNames = new Set();
+  cloudData.forEach(entry => {
+    const starName = entry["Star Name"];
+    if (starName) {
+      uniqueCloudNames.add(starName.trim());
+    }
+  });
 
-  // Gather all relevant positions
+  // Gather positions from the plotted stars that match any name in the unique set
   const positions = [];
-  const cloudNames = new Set(cloudData.map(d => d["Star Name"]));
-  
-  // For each star that belongs to this cloud, use that star’s 3D position
   plottedStars.forEach(star => {
-    if (cloudNames.has(star.Common_name_of_the_star)) {
-      if (mapType === 'TrueCoordinates' && star.truePosition) {
-        positions.push(star.truePosition.clone());
-      } else if (mapType === 'Globe' && star.spherePosition) {
-        positions.push(star.spherePosition.clone());
+    const starName = star.Common_name_of_the_star ? star.Common_name_of_the_star.trim() : '';
+    if (uniqueCloudNames.has(starName)) {
+      if (mapType === 'TrueCoordinates') {
+        if (star.truePosition) {
+          positions.push(star.truePosition);
+        }
+      } else {
+        if (star.spherePosition) {
+          positions.push(star.spherePosition);
+        }
       }
     }
   });
 
-  if (positions.length < 4) {
-    // Need at least 4 points for a robust 3D hull (3 is only a triangle)
-    return null;
-  }
+  // Need at least three points to form a polygon
+  if (positions.length < 3) return null;
 
-  // Use the official ConvexHull
-  const hull = new ConvexHull().setFromPoints(positions);
+  // Build a convex hull from the positions
+  const geometry = new ConvexGeometry(positions);
 
-  // The hull’s faces can be turned into a single BufferGeometry
-  const geometry = new THREE.BufferGeometry();
-
-  const verts = [];
-  hull.faces.forEach(face => {
-    // Each face is a cycle of 3 or more edges, but by default
-    // the official hull code typically uses triangles
-    let edge = face.edge;
-    do {
-      const point = edge.head().point;
-      verts.push(point.x, point.y, point.z);
-      edge = edge.next;
-    } while (edge !== face.edge);
-  });
-
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-  geometry.computeVertexNormals();
-
+  // Create a semi‑transparent material
   const material = new THREE.MeshBasicMaterial({
     color: 0xff6600,
     opacity: 0.3,
@@ -78,22 +67,21 @@ export function createCloudOverlay(cloudData, plottedStars, mapType) {
     side: THREE.DoubleSide,
     depthWrite: false
   });
-  
+
   const mesh = new THREE.Mesh(geometry, material);
   mesh.renderOrder = 1;
-
   return mesh;
 }
 
 /**
- * Updates the dust cloud overlays on a given scene. Removes old overlays, loads each cloud’s data,
- * creates a hull for each, and adds them.
- * @param {Array} plottedStars - The array of star objects currently plotted.
- * @param {THREE.Scene} scene - The scene to which we add the cloud overlays.
- * @param {string} mapType - 'TrueCoordinates' or 'Globe'.
- * @param {Array<string>} cloudDataFiles - Array of URLs to the JSON files describing each dust cloud.
+ * Updates the clouds overlay on a given scene.
+ * @param {Array} plottedStars - The array of currently plotted stars.
+ * @param {THREE.Scene} scene - The scene to add the cloud overlays to.
+ * @param {string} mapType - 'TrueCoordinates' or 'Globe'
+ * @param {Array<string>} cloudDataFiles - Array of URLs for cloud JSON files.
  */
 export async function updateCloudsOverlay(plottedStars, scene, mapType, cloudDataFiles) {
+  // Store overlays in scene.userData.cloudOverlays so we can remove them on update.
   if (!scene.userData.cloudOverlays) {
     scene.userData.cloudOverlays = [];
   } else {
@@ -101,16 +89,17 @@ export async function updateCloudsOverlay(plottedStars, scene, mapType, cloudDat
     scene.userData.cloudOverlays = [];
   }
 
+  // Process each cloud file
   for (const fileUrl of cloudDataFiles) {
     try {
       const cloudData = await loadCloudData(fileUrl);
-      const hullMesh = createCloudOverlay(cloudData, plottedStars, mapType);
-      if (hullMesh) {
-        scene.add(hullMesh);
-        scene.userData.cloudOverlays.push(hullMesh);
+      const overlay = createCloudOverlay(cloudData, plottedStars, mapType);
+      if (overlay) {
+        scene.add(overlay);
+        scene.userData.cloudOverlays.push(overlay);
       }
-    } catch (error) {
-      console.error(`Error building cloud overlay for ${fileUrl}:`, error);
+    } catch (e) {
+      console.error(e);
     }
   }
 }
