@@ -1,7 +1,7 @@
 // /filters/cloudsFilter.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { ConvexGeometry } from 'https://threejs.org/examples/jsm/geometries/ConvexGeometry.js';
+import { ConvexGeometry } from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/jsm/geometries/ConvexGeometry.js';
 
 /**
  * Loads a cloud data file (JSON) from the provided URL.
@@ -62,7 +62,7 @@ export function createCloudOverlay(cloudData, plottedStars, mapType) {
  * @param {Array<string>} cloudDataFiles - Array of URLs for cloud JSON files.
  */
 export async function updateCloudsOverlay(plottedStars, scene, mapType, cloudDataFiles) {
-  // Remove previous overlays if present.
+  // Store overlays in scene.userData.cloudOverlays so we can remove them on update.
   if (!scene.userData.cloudOverlays) {
     scene.userData.cloudOverlays = [];
   } else {
