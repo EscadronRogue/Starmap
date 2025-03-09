@@ -1,15 +1,14 @@
 // /filters/ConvexHull.js
 //
-// Based on the official three.js ConvexHull, with an added fallback
-// to handle degenerate point sets without crashing.
+// Based on the official three.js ConvexHull, with additional
+// degenerate checks to avoid null references in Face.flip().
+//
+// If we cannot form a valid 3D hull or find valid edges, we
+// skip flipping and return an empty hull instead of crashing.
 //
 // Source Reference:
 //   https://github.com/mrdoob/three.js/blob/dev/examples/jsm/math/ConvexHull.js
 //
-// ADJUSTMENT: if we cannot form a valid 4-point simplex, we skip
-// the flipping logic & hull steps to avoid crashing with null edges.
-//
-
 import {
   Vector3
 } from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
@@ -35,7 +34,7 @@ class ConvexHull {
       console.error('THREE.ConvexHull: Points parameter is not an array.');
     }
     if (points.length < 4) {
-      console.warn('THREE.ConvexHull: Need at least four distinct points for a robust 3D hull. Returning empty hull.');
+      console.warn('THREE.ConvexHull: Need at least 4 points for a 3D hull. Returning empty hull.');
       return this.makeEmpty();
     }
     this.makeEmpty();
@@ -50,16 +49,16 @@ class ConvexHull {
     const pts = [];
     object.updateMatrixWorld(true);
     object.traverse(function (node) {
-      const geo = node.geometry;
-      if (!geo) return;
-      if (geo.isGeometry) {
-        const verts = geo.vertices;
+      const g = node.geometry;
+      if (!g) return;
+      if (g.isGeometry) {
+        const verts = g.vertices;
         for (let i = 0, l = verts.length; i < l; i++) {
           const v = verts[i].clone().applyMatrix4(node.matrixWorld);
           pts.push(v);
         }
-      } else if (geo.isBufferGeometry) {
-        const attr = geo.attributes.position;
+      } else if (g.isBufferGeometry) {
+        const attr = g.attributes.position;
         if (attr) {
           for (let i = 0; i < attr.count; i++) {
             _v1.fromBufferAttribute(attr, i).applyMatrix4(node.matrixWorld);
@@ -78,24 +77,24 @@ class ConvexHull {
   }
 
   compute() {
-    // Clear assigned lists
     this.assigned.clear();
     this.unassigned.clear();
 
-    // Build seed tetrahedron
+    // Attempt to form initial tetrahedron
     const success = this.computeInitialHull();
     if (!success) {
-      // The fallback inside computeInitialHull failed => degenerate
+      // We got a degenerate set => just return
       return;
     }
 
-    // Add all vertices except those on the initial hull
+    // Add all vertices not on the initial hull
     for (let i = 0, l = this.vertices.length; i < l; i++) {
       const v = this.vertices[i];
       if (v.isOnHull) continue;
       this.assigned.append(v);
     }
 
+    // Expand hull
     let iterCount = 0;
     while (!this.assigned.isEmpty() && iterCount < 1000) {
       const eyeVertex = this.nextVertexToAdd();
@@ -113,30 +112,32 @@ class ConvexHull {
 
   computeNormals() {
     for (let i = 0, l = this.faces.length; i < l; i++) {
-      const face = this.faces[i];
-      face.computeNormal();
+      const f = this.faces[i];
+      f.computeNormal();
     }
   }
 
   cleanHull() {
-    // remove deleted faces
-    const validFaces = [];
+    // remove deleted or degenerate faces
+    const valid = [];
     for (let i = 0; i < this.faces.length; i++) {
       if (this.faces[i].mark === Visible) {
-        validFaces.push(this.faces[i]);
+        valid.push(this.faces[i]);
       }
     }
-    this.faces = validFaces;
+    this.faces = valid;
     this.edges = [];
   }
 
   computeInitialHull() {
-    // Identify extremes
+    // Attempt to find 4 non-coplanar points
     if (this.vertices.length < 4) return false;
 
+    // find extremes
     let minX = this.vertices[0], maxX = this.vertices[0];
     let minY = this.vertices[0], maxY = this.vertices[0];
     let minZ = this.vertices[0], maxZ = this.vertices[0];
+
     for (let i = 1, l = this.vertices.length; i < l; i++) {
       const v = this.vertices[i];
       if (v.point.x < minX.point.x) minX = v;
@@ -146,71 +147,82 @@ class ConvexHull {
       if (v.point.z < minZ.point.z) minZ = v;
       if (v.point.z > maxZ.point.z) maxZ = v;
     }
-    const testSet = [minX, maxX, minY, maxY, minZ, maxZ];
 
-    // Pick the two farthest
-    let maxDist = 0, pair = [];
+    const testSet = [minX, maxX, minY, maxY, minZ, maxZ];
+    let maxDist = 0;
+    let pair = [];
+
+    // farthest pair
     for (let i = 0; i < testSet.length - 1; i++) {
       for (let j = i + 1; j < testSet.length; j++) {
         _v1.subVectors(testSet[i].point, testSet[j].point);
-        const d = _v1.lengthSq();
-        if (d > maxDist) {
-          maxDist = d;
+        const distSq = _v1.lengthSq();
+        if (distSq > maxDist) {
+          maxDist = distSq;
           pair = [testSet[i], testSet[j]];
         }
       }
     }
+
     const vA = pair[0], vB = pair[1];
     if (!vA || !vB) {
-      // fallback
-      console.warn("ConvexHull: degenerate data. Can't find distinct extremes.");
+      console.warn('ConvexHull: degenerate data => cannot form extremes.');
       return false;
     }
 
-    // find a third point
+    // find third point
     _v1.subVectors(vB.point, vA.point).normalize();
-    let maxC = null; maxDist = -Infinity;
+    let maxC = null;
+    maxDist = -Infinity;
     for (let i = 0, l = this.vertices.length; i < l; i++) {
-      const vtx = this.vertices[i];
-      if (vtx === vA || vtx === vB) continue;
-      _v2.subVectors(vtx.point, vA.point);
+      const vt = this.vertices[i];
+      if (vt === vA || vt === vB) continue;
+      _v2.subVectors(vt.point, vA.point);
       const area = _v2.cross(_v1).lengthSq();
       if (area > maxDist && area > 1e-10) {
         maxDist = area;
-        maxC = vtx;
+        maxC = vt;
       }
     }
     if (!maxC) {
-      console.warn("ConvexHull: All points appear collinear or identical. Can't form a tetrahedron.");
+      console.warn("ConvexHull: all points appear collinear. Returning empty hull.");
       return false;
     }
 
     // find a 4th point
-    let maxD = null; maxDist = -Infinity;
+    let maxD = null;
+    maxDist = -Infinity;
     _v3.subVectors(maxC.point, vA.point).cross(_v1);
     for (let i = 0, l = this.vertices.length; i < l; i++) {
-      const vtx = this.vertices[i];
-      if (vtx === vA || vtx === vB || vtx === maxC) continue;
-      const vol = Math.abs(_v3.dot(_v2.subVectors(vtx.point, vA.point)));
+      const vt = this.vertices[i];
+      if (vt === vA || vt === vB || vt === maxC) continue;
+      const vol = Math.abs(_v3.dot(_v2.subVectors(vt.point, vA.point)));
       if (vol > maxDist && vol > 1e-10) {
         maxDist = vol;
-        maxD = vtx;
+        maxD = vt;
       }
     }
     if (!maxD) {
-      console.warn("ConvexHull: Points appear coplanar. Can't form a 3D tetrahedron.");
+      console.warn("ConvexHull: points appear coplanar => empty hull.");
       return false;
     }
 
-    // Now build tetrahedron
+    // build 4 faces
     const top = Face.create(vA, vB, maxC);
     const bottom = Face.create(vA, maxC, vB);
+
+    // check side for maxD
     _v1.copy(maxD.point);
     if (bottom.distanceToPoint(_v1) > 0) {
       this.faces.push(top, bottom);
     } else {
-      top.flip();
-      bottom.flip();
+      // if we can't safely flip (missing edges), skip
+      if (!top.edge || !bottom.edge) {
+        console.warn("ConvexHull: degenerate face => skipping flipping, empty hull.");
+        return false;
+      }
+      top.flipIfValid();
+      bottom.flipIfValid();
       this.faces.push(top, bottom);
     }
 
@@ -219,22 +231,23 @@ class ConvexHull {
     this.faces.push(f3, f4);
 
     // link them
-    top.getEdge(vA, vB).setTwin(f3.getEdge(vA, vB));
-    top.getEdge(vB, maxC).setTwin(f4.getEdge(vB, maxC));
-    top.getEdge(maxC, vA).setTwin(bottom.getEdge(vA, maxC));
+    linkHalfEdges(top, f3, vA, vB);
+    linkHalfEdges(top, f4, vB, maxC);
+    linkHalfEdges(top, bottom, maxC, vA);
 
-    bottom.getEdge(vB, vA).setTwin(f3.getEdge(vB, vA));
-    bottom.getEdge(maxC, vB).setTwin(f4.getEdge(maxC, vB));
-    f3.getEdge(vB, maxD).setTwin(f4.getEdge(maxD, vB));
-    f3.getEdge(maxD, vA).setTwin(bottom.getEdge(vA, maxD));
-    f4.getEdge(vA, maxD).setTwin(top.getEdge(maxD, vA));
-    f4.getEdge(maxD, maxC).setTwin(bottom.getEdge(maxC, maxD));
+    linkHalfEdges(bottom, f3, vB, vA);
+    linkHalfEdges(bottom, f4, maxC, vB);
 
+    linkHalfEdges(f3, f4, vB, maxD);
+    linkHalfEdges(f3, bottom, maxD, vA);
+    linkHalfEdges(f4, top, maxD, vA);
+    linkHalfEdges(f4, bottom, maxC, maxD);
+
+    // compute normals
     for (let i = 0; i < 4; i++) {
       const face = this.faces[i];
       if (!face.edge) {
-        // If degenerate, skip
-        console.warn("ConvexHull: skipping degenerate face (no edges).");
+        console.warn("ConvexHull: invalid face edge => degenerate => empty hull.");
         return false;
       }
       face.computeNormal();
@@ -247,75 +260,74 @@ class ConvexHull {
 
   nextVertexToAdd() {
     if (this.assigned.isEmpty()) return null;
-    let eyeVertex;
-    let maxDistance = -Infinity;
+    let eyeV = null, maxD = -Infinity;
     let node = this.assigned.first();
     while (node) {
-      if (node.distance > maxDistance) {
-        maxDistance = node.distance;
-        eyeVertex = node;
+      if (node.distance > maxD) {
+        maxD = node.distance;
+        eyeV = node;
       }
       node = node.next;
     }
-    return eyeVertex;
+    return eyeV;
   }
 
   getVisibleFaces(vertex) {
-    const visible = [];
+    const vis = [];
     for (let i = 0; i < this.faces.length; i++) {
       const f = this.faces[i];
       if (f.mark === Visible) {
-        const dist = f.distanceToPoint(vertex.point);
-        if (dist > this.tolerance) {
-          visible.push(f);
+        const d = f.distanceToPoint(vertex.point);
+        if (d > this.tolerance) {
+          vis.push(f);
         }
       }
     }
-    return visible;
+    return vis;
   }
 
-  removeVisibleFaces(visibleFaces) {
-    for (let i = 0; i < visibleFaces.length; i++) {
-      visibleFaces[i].mark = Deleted;
+  removeVisibleFaces(faces) {
+    for (let i = 0; i < faces.length; i++) {
+      faces[i].mark = Deleted;
     }
   }
 
-  addNewFaces(eyeVertex, visibleFaces) {
+  addNewFaces(eyeVertex, visFaces) {
     const horizon = [];
-    this.findHorizon(eyeVertex.point, visibleFaces[0], null, horizon);
+    this.findHorizon(eyeVertex.point, visFaces[0], null, horizon);
     this.newFaces = [];
     for (let i = 0; i < horizon.length; i++) {
-      const edge = horizon[i];
-      const f = Face.create(edge.vertex, edge.prev.vertex, eyeVertex);
-      f.getEdge(eyeVertex, edge.vertex).setTwin(edge.prev.face.getEdge(edge.vertex, eyeVertex));
-      this.newFaces.push(f);
+      const e = horizon[i];
+      const newFace = Face.create(e.vertex, e.prev.vertex, eyeVertex);
+      newFace.getEdge(eyeVertex, e.vertex).setTwin(e.prev.face.getEdge(e.vertex, eyeVertex));
+      this.newFaces.push(newFace);
     }
     for (let i = 0; i < this.newFaces.length; i++) {
-      const nf = this.newFaces[i];
-      nf.computeNormal();
-      nf.computeCentroid();
-      this.faces.push(nf);
+      const f = this.newFaces[i];
+      f.computeNormal();
+      f.computeCentroid();
+      this.faces.push(f);
     }
   }
 
-  findHorizon(eyePoint, crossFace, edge, horizon) {
+  findHorizon(eyePt, crossFace, startEdge, horizon) {
     this.deleteFaceVertices(crossFace);
     crossFace.mark = Deleted;
-    let edge0 = (edge === null) ? crossFace.edge : edge.next;
-    let edge1 = edge0;
+    let e0 = (startEdge === null) ? crossFace.edge : startEdge.next;
+    let e1 = e0;
     do {
-      const twin = edge1.twin;
-      const oppFace = twin.face;
-      if (oppFace.mark === Visible) {
-        const dist = oppFace.distanceToPoint(eyePoint);
+      const twin = e1.twin;
+      const opp = twin.face;
+      if (opp.mark === Visible) {
+        const dist = opp.distanceToPoint(eyePt);
         if (dist > this.tolerance) {
-          this.findHorizon(eyePoint, oppFace, twin, horizon);
+          this.findHorizon(eyePt, opp, twin, horizon);
         } else {
-          horizon.push(edge1);
+          horizon.push(e1);
         }
       }
-      edge1 = edge1.next;
-    } while (edge1 !== edge0);
+      e1 = e1.next;
+    } while (e1 !== e0);
   }
 
   deleteFaceVertices(face) {
@@ -323,40 +335,46 @@ class ConvexHull {
     face.outside = null;
   }
 
-  resolveUnassignedPoints(visibleFaces) {
-    for (let i = 0; i < visibleFaces.length; i++) {
-      const face = visibleFaces[i];
-      if (!face.outside) continue;
-      this.unassigned.append(face.outside);
-      this.assigned.remove(face.outside);
-      face.outside = null;
+  resolveUnassignedPoints(visFaces) {
+    for (let i = 0; i < visFaces.length; i++) {
+      const f = visFaces[i];
+      if (!f.outside) continue;
+      this.unassigned.append(f.outside);
+      this.assigned.remove(f.outside);
+      f.outside = null;
     }
     let node = this.unassigned.first();
     while (node) {
-      const nextNode = node.next;
-      let maxDist = this.tolerance;
-      let maxFace = null;
+      const nxt = node.next;
+      let maxF = null, maxD = this.tolerance;
       for (let i = 0; i < this.newFaces.length; i++) {
-        const f = this.newFaces[i];
-        const dist = f.distanceToPoint(node.point);
-        if (dist > maxDist) {
-          maxDist = dist;
-          maxFace = f;
+        const nf = this.newFaces[i];
+        const d = nf.distanceToPoint(node.point);
+        if (d > maxD) {
+          maxD = d;
+          maxF = nf;
         }
       }
-      if (maxFace) {
+      if (maxF) {
         this.assigned.append(node);
-        node.face = maxFace;
-        node.distance = maxDist;
-        maxFace.outside = node;
-      } else {
-        // no face
+        node.face = maxF;
+        node.distance = maxD;
+        maxF.outside = node;
       }
-      node = nextNode;
+      node = nxt;
     }
     this.unassigned.clear();
   }
+}
 
+// Some half-edge linking helper
+function linkHalfEdges(faceA, faceB, va, vb) {
+  // find matching edges
+  const edgeA = faceA.getEdge(va, vb);
+  const edgeB = faceB.getEdge(vb, va);
+  if (edgeA && edgeB) {
+    edgeA.setTwin(edgeB);
+  }
 }
 
 // Constants
@@ -372,11 +390,8 @@ class VertexList {
   isEmpty() { return this.head === null; }
   clear() { this.head = this.tail = null; }
   append(vertex) {
-    if (!this.head) {
-      this.head = vertex;
-    } else {
-      this.tail.next = vertex;
-    }
+    if (!this.head) this.head = vertex;
+    else this.tail.next = vertex;
     vertex.prev = this.tail;
     vertex.next = null;
     this.tail = vertex;
@@ -397,8 +412,8 @@ class VertexList {
 }
 
 class VertexNode {
-  constructor(point) {
-    this.point = point;
+  constructor(pt) {
+    this.point = pt;
     this.prev = null;
     this.next = null;
     this.face = null;
@@ -416,13 +431,13 @@ class Face {
     this.outside = null;
   }
   static create(a, b, c) {
-    const face = new Face();
-    const e0 = new HalfEdge(a, face);
-    const e1 = new HalfEdge(b, face);
-    const e2 = new HalfEdge(c, face);
+    const f = new Face();
+    const e0 = new HalfEdge(a, f);
+    const e1 = new HalfEdge(b, f);
+    const e2 = new HalfEdge(c, f);
     e0.next = e1; e1.next = e2; e2.next = e0;
-    face.edge = e0;
-    return face;
+    f.edge = e0;
+    return f;
   }
   computeCentroid() {
     this.centroid.set(0, 0, 0);
@@ -447,40 +462,42 @@ class Face {
     return this.normal.dot(_v1.subVectors(pt, this.centroid));
   }
   getEdge(a, b) {
-    let e = this.edge;
+    let ed = this.edge;
     do {
-      if (e.head() === a && e.tail() === b) {
-        return e;
+      if (ed.head() === a && ed.tail() === b) {
+        return ed;
       }
-      e = e.next;
-    } while (e !== this.edge);
+      ed = ed.next;
+    } while (ed !== this.edge);
     return null;
   }
-  flip() {
-    // If degenerate, skip
-    if (!this.edge) return;
+  flipIfValid() {
+    // If missing edges or degenerate shape, skip flipping
+    if (!this.edge || !this.edge.next || !this.edge.prev) return;
     this.normal.negate();
     let e = this.edge;
     do {
       const tmp = e.head();
       e.vertex = e.tail();
-      e.prev.vertex = tmp;
-      const tmpNext = e.prev;
+      if (e.prev) {
+        e.prev.vertex = tmp;
+      }
+      const oldPrev = e.prev;
       e.prev = e.next;
-      e.next = tmpNext;
-      e = tmpNext;
+      e.next = oldPrev;
+      e = oldPrev;
     } while (e !== this.edge);
     this.computeCentroid();
   }
 }
 
 class HalfEdge {
-  constructor(vertex, face) {
-    this.vertex = vertex;
+  constructor(v, f) {
+    this.vertex = v;
     this.prev = null;
     this.next = null;
     this.twin = null;
-    this.face = face;
+    this.face = f;
   }
   head() {
     return this.vertex;
