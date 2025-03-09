@@ -1,7 +1,7 @@
 // /filters/cloudsFilter.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { ConvexGeometry } from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/jsm/geometries/ConvexGeometry.js';
+import { ConvexGeometry } from 'https://threejs.org/examples/jsm/geometries/ConvexGeometry.js';
 
 /**
  * Loads a cloud data file (JSON) from the provided URL.
