@@ -6,7 +6,7 @@ import { ConvexGeometry } from './ConvexGeometry.js';
 /**
  * Loads a cloud data file (JSON) from the provided URL.
  * @param {string} cloudFileUrl - URL to the cloud JSON file.
- * @returns {Promise<Array>} - Promise resolving to an array of cloud star objects.
+ * @returns {Promise<Array>} - Promise resolving to an array of cloud star objects (the “cloud data”).
  */
 export async function loadCloudData(cloudFileUrl) {
   const response = await fetch(cloudFileUrl);
@@ -17,8 +17,7 @@ export async function loadCloudData(cloudFileUrl) {
 }
 
 /**
- * Normalizes a star name for case-insensitive comparison,
- * removing leading/trailing spaces, etc.
+ * Normalize a star name by trimming spaces and converting to lowercase.
  */
 function normalizeName(name) {
   if (!name) return '';
@@ -26,77 +25,124 @@ function normalizeName(name) {
 }
 
 /**
- * Creates a cloud overlay mesh from the cloud data and the currently plotted stars.
- * We do multiple checks for each star:
- *  - If cloud entry's "Star Name" matches star.Common_name_of_the_star (case-insensitive).
- *  - If cloud entry's HD matches star.HD (if numeric or string).
- * We also skip duplicates so that each star is only considered once.
+ * Calculate the approximate on-sky angular distance (in degrees) between two RA/DEC points.
+ * RA/DEC are in degrees. We convert them to radians for the spherical law of cosines.
+ */
+function angularSeparationDeg(ra1, dec1, ra2, dec2) {
+  // Convert to radians
+  const rad = Math.PI / 180;
+  const r1 = ra1 * rad, d1 = dec1 * rad;
+  const r2 = ra2 * rad, d2 = dec2 * rad;
+
+  // Spherical law of cosines
+  // cos(distance) = sin(d1)*sin(d2) + cos(d1)*cos(d2)*cos(r1 - r2)
+  const cosDist = Math.sin(d1) * Math.sin(d2) +
+                  Math.cos(d1) * Math.cos(d2) * Math.cos(r1 - r2);
+  // clamp numerical issues
+  const clamped = Math.min(Math.max(cosDist, -1), 1);
+  const distRad = Math.acos(clamped);
+  return distRad / rad; // convert back to degrees
+}
+
+/**
+ * Creates a cloud overlay mesh from cloud data and the currently plotted stars.
  *
- * @param {Array} cloudData - Array of star objects from the cloud file.
- * @param {Array} plottedStars - Array of star objects currently visible/ploted.
+ * Steps:
+ *   1) We read “Star Name” & “HD” from each entry in the cloud data and store them
+ *      in sets for direct name or HD matching.
+ *   2) For each star in your plottedStars, if it matches name or HD, we include it.
+ *   3) If it did not match name or HD, we optionally do a fallback approach:
+ *      we find if the star’s RA_in_degrees / DEC_in_degrees is close (within
+ *      some angle tolerance) to the cloud data’s RA / DEC.
+ *   4) If that star qualifies, we use star.truePosition or star.spherePosition (depending on mapType).
+ *   5) Build a ConvexGeometry from all these star positions (≥3).
+ *
+ * @param {Array} cloudData - The star objects from the cloud file (with RA, DEC, Name, HD, etc).
+ * @param {Array} plottedStars - The star objects currently visible/plotted in your starmap.
  * @param {string} mapType - Either 'TrueCoordinates' or 'Globe'.
- * @returns {THREE.Mesh|null} - A mesh representing the cloud (convex hull), or null if not enough points.
+ * @returns {THREE.Mesh|null} - A mesh (convex hull) or null if fewer than 3 points found.
  */
 export function createCloudOverlay(cloudData, plottedStars, mapType) {
-  // Build sets of unique "normalized" star names and HD values from the cloud file.
+  // 1) Collect sets for name & HD from the cloud data, plus a RA/DEC map.
   const cloudNames = new Set();
   const cloudHDs = new Set();
+  // We also keep an array of all RA/DEC from the cloud data so we can do fallback matching by proximity.
+  const cloudPositions = []; // each item: { ra: number, dec: number }
 
   for (const entry of cloudData) {
-    // (1) Add star name if present
-    const starName = entry['Star Name'];
-    if (starName) {
-      cloudNames.add(normalizeName(starName));
+    const name = entry['Star Name'];
+    if (name) {
+      cloudNames.add(normalizeName(name));
     }
-
-    // (2) Add HD if present
     const hdVal = entry['HD'];
     if (hdVal !== undefined && hdVal !== null) {
-      // Convert to string then normalize (to handle '48915B' vs. '48915')
       cloudHDs.add(String(hdVal).trim().toLowerCase());
+    }
+    // We store RA, DEC from the data for fallback
+    if (typeof entry.RA === 'number' && typeof entry.DEC === 'number') {
+      cloudPositions.push({ ra: entry.RA, dec: entry.DEC });
     }
   }
 
-  // Now gather positions from the plotted stars that match on name or HD
+  // We'll gather positions from plotted stars that pass any of these checks:
+  // - Name or HD matches
+  // - RA/DEC is near (within TOL deg) one of the cloud data’s RA/DEC entries
+  //   This helps catch if “Tau Ceti” or “HD 10700” is spelled differently.
+  const TOL = 0.5; // half-degree tolerance – adjust as needed
+  const usedStars = new Set();
   const positions = [];
-  const usedSet = new Set(); // We track star IDs or references to avoid duplicates
+
   for (const star of plottedStars) {
+    // We skip if we already included this star
+    if (usedStars.has(star)) continue;
+
     let matched = false;
 
-    // Check star.Common_name_of_the_star
+    // (a) Name or HD check
     const starName = star.Common_name_of_the_star ? normalizeName(star.Common_name_of_the_star) : '';
-
-    // Check star.HD (converted to string)
     let starHD = null;
     if (star.HD !== undefined && star.HD !== null) {
       starHD = String(star.HD).trim().toLowerCase();
     }
 
-    // If either name or HD matches, we consider it a match
-    if (cloudNames.has(starName)) {
-      matched = true;
-    } else if (starHD && cloudHDs.has(starHD)) {
+    if (cloudNames.has(starName) || (starHD && cloudHDs.has(starHD))) {
       matched = true;
     }
 
-    // If matched, and we haven't used it yet, record the position
-    if (matched && !usedSet.has(star)) {
+    // (b) If not matched, try fallback RA/DEC proximity
+    // We only attempt if star has RA_in_degrees / DEC_in_degrees
+    if (!matched) {
+      if (typeof star.RA_in_degrees === 'number' && typeof star.DEC_in_degrees === 'number') {
+        // We see if star is within TOL deg of ANY cloud RA/DEC
+        for (const cpos of cloudPositions) {
+          const dist = angularSeparationDeg(star.RA_in_degrees, star.DEC_in_degrees, cpos.ra, cpos.dec);
+          if (dist < TOL) {
+            matched = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (matched) {
       if (mapType === 'TrueCoordinates') {
         if (star.truePosition) {
           positions.push(star.truePosition);
-          usedSet.add(star);
+          usedStars.add(star);
         }
       } else {
         if (star.spherePosition) {
           positions.push(star.spherePosition);
-          usedSet.add(star);
+          usedStars.add(star);
         }
       }
     }
   }
 
-  // Need at least three points to form a polygon
-  if (positions.length < 3) return null;
+  // If we found fewer than 3 corners, we skip building the polygon
+  if (positions.length < 3) {
+    return null;
+  }
 
   // Build a convex hull from the positions
   const geometry = new ConvexGeometry(positions);
@@ -116,14 +162,16 @@ export function createCloudOverlay(cloudData, plottedStars, mapType) {
 }
 
 /**
- * Updates the clouds overlay on a given scene.
+ * Updates the dust cloud overlays on a scene by re-reading the relevant data files,
+ * creating convex hull meshes for each file, and adding them to the scene.
+ *
  * @param {Array} plottedStars - The array of currently plotted stars.
- * @param {THREE.Scene} scene - The scene to add the cloud overlays to.
- * @param {string} mapType - 'TrueCoordinates' or 'Globe'
- * @param {Array<string>} cloudDataFiles - Array of URLs for cloud JSON files.
+ * @param {THREE.Scene} scene - The scene to which we add the cloud overlays.
+ * @param {string} mapType - 'TrueCoordinates' or 'Globe'.
+ * @param {Array<string>} cloudDataFiles - Array of file URLs for each dust cloud data JSON.
  */
 export async function updateCloudsOverlay(plottedStars, scene, mapType, cloudDataFiles) {
-  // Store overlays in scene.userData.cloudOverlays so we can remove them on update.
+  // Remove old overlays
   if (!scene.userData.cloudOverlays) {
     scene.userData.cloudOverlays = [];
   } else {
@@ -131,7 +179,7 @@ export async function updateCloudsOverlay(plottedStars, scene, mapType, cloudDat
     scene.userData.cloudOverlays = [];
   }
 
-  // Process each cloud file
+  // For each dust cloud file, create a polygon
   for (const fileUrl of cloudDataFiles) {
     try {
       const cloudData = await loadCloudData(fileUrl);
@@ -140,8 +188,8 @@ export async function updateCloudsOverlay(plottedStars, scene, mapType, cloudDat
         scene.add(overlay);
         scene.userData.cloudOverlays.push(overlay);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error('Error loading cloud file:', fileUrl, err);
     }
   }
 }
