@@ -124,15 +124,19 @@ export function initFilterUI() {
 }
 
 function addCloudsFieldset() {
+  const filterForm = document.getElementById('filters-form');
   const fs = document.createElement('fieldset');
   const legend = document.createElement('legend');
   legend.classList.add('collapsible');
   legend.textContent = 'Dust Clouds';
   fs.appendChild(legend);
   
+  // Add both filter-content and scrollable-category classes for consistency.
   const contentDiv = document.createElement('div');
-  contentDiv.classList.add('filter-content');
+  contentDiv.classList.add('filter-content', 'scrollable-category');
   contentDiv.style.maxHeight = '0px';
+  
+  // Toggle the open/closed state on legend click.
   legend.addEventListener('click', () => {
     legend.classList.toggle('active');
     const isActive = legend.classList.contains('active');
@@ -155,6 +159,5 @@ function addCloudsFieldset() {
   contentDiv.appendChild(cloudDiv);
   
   fs.appendChild(contentDiv);
-  const filterForm = document.getElementById('filters-form');
   filterForm.appendChild(fs);
 }
