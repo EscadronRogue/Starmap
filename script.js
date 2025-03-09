@@ -7,6 +7,7 @@ import { createConstellationBoundariesForGlobe, createConstellationLabelsForGlob
 import { initIsolationFilter, updateIsolationFilter } from './filters/isolationFilter.js';
 import { initDensityFilter, updateDensityFilter } from './filters/densityFilter.js';
 import { applyGlobeSurfaceFilter } from './filters/globeSurfaceFilter.js';
+import { updateCloudsOverlay } from './filters/cloudsFilter.js';
 import { ThreeDControls } from './cameraControls.js';
 import { LabelManager } from './labelManager.js';
 import { showTooltip, hideTooltip } from './tooltips.js';
@@ -26,7 +27,6 @@ let constellationLinesGlobe = [];
 let constellationLabelsGlobe = [];
 let constellationOverlayGlobe = [];
 let globeSurfaceSphere = null;
-// Rename overlays: isolationOverlay and densityOverlay.
 let isolationOverlay = null;
 let densityOverlay = null;
 
@@ -151,13 +151,14 @@ async function buildAndApplyFilters() {
     enableDensityFilter,
     isolation,
     isolationTolerance,
-    densitySubdivisionPercent,
+    densityThresholdStars,
     enableIsolationLabeling,
     enableDensityLabeling,
     minDistance,
     maxDistance,
     isolationGridSize,
-    densityGridSize
+    densityGridSize,
+    showClouds
   } = filters;
 
   currentFilteredStars = filteredStars;
@@ -306,6 +307,15 @@ async function buildAndApplyFilters() {
       });
       densityOverlay = null;
     }
+  }
+
+  // --- Dust Clouds Overlay ---
+  if (filters.showClouds) {
+    // For simplicity, we assume a fixed array of cloud data files.
+    const cloudDataFiles = ['data/Local_interstellar_cloud.json'];
+    // Update clouds overlay for both maps.
+    updateCloudsOverlay(currentFilteredStars, trueCoordinatesMap.scene, 'TrueCoordinates', cloudDataFiles);
+    updateCloudsOverlay(currentGlobeFilteredStars, globeMap.scene, 'Globe', cloudDataFiles);
   }
 
   applyGlobeSurface(globeOpaqueSurface);
