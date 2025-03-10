@@ -1,6 +1,5 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { ConvexGeometry } from './ConvexGeometry.js';
-import * as QuickHull from 'quickhull';
 
 /**
  * Loads a cloud data file (JSON) from the provided URL.
@@ -30,9 +29,9 @@ export async function createCloudOverlay(cloudData, plottedStars, mapType) {
   plottedStars.forEach(star => {
     if (cloudNames.has(star.Common_name_of_the_star)) {
       if (mapType === 'TrueCoordinates') {
-        if (star.truePosition) positions.push([star.truePosition.x, star.truePosition.y, star.truePosition.z]);
+        if (star.truePosition) positions.push(star.truePosition);
       } else {
-        if (star.spherePosition) positions.push([star.spherePosition.x, star.spherePosition.y, star.spherePosition.z]);
+        if (star.spherePosition) positions.push(star.spherePosition);
       }
     }
   });
@@ -47,37 +46,24 @@ export async function createCloudOverlay(cloudData, plottedStars, mapType) {
   // Add outlier stars to the positions array
   outlierStars.forEach(star => {
     if (mapType === 'TrueCoordinates') {
-      if (star.truePosition) positions.push([star.truePosition.x, star.truePosition.y, star.truePosition.z]);
+      if (star.truePosition) positions.push(star.truePosition);
     } else {
-      if (star.spherePosition) positions.push([star.spherePosition.x, star.spherePosition.y, star.spherePosition.z]);
+      if (star.spherePosition) positions.push(star.spherePosition);
     }
   });
 
   // Need at least three points to form a polygon.
   if (positions.length < 3) return null;
 
-  // Use QuickHull3D to compute the convex hull
-  const hull = QuickHull.convexHull(positions, {}, QuickHull.DEFAULT_TOLERANCE, 3);
-  const vertices = hull.vertices();
-  const faces = hull.faces();
+  // Build a convex hull from the positions.
+  let geometry = new ConvexGeometry(positions);
 
-  // Create a THREE.BufferGeometry from the convex hull vertices and faces
-  const geometry = new THREE.BufferGeometry();
-  const vertexPositions = [];
-  const indices = [];
-
-  vertices.forEach(vertex => {
-    vertexPositions.push(vertex[0], vertex[1], vertex[2]);
-  });
-
-  faces.forEach(face => {
-    const [a, b, c] = face;
-    indices.push(a, b, c);
-  });
-
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertexPositions, 3));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
+  // Refine the convex hull until all stars are included
+  while (!allStarsIncluded(plottedStars, geometry, mapType)) {
+    const additionalPoints = getAdditionalPoints(plottedStars, geometry, mapType);
+    positions.push(...additionalPoints);
+    geometry = new ConvexGeometry(positions);
+  }
 
   // Create a semi-transparent material; you can adjust the color per cloud if desired.
   const material = new THREE.MeshBasicMaterial({
@@ -104,10 +90,52 @@ function isNearCloudArea(star, positions, mapType) {
   // For example, check if the star is within a certain distance from any position in the cloud area
   const thresholdDistance = 5; // Define an appropriate threshold distance
   if (mapType === 'TrueCoordinates') {
-    return positions.some(pos => star.truePosition.distanceTo(new THREE.Vector3(...pos)) < thresholdDistance);
+    return positions.some(pos => star.truePosition.distanceTo(pos) < thresholdDistance);
   } else {
-    return positions.some(pos => star.spherePosition.distanceTo(new THREE.Vector3(...pos)) < thresholdDistance);
+    return positions.some(pos => star.spherePosition.distanceTo(pos) < thresholdDistance);
   }
+}
+
+/**
+ * Checks if all stars are included in the convex hull.
+ * @param {Array} plottedStars - Array of star objects.
+ * @param {THREE.BufferGeometry} geometry - The convex hull geometry.
+ * @param {string} mapType - Either 'TrueCoordinates' or 'Globe'.
+ * @returns {boolean} - True if all stars are included, false otherwise.
+ */
+function allStarsIncluded(plottedStars, geometry, mapType) {
+  const vertices = geometry.attributes.position.array;
+  const vertexSet = new Set();
+  for (let i = 0; i < vertices.length; i += 3) {
+    vertexSet.add(`${vertices[i]},${vertices[i+1]},${vertices[i+2]}`);
+  }
+  return plottedStars.every(star => {
+    const pos = mapType === 'TrueCoordinates' ? star.truePosition : star.spherePosition;
+    return vertexSet.has(`${pos.x},${pos.y},${pos.z}`);
+  });
+}
+
+/**
+ * Gets additional points to include in the convex hull.
+ * @param {Array} plottedStars - Array of star objects.
+ * @param {THREE.BufferGeometry} geometry - The convex hull geometry.
+ * @param {string} mapType - Either 'TrueCoordinates' or 'Globe'.
+ * @returns {Array} - Array of additional points to include.
+ */
+function getAdditionalPoints(plottedStars, geometry, mapType) {
+  const vertices = geometry.attributes.position.array;
+  const vertexSet = new Set();
+  for (let i = 0; i < vertices.length; i += 3) {
+    vertexSet.add(`${vertices[i]},${vertices[i+1]},${vertices[i+2]}`);
+  }
+  const additionalPoints = [];
+  plottedStars.forEach(star => {
+    const pos = mapType === 'TrueCoordinates' ? star.truePosition : star.spherePosition;
+    if (!vertexSet.has(`${pos.x},${pos.y},${pos.z}`)) {
+      additionalPoints.push(pos);
+    }
+  });
+  return additionalPoints;
 }
 
 /**
