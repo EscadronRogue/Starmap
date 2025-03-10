@@ -1,10 +1,5 @@
 // /filters/ConvexGeometry.js
 
-/**
- * ConvexGeometry is a geometry representing the convex hull of a set of points.
- * It depends on ConvexHull.js (provided in the same folder).
- */
-
 import { BufferGeometry, Float32BufferAttribute } from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { ConvexHull } from './ConvexHull.js';
 
