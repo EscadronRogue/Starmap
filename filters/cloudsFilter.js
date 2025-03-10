@@ -42,7 +42,7 @@ export function createCloudOverlay(cloudData, plottedStars, mapType) {
   const outlierStars = plottedStars.filter(star => {
     // Define your criteria for including outlier stars here
     // For example, include stars within a certain distance from the cloud area
-    return !cloudNames.has(star.Common_name_of_the_star) && isNearCloudArea(star, positions);
+    return !cloudNames.has(star.Common_name_of_the_star) && isNearCloudArea(star, positions, mapType);
   });
 
   // Add outlier stars to the positions array
@@ -76,9 +76,10 @@ export function createCloudOverlay(cloudData, plottedStars, mapType) {
  * Determines if a star is near the cloud area based on some criteria.
  * @param {Object} star - The star object.
  * @param {Array} positions - Array of positions defining the cloud area.
+ * @param {string} mapType - Either 'TrueCoordinates' or 'Globe'.
  * @returns {boolean} - True if the star is near the cloud area, false otherwise.
  */
-function isNearCloudArea(star, positions) {
+function isNearCloudArea(star, positions, mapType) {
   // Define your criteria for "near" here
   // For example, check if the star is within a certain distance from any position in the cloud area
   const thresholdDistance = 5; // Define an appropriate threshold distance
