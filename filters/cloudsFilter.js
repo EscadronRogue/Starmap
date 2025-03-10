@@ -58,7 +58,15 @@ export function createCloudOverlay(cloudData, plottedStars, mapType) {
   if (positions.length < 3) return null;
 
   // Build a convex hull from the positions.
-  const geometry = new ConvexGeometry(positions);
+  let geometry = new ConvexGeometry(positions);
+
+  // Refine the convex hull until all stars are included
+  while (!allStarsIncluded(plottedStars, geometry, mapType)) {
+    const additionalPoints = getAdditionalPoints(plottedStars, geometry, mapType);
+    positions.push(...additionalPoints);
+    geometry = new ConvexGeometry(positions);
+  }
+
   // Create a semi-transparent material; you can adjust the color per cloud if desired.
   const material = new THREE.MeshBasicMaterial({
     color: 0xff6600,
@@ -88,6 +96,48 @@ function isNearCloudArea(star, positions, mapType) {
   } else {
     return positions.some(pos => star.spherePosition.distanceTo(pos) < thresholdDistance);
   }
+}
+
+/**
+ * Checks if all stars are included in the convex hull.
+ * @param {Array} plottedStars - Array of star objects.
+ * @param {THREE.BufferGeometry} geometry - The convex hull geometry.
+ * @param {string} mapType - Either 'TrueCoordinates' or 'Globe'.
+ * @returns {boolean} - True if all stars are included, false otherwise.
+ */
+function allStarsIncluded(plottedStars, geometry, mapType) {
+  const vertices = geometry.attributes.position.array;
+  const vertexSet = new Set();
+  for (let i = 0; i < vertices.length; i += 3) {
+    vertexSet.add(`${vertices[i]},${vertices[i+1]},${vertices[i+2]}`);
+  }
+  return plottedStars.every(star => {
+    const pos = mapType === 'TrueCoordinates' ? star.truePosition : star.spherePosition;
+    return vertexSet.has(`${pos.x},${pos.y},${pos.z}`);
+  });
+}
+
+/**
+ * Gets additional points to include in the convex hull.
+ * @param {Array} plottedStars - Array of star objects.
+ * @param {THREE.BufferGeometry} geometry - The convex hull geometry.
+ * @param {string} mapType - Either 'TrueCoordinates' or 'Globe'.
+ * @returns {Array} - Array of additional points to include.
+ */
+function getAdditionalPoints(plottedStars, geometry, mapType) {
+  const vertices = geometry.attributes.position.array;
+  const vertexSet = new Set();
+  for (let i = 0; i < vertices.length; i += 3) {
+    vertexSet.add(`${vertices[i]},${vertices[i+1]},${vertices[i+2]}`);
+  }
+  const additionalPoints = [];
+  plottedStars.forEach(star => {
+    const pos = mapType === 'TrueCoordinates' ? star.truePosition : star.spherePosition;
+    if (!vertexSet.has(`${pos.x},${pos.y},${pos.z}`)) {
+      additionalPoints.push(pos);
+    }
+  });
+  return additionalPoints;
 }
 
 /**
