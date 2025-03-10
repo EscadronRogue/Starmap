@@ -3,11 +3,10 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/thr
 import { applyFilters, setupFilterUI } from './filters/index.js';
 import { createConnectionLines, mergeConnectionLines } from './filters/connectionsFilter.js';
 import { createConstellationBoundariesForGlobe, createConstellationLabelsForGlobe } from './filters/constellationFilter.js';
-// Updated imports for the new Isolation and Density Filters.
 import { initIsolationFilter, updateIsolationFilter } from './filters/isolationFilter.js';
 import { initDensityFilter, updateDensityFilter } from './filters/densityFilter.js';
 import { applyGlobeSurfaceFilter } from './filters/globeSurfaceFilter.js';
-import { updateCloudsOverlay } from './filters/cloudsFilter.js';
+import { updateCloudsOverlay } from './filters/cloudsFilter.js'; // Correct import
 import { ThreeDControls } from './cameraControls.js';
 import { LabelManager } from './labelManager.js';
 import { showTooltip, hideTooltip } from './tooltips.js';
@@ -74,10 +73,10 @@ function createGlobeGrid(R = 100, options = {}) {
     linewidth: lineWidth
   });
   for (let raDeg = 0; raDeg < 360; raDeg += 30) {
-    const ra = THREE.Math.degToRad(raDeg);
+    const ra = THREE.MathUtils.degToRad(raDeg);
     const points = [];
     for (let decDeg = -80; decDeg <= 80; decDeg += 2) {
-      const dec = THREE.Math.degToRad(decDeg);
+      const dec = THREE.MathUtils.degToRad(decDeg);
       points.push(cachedRadToSphere(ra, dec, R));
     }
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
@@ -85,7 +84,7 @@ function createGlobeGrid(R = 100, options = {}) {
     gridGroup.add(line);
   }
   for (let decDeg = -60; decDeg <= 60; decDeg += 30) {
-    const dec = THREE.Math.degToRad(decDeg);
+    const dec = THREE.MathUtils.degToRad(decDeg);
     const points = [];
     const segments = 64;
     for (let i = 0; i <= segments; i++) {
