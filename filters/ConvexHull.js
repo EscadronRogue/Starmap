@@ -13,7 +13,7 @@ class ConvexHull {
 	}
 
 	setFromPoints( points ) {
-		if ( points.length < 5 ) {
+		if ( points.length < 4 ) {
 			console.error( "ConvexHull: Need at least four points" );
 			return this;
 		}
