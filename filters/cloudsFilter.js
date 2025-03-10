@@ -1,10 +1,12 @@
 // /filters/cloudsFilter.js
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
-import { computeAlphaShape3D } from './alphaShape3D.js';
+import { ConvexGeometry } from './ConvexGeometry.js';
 
 /**
  * Loads a cloud data file (JSON) from the provided URL.
+ * @param {string} cloudFileUrl - URL to the cloud JSON file.
+ * @returns {Promise<Array>} - Promise resolving to an array of cloud star objects.
  */
 export async function loadCloudData(cloudFileUrl) {
   const response = await fetch(cloudFileUrl);
@@ -14,99 +16,34 @@ export async function loadCloudData(cloudFileUrl) {
   return await response.json();
 }
 
-function normalizeName(name) {
-  if (!name) return '';
-  return name.trim().toLowerCase();
-}
-
 /**
- * Creates an alpha-shaped overlay mesh from cloud data + currently plotted stars.
- * Includes debug logs to see how many stars are matched, geometry size, etc.
+ * Creates a cloud overlay mesh from the cloud data and the currently plotted stars.
+ * @param {Array} cloudData - Array of star objects from the cloud file.
+ * @param {Array} plottedStars - Array of star objects currently visible/ploted.
+ * @param {string} mapType - Either 'TrueCoordinates' or 'Globe'.
+ * @returns {THREE.Mesh|null} - A mesh representing the cloud (convex hull), or null if not enough points.
  */
 export function createCloudOverlay(cloudData, plottedStars, mapType) {
-  console.log("[cloudsFilter] createCloudOverlay: Cloud data length =", cloudData.length,
-              " #plottedStars =", plottedStars.length, " mapType =", mapType);
-
-  // 1) Build sets of unique star names & HDs
-  const cloudNames = new Set();
-  const cloudHDs = new Set();
-  for (const entry of cloudData) {
-    const starName = entry['Star Name'];
-    if (starName) {
-      cloudNames.add(normalizeName(starName));
-    }
-    const hdVal = entry['HD'];
-    if (hdVal !== undefined && hdVal !== null) {
-      cloudHDs.add(String(hdVal).trim().toLowerCase());
-    }
-  }
-  console.log("[cloudsFilter] unique cloudNames size =", cloudNames.size,
-              " unique cloudHDs size =", cloudHDs.size);
-
-  // 2) Collect matched positions
   const positions = [];
-  const usedSet = new Set();
-  let matchCount = 0;
-  for (const star of plottedStars) {
-    let matched = false;
-
-    const starName = star.Common_name_of_the_star
-      ? normalizeName(star.Common_name_of_the_star)
-      : '';
-
-    let starHD = null;
-    if (star.HD !== undefined && star.HD !== null) {
-      starHD = String(star.HD).trim().toLowerCase();
-    }
-
-    // If name or HD matches
-    if (cloudNames.has(starName)) {
-      matched = true;
-    } else if (starHD && cloudHDs.has(starHD)) {
-      matched = true;
-    }
-
-    if (matched && !usedSet.has(star)) {
-      console.log(`  [cloudsFilter] Matched star: name="${star.Common_name_of_the_star}" HD=${star.HD}`);
-      let pt = null;
+  // Get a set of star names from the cloud file.
+  const cloudNames = new Set(cloudData.map(d => d["Star Name"]));
+  // Look up each star from the plotted stars (using the common name)
+  plottedStars.forEach(star => {
+    if (cloudNames.has(star.Common_name_of_the_star)) {
       if (mapType === 'TrueCoordinates') {
-        if (star.truePosition) pt = star.truePosition.clone();
+        if (star.truePosition) positions.push(star.truePosition);
       } else {
-        if (star.spherePosition) pt = star.spherePosition.clone();
-      }
-      if (pt) {
-        positions.push(pt);
-        usedSet.add(star);
-        matchCount++;
+        if (star.spherePosition) positions.push(star.spherePosition);
       }
     }
-  }
-
-  console.log("[cloudsFilter] matched star count =", matchCount,
-              " final positions length =", positions.length);
-
-  // 3) If fewer than 3 or 4 points, can't form shape
-  if (positions.length < 3) {
-    console.warn("[cloudsFilter] not enough points for shape, returning null.");
-    return null;
-  }
-
-  // 4) Build alpha shape
-  // Increase alpha to e.g. 10 or 9999 if you want to ensure large tetrahedra pass
-  const alpha = 10.0;  // or 9999
-  console.log("[cloudsFilter] calling computeAlphaShape3D with alpha =", alpha);
-  const geometry = computeAlphaShape3D(positions, alpha);
-
-  if (!geometry || geometry.attributes.position.count === 0) {
-    console.warn("[cloudsFilter] alpha shape geometry is empty, returning null.");
-    return null;
-  }
-  console.log("[cloudsFilter] alpha shape geometry vertex count =",
-              geometry.attributes.position.count);
-
-  // 5) Build material/mesh
+  });
+  // Need at least three points to form a polygon.
+  if (positions.length < 3) return null;
+  // Build a convex hull from the positions.
+  const geometry = new ConvexGeometry(positions);
+  // Create a semi‑transparent material; you can adjust the color per cloud if desired.
   const material = new THREE.MeshBasicMaterial({
-    color: 0x0066ff,
+    color: 0xff6600,
     opacity: 0.3,
     transparent: true,
     side: THREE.DoubleSide,
@@ -114,39 +51,35 @@ export function createCloudOverlay(cloudData, plottedStars, mapType) {
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.renderOrder = 1;
-
   return mesh;
 }
 
 /**
  * Updates the clouds overlay on a given scene.
+ * @param {Array} plottedStars - The array of currently plotted stars.
+ * @param {THREE.Scene} scene - The scene to add the cloud overlays to.
+ * @param {string} mapType - 'TrueCoordinates' or 'Globe'
+ * @param {Array<string>} cloudDataFiles - Array of URLs for cloud JSON files.
  */
 export async function updateCloudsOverlay(plottedStars, scene, mapType, cloudDataFiles) {
-  console.log("[cloudsFilter] updateCloudsOverlay: #plottedStars =", plottedStars.length,
-              " mapType =", mapType,
-              " #cloudDataFiles =", cloudDataFiles.length);
-
+  // Store overlays in scene.userData.cloudOverlays so we can remove them on update.
   if (!scene.userData.cloudOverlays) {
     scene.userData.cloudOverlays = [];
   } else {
     scene.userData.cloudOverlays.forEach(mesh => scene.remove(mesh));
     scene.userData.cloudOverlays = [];
   }
-
+  // Process each cloud file.
   for (const fileUrl of cloudDataFiles) {
-    console.log("[cloudsFilter] loading cloud file:", fileUrl);
     try {
       const cloudData = await loadCloudData(fileUrl);
       const overlay = createCloudOverlay(cloudData, plottedStars, mapType);
       if (overlay) {
         scene.add(overlay);
         scene.userData.cloudOverlays.push(overlay);
-        console.log("[cloudsFilter] added overlay to scene.");
-      } else {
-        console.log("[cloudsFilter] overlay = null, skipping.");
       }
     } catch (e) {
-      console.error("[cloudsFilter] error loading or creating overlay:", e);
+      console.error(e);
     }
   }
 }
