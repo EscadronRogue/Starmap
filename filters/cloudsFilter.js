@@ -1,5 +1,3 @@
-// /filters/cloudsFilter.js
-
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 import { ConvexGeometry } from './ConvexGeometry.js';
 
@@ -8,7 +6,7 @@ import { ConvexGeometry } from './ConvexGeometry.js';
  * @param {string} cloudFileUrl - URL to the cloud JSON file.
  * @returns {Promise<Array>} - Promise resolving to an array of cloud star objects.
  */
-export async function loadCloudData(cloudFileUrl) {
+async function loadCloudData(cloudFileUrl) {
   const response = await fetch(cloudFileUrl);
   if (!response.ok) {
     throw new Error(`Failed to load cloud data from ${cloudFileUrl}`);
@@ -23,7 +21,7 @@ export async function loadCloudData(cloudFileUrl) {
  * @param {string} mapType - Either 'TrueCoordinates' or 'Globe'.
  * @returns {THREE.Mesh|null} - A mesh representing the cloud (convex hull), or null if not enough points.
  */
-export function createCloudOverlay(cloudData, plottedStars, mapType) {
+export async function createCloudOverlay(cloudData, plottedStars, mapType) {
   const positions = [];
   // Get a set of star names from the cloud file.
   const cloudNames = new Set(cloudData.map(d => d["Star Name"]));
