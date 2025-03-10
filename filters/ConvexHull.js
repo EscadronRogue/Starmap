@@ -1,11 +1,5 @@
 // /filters/ConvexHull.js
 
-/**
- * ConvexHull
- * A minimal implementation to compute the convex hull of a set of points.
- * (This is a simplified version; for a full robust solution, please refer to the official three.js source.)
- */
-
 import { Vector3 } from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
 
 class ConvexHull {
